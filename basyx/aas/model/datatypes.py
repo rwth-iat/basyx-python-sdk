@@ -420,7 +420,7 @@ def trivial_cast(value, type_: Type[AnyXSDType]) -> AnyXSDType:  # workaround. W
     if isinstance(value, (bytes, bytearray)) and issubclass(type_, bytearray):
         return type_(value)  # type: ignore
     if isinstance(value, datetime.date) and issubclass(type_, Date):
-        return Date(value.year, value.month, value.day)
+        return Date(value.year, value.month, value.day, value.tzinfo)
     raise TypeError("{} cannot be trivially casted into {}".format(repr(value), type_.__name__))
 
 
