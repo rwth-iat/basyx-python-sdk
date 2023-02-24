@@ -148,6 +148,9 @@ def get_backend(url: str) -> Type[Backend]:
     :return: A Backend class, capable of updating/committing from/to the external data source
     :raises UnknownBackendException: When no backend is available for that url
     """
+    # TODO. Converting None to empty string.
+    # url = str(url or "")
+
     # TODO handle multiple backends per scheme
     scheme_match = RE_URI_SCHEME.match(url)
     if not scheme_match:

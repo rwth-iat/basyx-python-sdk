@@ -18,6 +18,7 @@ from typing import List, Optional, Set, TypeVar, MutableSet, Generic, Iterable, 
 import re
 
 from . import datatypes
+from .source import AbstractEndPointDefinition
 from ..backend import backends
 
 if TYPE_CHECKING:
@@ -404,7 +405,8 @@ class Referable(metaclass=abc.ABCMeta):
         # We use a Python reference to the parent Namespace instead of a Reference Object, as specified. This allows
         # simpler and faster navigation/checks and it has no effect in the serialized data formats anyway.
         self.parent: Optional[Namespace] = None
-        self.source: str = ""
+        # TODO Empty string to be replaced with None.
+        self.source: Optional[SourceDefinition] = ""
 
     def __repr__(self) -> str:
         reversed_path = []
@@ -1243,3 +1245,73 @@ class OrderedNamespaceSet(NamespaceSet[_RT], MutableSequence[_RT], Generic[_RT])
         for o in self._order[i]:
             super().remove(o)
         del self._order[i]
+
+
+class EndPointDefinition(AbstractEndPointDefinition):
+    """
+
+    Concrete class extending AbstractEndpointDefinition class,
+    used in SourceDefinition and AttributeSpecificSourceDefinition classes.
+
+    """
+    def __init__(self):
+        super().__init__()
+
+
+class OpcUaEndPointDefinition(AbstractEndPointDefinition):
+    """
+
+    Specific endpoint 'OpcUa' derived from AbstractEndPointDefinition.
+
+    :ivar namespaceIndex: The NamespaceIndex is the index into a namespace table managed by the OPC UA server.
+    :ivar nodeId: Node ID is a unique identifier for a node in an OPC server's address space.
+
+    """
+    def __init__(self,
+                 namespaceIndex: int,
+                 nodeId: str):
+        super().__init__()
+        self.namespaceIndex: int
+        self.nodeId: str
+
+    def __repr__(self) -> str:
+        return "{}{}{}".format(self.__class__.__name__, self.namespaceIndex, self.nodeId)
+
+
+class AttributeSpecificSourceDefinition:
+    """
+
+    Defines the location or the data source for the specific attribute of a referable object.
+
+    :ivar attributeName: Name of referable object attribute.
+    :ivar value: is the object of EndPointDefinition class.
+
+    """
+    def __init__(self,
+                 attributeName: str,
+                 value: EndPointDefinition):
+        self.attributeName: str
+        self.value: EndPointDefinition
+
+    def __repr__(self) -> str:
+        return "AttributeSpecificSourceDefinition(attributeName={})".format(self.attributeName)
+
+
+class SourceDefinition:
+    """
+
+    Defines the location or the data source(s) for all the attributes of a referable object.
+
+    :ivar defaultSource: This is accessed if no separate data source is defined for the corresponding attribute.
+    :ivar attributeSpecificSource: data from other data sources be used for the individual attributes can be done
+                                   with this attribute, which is a key-value list. Attribute name is used as key,
+                                   Value specified an object of a derived class of the AbstractEndpointDefinition class.
+
+    """
+    def __init__(self,
+                 defaultSource: EndPointDefinition,
+                 attributeSpecificSource: Optional[Set[AttributeSpecificSourceDefinition]] = None):
+        super().__init__()
+        self.defaultSource: EndPointDefinition
+        self.attributeSpecificSource: Optional[Set[AttributeSpecificSourceDefinition]] = set() \
+            if attributeSpecificSource is None else attributeSpecificSource
