@@ -2,7 +2,7 @@
 # This work is licensed under a Creative Commons CCZero 1.0 Universal License.
 # See http://creativecommons.org/publicdomain/zero/1.0/ for more information.
 """
-Tutorial for the creation of an simple Asset Administration Shell, containing an Asset reference and a Submodel
+Tutorial for the creation of a simple Asset Administration Shell, containing an Asset reference and a Submodel
 reference
 """
 
