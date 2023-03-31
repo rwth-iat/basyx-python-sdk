@@ -124,8 +124,10 @@ def generate_example_referable_tree() -> model.Referable:
     example_parent = generate_example_referable_with_namespace("exampleParent", example_referable)
     example_grandparent = generate_example_referable_with_namespace("exampleGrandparent", example_parent)
 
-    example_grandchild.source = "mockScheme:exampleGrandchild"
-    example_grandparent.source = "mockScheme:exampleGrandparent"
+    # temp fix 128, 129 and 130
+    if example_grandchild.source and example_grandparent.source is not None:
+        example_grandchild.source.defaultSource.endpointAddress = "mockScheme:exampleGrandchild"
+        example_grandparent.source.defaultSource.endpointAddress = "mockScheme:exampleGrandparent"
 
     return example_referable
 

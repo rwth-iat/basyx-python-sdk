@@ -45,11 +45,12 @@ class LocalFileBackend(backends.Backend):
         if not isinstance(store_object, model.Identifiable):
             raise FileBackendSourceError("The given store_object is not Identifiable, therefore cannot be found "
                                          "in the FileBackend")
-        file_name: str = store_object.source.replace("file://localhost/", "")
-        with open(file_name, "r") as file:
-            data = json.load(file, cls=json_deserialization.AASFromJsonDecoder)
-            updated_store_object = data["data"]
-            store_object.update_from(updated_store_object)
+        if store_object.source is not None:
+            file_name: str = store_object.source.defaultSource.endpointAddress.replace("file://localhost/", "")
+            with open(file_name, "r") as file:
+                data = json.load(file, cls=json_deserialization.AASFromJsonDecoder)
+                updated_store_object = data["data"]
+                store_object.update_from(updated_store_object)
 
     @classmethod
     def commit_object(cls,
@@ -59,9 +60,10 @@ class LocalFileBackend(backends.Backend):
         if not isinstance(store_object, model.Identifiable):
             raise FileBackendSourceError("The given store_object is not Identifiable, therefore cannot be found "
                                          "in the FileBackend")
-        file_name: str = store_object.source.replace("file://localhost/", "")
-        with open(file_name, "w") as file:
-            json.dump({'data': store_object}, file, cls=json_serialization.AASToJsonEncoder, indent=4)
+        if store_object.source is not None:
+            file_name: str = store_object.source.defaultSource.endpointAddress.replace("file://localhost/", "")
+            with open(file_name, "w") as file:
+                json.dump({'data': store_object}, file, cls=json_serialization.AASToJsonEncoder, indent=4)
 
 
 backends.register_backend("file", LocalFileBackend)
@@ -166,7 +168,7 @@ class LocalFileObjectStore(model.AbstractObjectStore):
             raise KeyError("No AAS object with id {} exists in local file database".format(x.identification)) from e
         with self._object_cache_lock:
             del self._object_cache[x.identification]
-        x.source = ""
+        x.source = None
 
     def __contains__(self, x: object) -> bool:
         """
@@ -222,7 +224,10 @@ class LocalFileObjectStore(model.AbstractObjectStore):
             self.directory_path,
             self._transform_id(identifiable.identification)
         )
-        identifiable.source = source
+        # temp fix
+        if identifiable.source is not None:
+            identifiable.source.defaultSource.endpointAddress = source
+
         return source
 
 

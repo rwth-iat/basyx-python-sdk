@@ -11,7 +11,8 @@ This module contains everything needed to model Submodels and define Events acco
 import abc
 from typing import Optional, Set, Iterable, TYPE_CHECKING, List, Type
 
-from . import base, datatypes
+from . import base, datatypes, external_source
+
 if TYPE_CHECKING:
     from . import aas
 
@@ -34,7 +35,8 @@ class SubmodelElement(base.Referable, base.Qualifiable, base.HasSemantics, base.
                  parent: Optional[base.Namespace] = None,
                  semantic_id: Optional[base.Reference] = None,
                  qualifier: Optional[Set[base.Constraint]] = None,
-                 kind: base.ModelingKind = base.ModelingKind.INSTANCE):
+                 kind: base.ModelingKind = base.ModelingKind.INSTANCE,
+                 source: Optional[base.SourceDefinition] = None):
         """
         TODO: Add instruction what to do after construction
         """
@@ -47,6 +49,7 @@ class SubmodelElement(base.Referable, base.Qualifiable, base.HasSemantics, base.
         self.semantic_id: Optional[base.Reference] = semantic_id
         self.qualifier: Set[base.Constraint] = set() if qualifier is None else qualifier
         self._kind: base.ModelingKind = kind
+        self.source: Optional[base.SourceDefinition] = source
 
 
 class Submodel(base.Identifiable, base.HasSemantics, base.HasKind, base.Qualifiable, base.Namespace):
@@ -90,7 +93,8 @@ class Submodel(base.Identifiable, base.HasSemantics, base.HasKind, base.Qualifia
                  administration: Optional[base.AdministrativeInformation] = None,
                  semantic_id: Optional[base.Reference] = None,
                  qualifier: Optional[Set[base.Constraint]] = None,
-                 kind: base.ModelingKind = base.ModelingKind.INSTANCE):
+                 kind: base.ModelingKind = base.ModelingKind.INSTANCE,
+                 source: Optional[base.SourceDefinition] = None):
         super().__init__()
         self.identification: base.Identifier = identification
         self.submodel_element = base.NamespaceSet(self, submodel_element)
@@ -102,6 +106,7 @@ class Submodel(base.Identifiable, base.HasSemantics, base.HasKind, base.Qualifia
         self.semantic_id: Optional[base.Reference] = semantic_id
         self.qualifier: Set[base.Constraint] = set() if qualifier is None else qualifier
         self._kind: base.ModelingKind = kind
+        self.source: Optional[base.SourceDefinition] = source
 
 
 class DataElement(SubmodelElement, metaclass=abc.ABCMeta):
@@ -137,8 +142,9 @@ class DataElement(SubmodelElement, metaclass=abc.ABCMeta):
                  parent: Optional[base.Namespace] = None,
                  semantic_id: Optional[base.Reference] = None,
                  qualifier: Optional[Set[base.Constraint]] = None,
-                 kind: base.ModelingKind = base.ModelingKind.INSTANCE):
-        super().__init__(id_short, category, description, parent, semantic_id, qualifier, kind)
+                 kind: base.ModelingKind = base.ModelingKind.INSTANCE,
+                 source: Optional[base.SourceDefinition] = None):
+        super().__init__(id_short, category, description, parent, semantic_id, qualifier, kind, source)
 
 
 class Property(DataElement):
@@ -179,12 +185,13 @@ class Property(DataElement):
                  parent: Optional[base.Namespace] = None,
                  semantic_id: Optional[base.Reference] = None,
                  qualifier: Optional[Set[base.Constraint]] = None,
-                 kind: base.ModelingKind = base.ModelingKind.INSTANCE):
+                 kind: base.ModelingKind = base.ModelingKind.INSTANCE,
+                 source: Optional[base.SourceDefinition] = None):
         """
         TODO: Add instruction what to do after construction
         """
 
-        super().__init__(id_short, category, description, parent, semantic_id, qualifier, kind)
+        super().__init__(id_short, category, description, parent, semantic_id, qualifier, kind, source)
         self.value_type: Type[datatypes.AnyXSDType] = value_type
         self._value: Optional[base.ValueDataType] = (datatypes.trivial_cast(value, value_type)
                                                      if value is not None else None)

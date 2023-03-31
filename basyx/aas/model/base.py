@@ -18,7 +18,7 @@ from typing import List, Optional, Set, TypeVar, MutableSet, Generic, Iterable, 
 import re
 
 from . import datatypes
-from .source import AbstractEndPointDefinition
+from .external_source import EndPointDefinition
 from ..backend import backends
 
 if TYPE_CHECKING:
@@ -396,6 +396,7 @@ class Referable(metaclass=abc.ABCMeta):
                   This is used to specify where the Referable should be updated from and committed to.
                   Default is an empty string, making it use the source of its ancestor, if possible.
     """
+
     @abc.abstractmethod
     def __init__(self):
         super().__init__()
@@ -406,7 +407,7 @@ class Referable(metaclass=abc.ABCMeta):
         # simpler and faster navigation/checks and it has no effect in the serialized data formats anyway.
         self.parent: Optional[Namespace] = None
         # TODO Empty string to be replaced with None.
-        self.source: Optional[SourceDefinition] = ""
+        self.source: Optional[SourceDefinition] = None
 
     def __repr__(self) -> str:
         reversed_path = []
@@ -485,23 +486,25 @@ class Referable(metaclass=abc.ABCMeta):
         # TODO consider max_age
         if not _indirect_source:
             # Update was already called on an ancestor of this Referable. Only update it, if it has its own source
-            if self.source != "":
-                backends.get_backend(self.source).update_object(updated_object=self,
-                                                                store_object=self,
-                                                                relative_path=[])
+            if self.source is not None:
+                backends.get_backend(self.source.defaultSource.endpointAddress).update_object(updated_object=self,
+                                                                                              store_object=self,
+                                                                                              relative_path=[])
 
         else:
             # Try to find a valid source for this Referable
-            if self.source != "":
-                backends.get_backend(self.source).update_object(updated_object=self,
-                                                                store_object=self,
-                                                                relative_path=[])
+            if self.source is not None:
+                backends.get_backend(self.source.defaultSource.endpointAddress).update_object(updated_object=self,
+                                                                                              store_object=self,
+                                                                                              relative_path=[])
             else:
                 store_object, relative_path = self.find_source()
                 if store_object and relative_path is not None:
-                    backends.get_backend(store_object.source).update_object(updated_object=self,
-                                                                            store_object=store_object,
-                                                                            relative_path=list(relative_path))
+                    if store_object.source is not None:
+                        backends.get_backend(store_object.source.defaultSource.endpointAddress).update_object(
+                            updated_object=self,
+                            store_object=store_object,
+                            relative_path=list(relative_path))
 
         if recursive:
             # update all the children who have their own source
@@ -563,10 +566,11 @@ class Referable(metaclass=abc.ABCMeta):
         # Commit to all ancestors with sources
         while current_ancestor:
             assert isinstance(current_ancestor, Referable)
-            if current_ancestor.source != "":
-                backends.get_backend(current_ancestor.source).commit_object(committed_object=self,
-                                                                            store_object=current_ancestor,
-                                                                            relative_path=list(relative_path))
+            if current_ancestor.source is not None:
+                backends.get_backend(current_ancestor.source.defaultSource.endpointAddress).commit_object(
+                    committed_object=self,
+                    store_object=current_ancestor,
+                    relative_path=list(relative_path))
             relative_path.insert(0, current_ancestor.id_short)
             current_ancestor = current_ancestor.parent
         # Commit to own source and check if there are children with sources to commit to
@@ -599,6 +603,7 @@ class UnexpectedTypeError(TypeError):
 
     :ivar value: The object of unexpected type
     """
+
     def __init__(self, value: Referable, *args):
         super().__init__(*args)
         self.value = value
@@ -664,6 +669,7 @@ class AASReference(Reference, Generic[_RT]):
     :ivar: type: The type of the referenced object (additional parameter, not from the AAS Metamodel),
         Initialisation parameter: `target_type`
     """
+
     def __init__(self,
                  key: Tuple[Key, ...],
                  target_type: Type[_RT]):
@@ -707,19 +713,19 @@ class AASReference(Reference, Generic[_RT]):
         resolved_keys.append(str(identifier))
 
         # Now, follow path, given by remaining keys, recursively
-        for key in self.key[last_identifier_index+1:]:
+        for key in self.key[last_identifier_index + 1:]:
             if not isinstance(item, Namespace):
                 raise TypeError("Object retrieved at {} is not a Namespace".format(" / ".join(resolved_keys)))
             try:
                 item = item.get_referable(key.value)
             except KeyError as e:
-                raise KeyError("Could not resolve id_short {} at {}".format(key.value, " / ".join(resolved_keys)))\
+                raise KeyError("Could not resolve id_short {} at {}".format(key.value, " / ".join(resolved_keys))) \
                     from e
 
         # Check type
         if not isinstance(item, self.type):
             raise UnexpectedTypeError(item, "Retrieved object {} is not an instance of referenced type {}"
-                                            .format(item, self.type.__name__))
+                                      .format(item, self.type.__name__))
         return item
 
     def get_identifier(self) -> Identifier:
@@ -781,6 +787,7 @@ class Identifiable(Referable, metaclass=abc.ABCMeta):
     :ivar administration: :class:`~.AdministrativeInformation` of an identifiable element.
     :ivar ~.identification: The globally unique identification of the element.
     """
+
     @abc.abstractmethod
     def __init__(self):
         super().__init__()
@@ -801,6 +808,7 @@ class HasSemantics(metaclass=abc.ABCMeta):
                        The semantic id may either reference an external global id or it may reference a referable model
                        element of kind=Type that defines the semantics of the element.
     """
+
     @abc.abstractmethod
     def __init__(self):
         super().__init__()
@@ -816,6 +824,7 @@ class HasKind(metaclass=abc.ABCMeta):
 
     :ivar kind: Kind of the element: either type or instance. Default = Instance.
     """
+
     @abc.abstractmethod
     def __init__(self):
         super().__init__()
@@ -832,6 +841,7 @@ class Constraint(metaclass=abc.ABCMeta):
 
     <<abstract>>
     """
+
     @abc.abstractmethod
     def __init__(self):
         pass
@@ -846,6 +856,7 @@ class Qualifiable(metaclass=abc.ABCMeta):
     :ivar qualifier: Unordered list of :class:`Constraints <~.Constraint>` that gives additional qualification of a
         qualifiable element.
     """
+
     @abc.abstractmethod
     def __init__(self):
         super().__init__()
@@ -974,6 +985,7 @@ class Namespace(metaclass=abc.ABCMeta):
 
     :ivar namespace_element_sets: A list of all NamespaceSets of this Namespace
     """
+
     @abc.abstractmethod
     def __init__(self) -> None:
         super().__init__()
@@ -1022,6 +1034,7 @@ class NamespaceSet(MutableSet[_RT], Generic[_RT]):
     allows a default argument and returns None instead of raising a KeyError). As a bonus, the `x in` check supports
     checking for existence of id_short *or* a concrete :class:`~.Referable` object.
     """
+
     def __init__(self, parent: Namespace, items: Iterable[_RT] = ()) -> None:
         """
         Initialize a new NamespaceSet.
@@ -1152,6 +1165,7 @@ class OrderedNamespaceSet(NamespaceSet[_RT], MutableSequence[_RT], Generic[_RT])
     Additionally to the MutableSet interface of NamespaceSet, this class provides a set-like interface (actually it
     is derived from MutableSequence). However, we don't permit duplicate entries in the ordered list of objects.
     """
+
     def __init__(self, parent: Namespace, items: Iterable[_RT] = ()) -> None:
         """
         Initialize a new OrderedNamespaceSet.
@@ -1197,19 +1211,23 @@ class OrderedNamespaceSet(NamespaceSet[_RT], MutableSequence[_RT], Generic[_RT])
         self._order.insert(index, object_)
 
     @overload
-    def __getitem__(self, i: int) -> _RT: ...
+    def __getitem__(self, i: int) -> _RT:
+        ...
 
     @overload
-    def __getitem__(self, s: slice) -> MutableSequence[_RT]: ...
+    def __getitem__(self, s: slice) -> MutableSequence[_RT]:
+        ...
 
     def __getitem__(self, s: Union[int, slice]) -> Union[_RT, MutableSequence[_RT]]:
         return self._order[s]
 
     @overload
-    def __setitem__(self, i: int, o: _RT) -> None: ...
+    def __setitem__(self, i: int, o: _RT) -> None:
+        ...
 
     @overload
-    def __setitem__(self, s: slice, o: Iterable[_RT]) -> None: ...
+    def __setitem__(self, s: slice, o: Iterable[_RT]) -> None:
+        ...
 
     def __setitem__(self, s, o) -> None:
         if isinstance(s, int):
@@ -1234,48 +1252,52 @@ class OrderedNamespaceSet(NamespaceSet[_RT], MutableSequence[_RT], Generic[_RT])
             super().remove(i)
 
     @overload
-    def __delitem__(self, i: int) -> None: ...
+    def __delitem__(self, i: int) -> None:
+        ...
 
     @overload
-    def __delitem__(self, i: slice) -> None: ...
+    def __delitem__(self, i: slice) -> None:
+        ...
 
     def __delitem__(self, i: Union[int, slice]) -> None:
         if isinstance(i, int):
-            i = slice(i, i+1)
+            i = slice(i, i + 1)
         for o in self._order[i]:
             super().remove(o)
         del self._order[i]
 
 
-class EndPointDefinition(AbstractEndPointDefinition):
+class ConcreteEndPointDefinition(EndPointDefinition):
     """
 
-    Concrete class extending AbstractEndpointDefinition class,
+    Concrete class extending Abstract EndpointDefinition class,
     used in SourceDefinition and AttributeSpecificSourceDefinition classes.
 
     """
+
     def __init__(self):
         super().__init__()
 
 
-class OpcUaEndPointDefinition(AbstractEndPointDefinition):
+class OpcUaEndPointDefinition(EndPointDefinition):
     """
 
-    Specific endpoint 'OpcUa' derived from AbstractEndPointDefinition.
+    Specific endpoint 'OpcUa' derived from Abstract EndPointDefinition.
 
     :ivar namespaceIndex: The NamespaceIndex is the index into a namespace table managed by the OPC UA server.
-    :ivar nodeId: Node ID is a unique identifier for a node in an OPC server's address space.
+    :ivar identifier: a unique identifier for a node in an OPC server's address space.
 
     """
+
     def __init__(self,
                  namespaceIndex: int,
-                 nodeId: str):
+                 identifier: str):
         super().__init__()
-        self.namespaceIndex: int
-        self.nodeId: str
+        self.namespaceIndex: int = namespaceIndex
+        self.identifier: str = identifier
 
     def __repr__(self) -> str:
-        return "{}{}{}".format(self.__class__.__name__, self.namespaceIndex, self.nodeId)
+        return "{}{}{}".format(self.__class__.__name__, self.namespaceIndex, self.identifier)
 
 
 class AttributeSpecificSourceDefinition:
@@ -1287,11 +1309,12 @@ class AttributeSpecificSourceDefinition:
     :ivar value: is the object of EndPointDefinition class.
 
     """
+
     def __init__(self,
                  attributeName: str,
-                 value: EndPointDefinition):
-        self.attributeName: str
-        self.value: EndPointDefinition
+                 value: ConcreteEndPointDefinition):
+        self.attributeName: str = attributeName
+        self.value: ConcreteEndPointDefinition = value
 
     def __repr__(self) -> str:
         return "AttributeSpecificSourceDefinition(attributeName={})".format(self.attributeName)
@@ -1308,10 +1331,11 @@ class SourceDefinition:
                                    Value specified an object of a derived class of the AbstractEndpointDefinition class.
 
     """
+
     def __init__(self,
-                 defaultSource: EndPointDefinition,
+                 defaultSource: ConcreteEndPointDefinition,
                  attributeSpecificSource: Optional[Set[AttributeSpecificSourceDefinition]] = None):
         super().__init__()
-        self.defaultSource: EndPointDefinition
+        self.defaultSource: ConcreteEndPointDefinition = defaultSource
         self.attributeSpecificSource: Optional[Set[AttributeSpecificSourceDefinition]] = set() \
             if attributeSpecificSource is None else attributeSpecificSource

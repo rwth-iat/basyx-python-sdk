@@ -23,10 +23,10 @@ needs to be registered to handle update/commit requests for a specific URI schem
 """
 import abc
 import re
-from typing import List, Dict, Type, TYPE_CHECKING
+from typing import List, Dict, Type, TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from ..model import Referable
+    from ..model import Referable, SourceDefinition
 
 
 class Backend(metaclass=abc.ABCMeta):

@@ -6,11 +6,8 @@
 # SPDX-License-Identifier: MIT
 """
 Module for the creation of an :class:`ObjectStore <aas.model.provider.DictObjectStore>` with an example asset
-administration shell, related asset and example
-submodels and a concept dictionary containing an example concept description
+administration shell, related asset and example subModels
 
-To get this object store use the function :meth:`~aas.examples.data.example_aas.create_full_example`.
-If you want to get single example objects or want to get more information use the other functions.
 """
 import logging
 
@@ -89,8 +86,7 @@ def create_example_asset_identification_submodel() -> model.Submodel:
                                                value='0173-1#02-AAO677#002',
                                                id_type=model.KeyType.IRI),)),
         qualifier={qualifier, qualifier2},
-        kind=model.ModelingKind.INSTANCE,
-        source=None)
+        kind=model.ModelingKind.INSTANCE)
 
     # Property-Element conform to 'Verwaltungssschale in der Praxis' page 44 InstanceId:
     # https://www.plattform-i40.de/PI40/Redaktion/DE/Downloads/Publikation/2019-verwaltungsschale-in-der-praxis.html
@@ -115,8 +111,7 @@ def create_example_asset_identification_submodel() -> model.Submodel:
                                                value='http://opcfoundation.org/UA/DI/1.1/DeviceType/Serialnumber',
                                                id_type=model.KeyType.IRI),)),
         qualifier=None,
-        kind=model.ModelingKind.INSTANCE,
-        source=None)
+        kind=model.ModelingKind.INSTANCE)
 
     # asset identification submodel which will be included in the asset object
     identification_submodel = model.Submodel(
@@ -136,8 +131,7 @@ def create_example_asset_identification_submodel() -> model.Submodel:
                                                value='http://acplt.org/SubmodelTemplates/AssetIdentification',
                                                id_type=model.KeyType.IRI),)),
         qualifier=None,
-        kind=model.ModelingKind.INSTANCE,
-        source=None)
+        kind=model.ModelingKind.INSTANCE)
     return identification_submodel
 
 

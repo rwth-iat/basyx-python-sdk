@@ -46,7 +46,8 @@ class CouchDBBackend(backends.Backend):
         if not isinstance(store_object, model.Identifiable):
             raise CouchDBSourceError("The given store_object is not Identifiable, therefore cannot be found "
                                      "in the CouchDB")
-        url = CouchDBBackend._parse_source(store_object.source)
+        if store_object.source is not None:
+            url = CouchDBBackend._parse_source(store_object.source.defaultSource.endpointAddress)
         try:
             data = CouchDBBackend.do_request(url)
         except CouchDBServerError as e:
@@ -66,7 +67,8 @@ class CouchDBBackend(backends.Backend):
         if not isinstance(store_object, model.Identifiable):
             raise CouchDBSourceError("The given store_object is not Identifiable, therefore cannot be found "
                                      "in the CouchDB")
-        url = CouchDBBackend._parse_source(store_object.source)
+        if store_object.source is not None:
+            url = CouchDBBackend._parse_source(store_object.source.defaultSource.endpointAddress)
         # We need to get the revision of the object, if it already exists, otherwise we cannot write to the Couchdb
         if get_couchdb_revision(url) is None:
             raise CouchDBConflictError("No revision found for the given object. Try calling `update` on it.")
@@ -408,7 +410,7 @@ class CouchDBObjectStore(model.AbstractObjectStore):
                                                   self._transform_id(x.identification)))
         with self._object_cache_lock:
             del self._object_cache[x.identification]
-        x.source = ""
+        x.source = None
 
     def __contains__(self, x: object) -> bool:
         """
@@ -491,7 +493,8 @@ class CouchDBObjectStore(model.AbstractObjectStore):
         """
         source: str = self.url.replace("https://", "couchdbs://").replace("http://", "couchdb://")
         source += "/" + self.database_name + "/" + self._transform_id(identifiable.identification)
-        identifiable.source = source
+        if identifiable.source is not None:
+            identifiable.source.defaultSource.endpointAddress = source
 
 
 # #################################################################################################

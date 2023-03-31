@@ -14,7 +14,7 @@ import abc
 from typing import Optional
 
 
-class AbstractEndPointDefinition(metaclass=abc.ABCMeta):
+class EndPointDefinition(metaclass=abc.ABCMeta):
     """
     Defines minimal attributes and functions which each specific endpoint definition requires.
 
@@ -42,7 +42,7 @@ class AbstractEndPointDefinition(metaclass=abc.ABCMeta):
         self.subProtocolBodyEncoding: Optional[str] = None
 
     def __repr__(self) -> str:
-        return "{}[{}]{}{}{}{}{}".format(
+        return "{}[{}]{}{}{}{}{}{}".format(
             self.__class__.__name__, self.endpointAddress, self.endpointProtocol, self.endpointProtocolVersion,
             self.securityAttributes, self.subProtocol, self.subProtocolBody, self.subProtocolBodyEncoding)
 
