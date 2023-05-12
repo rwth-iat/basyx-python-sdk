@@ -116,29 +116,29 @@ def generate_example_referable_tree() -> model.Referable:
 class ReferableTest(unittest.TestCase):
     def test_id_short_constraint_aasd_002(self):
         test_object = ExampleReferable()
-        test_object.id_short = "Test"
+        test_object.id_short = model.datatypes.NameType("Test")
         self.assertEqual("Test", test_object.id_short)
-        test_object.id_short = "asdASd123_"
+        test_object.id_short = model.datatypes.NameType("asdASd123_")
         self.assertEqual("asdASd123_", test_object.id_short)
-        test_object.id_short = "AAs12_"
+        test_object.id_short = model.datatypes.NameType("AAs12_")
         self.assertEqual("AAs12_", test_object.id_short)
         with self.assertRaises(model.AASConstraintViolation) as cm:
-            test_object.id_short = "98sdsfdAS"
+            test_object.id_short = model.datatypes.NameType("98sdsfdAS")
         self.assertEqual("The id_short must start with a letter (Constraint AASd-002)", str(cm.exception))
         with self.assertRaises(model.AASConstraintViolation) as cm:
-            test_object.id_short = "_sdsfdAS"
+            test_object.id_short = model.datatypes.NameType("_sdsfdAS")
         self.assertEqual("The id_short must start with a letter (Constraint AASd-002)", str(cm.exception))
         with self.assertRaises(model.AASConstraintViolation) as cm:
-            test_object.id_short = "asdlujSAD8348@S"
+            test_object.id_short = model.datatypes.NameType("asdlujSAD8348@S")
         self.assertEqual(
             "The id_short must contain only letters, digits and underscore (Constraint AASd-002)",
             str(cm.exception))
+        with self.assertRaises(ValueError) as cm2:
+            test_object.id_short = model.datatypes.NameType("")
+        self.assertEqual("NameType has a minimum of 1 character",
+                         str(cm2.exception))
         with self.assertRaises(model.AASConstraintViolation) as cm:
-            test_object.id_short = ""
-        self.assertEqual("id_short is not allowed to be an empty string (Constraint AASd-100)",
-                         str(cm.exception))
-        with self.assertRaises(model.AASConstraintViolation) as cm:
-            test_object.id_short = "abc\n"
+            test_object.id_short = model.datatypes.NameType("abc\n")
         self.assertEqual(
             "The id_short must contain only letters, digits and underscore (Constraint AASd-002)",
             str(cm.exception))
