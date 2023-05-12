@@ -530,7 +530,7 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def __init__(self):
         super().__init__()
-        self._id_short: str = "NotSet"
+        self._id_short: datatypes.NameType = "NotSet"
         self.display_name: Optional[LangStringSet] = dict()
         self.category: Optional[datatypes.NameType] = None
         self.description: Optional[LangStringSet] = dict()
@@ -558,14 +558,14 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
     def _get_id_short(self):
         return self._id_short
 
-    def _set_id_short(self, id_short: str):
+    def _set_id_short(self, id_short: datatypes.NameType):
         """
         Check the input string
 
-        Constraint AASd-002: idShort of Referables shall only feature letters, digits, underscore ("_"); starting
-        mandatory with a letter. I.e. [a-zA-Z][a-zA-Z0-9_]+
-        Constraint AASd-003: idShort shall be matched case-insensitive
-        Constraint AASd-022: idShort of non-identifiable referables shall be unique in its namespace
+        Constraint AASd-002: idShort of Referables shall only feature letters, digits,
+        underscore ("_"); starting mandatory with a letter, i.e. [a-zA-Z][a-zA-Z0-9_]*.
+        Constraint AASd-022: idShort of non-identifiable Referables within the same
+        name space shall be unique (case-sensitive)
 
         :param id_short: Identifying string of the element within its name space
         :raises ValueError: if the constraint is not fulfilled
@@ -574,8 +574,6 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
 
         if id_short == self.id_short:
             return
-        if id_short == "":
-            raise AASConstraintViolation(100, "id_short is not allowed to be an empty string")
         test_id_short: str = str(id_short)
         if not re.fullmatch("[a-zA-Z0-9_]*", test_id_short):
             raise AASConstraintViolation(
@@ -659,7 +657,7 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
                  ancestor
         """
         referable: Referable = self
-        relative_path: List[str] = [self.id_short]
+        relative_path: List[datatypes.NameType] = [self.id_short]
         while referable is not None:
             if referable.source != "":
                 relative_path.reverse()
@@ -701,7 +699,7 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
         ancestors. If there is no source, this function will do nothing.
         """
         current_ancestor = self.parent
-        relative_path: List[str] = [self.id_short]
+        relative_path: List[datatypes.NameType] = [self.id_short]
         # Commit to all ancestors with sources
         while current_ancestor:
             assert isinstance(current_ancestor, Referable)
