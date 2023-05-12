@@ -441,7 +441,7 @@ class AASFromXmlDecoder:
             if display_name is not None:
                 obj.display_name = display_name
             if category is not None:
-                obj.category = category
+                obj.category = model.datatypes.NameType(category)
             description = _failsafe_construct(element.find(NS_AAS + "description"), cls.construct_lang_string_set,
                                               cls.failsafe)
             if description is not None:

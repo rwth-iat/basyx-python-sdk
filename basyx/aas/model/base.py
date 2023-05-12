@@ -532,7 +532,7 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
         super().__init__()
         self._id_short: str = "NotSet"
         self.display_name: Optional[LangStringSet] = dict()
-        self._category: Optional[str] = None
+        self.category: Optional[datatypes.NameType] = None
         self.description: Optional[LangStringSet] = dict()
         # We use a Python reference to the parent Namespace instead of a Reference Object, as specified. This allows
         # simpler and faster navigation/checks and it has no effect in the serialized data formats anyway.
@@ -557,25 +557,6 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
 
     def _get_id_short(self):
         return self._id_short
-
-    def _set_category(self, category: Optional[str]):
-        """
-        Check the input string
-
-        Constraint AASd-100: An attribute with data type "string" is not allowed to be empty
-
-        :param category: The category is a value that gives further meta information w.r.t. to the class of the element.
-                         It affects the expected existence of attributes and the applicability of constraints.
-        :raises ValueError: if the constraint is not fulfilled
-        """
-        if category == "":
-            raise AASConstraintViolation(100, "category is not allowed to be an empty string")
-        self._category = category
-
-    def _get_category(self) -> Optional[str]:
-        return self._category
-
-    category = property(_get_category, _set_category)
 
     def _set_id_short(self, id_short: str):
         """

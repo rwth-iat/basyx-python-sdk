@@ -233,7 +233,7 @@ class AASFromJsonDecoder(json.JSONDecoder):
         """
         if isinstance(obj, model.Referable):
             if 'category' in dct:
-                obj.category = _get_ts(dct, 'category', str)
+                obj.category = _get_ts(dct, 'category', model.datatypes.NameType)
             if 'displayName' in dct:
                 obj.display_name = cls._construct_lang_string_set(_get_ts(dct, 'displayName', list))
             if 'description' in dct:
