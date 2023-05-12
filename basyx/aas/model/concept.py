@@ -10,7 +10,7 @@ as well as specialized :class:`ConceptDescriptions <.ConceptDescription>` like :
 """
 from typing import Optional, Set, Iterable, List
 
-from . import base
+from . import base, datatypes
 
 ALLOWED_CONCEPT_DESCRIPTION_CATEGORIES: Set[str] = {
     "VALUE",
@@ -62,7 +62,7 @@ class ConceptDescription(base.Identifiable, base.HasDataSpecification):
                  is_case_of: Optional[Set[base.Reference]] = None,
                  id_short: str = "NotSet",
                  display_name: Optional[base.LangStringSet] = None,
-                 category: Optional[str] = None,
+                 category: Optional[datatypes.NameType] = None,
                  description: Optional[base.LangStringSet] = None,
                  parent: Optional[base.UniqueIdShortNamespace] = None,
                  administration: Optional[base.AdministrativeInformation] = None,

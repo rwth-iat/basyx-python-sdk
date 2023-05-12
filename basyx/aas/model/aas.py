@@ -17,6 +17,7 @@ from typing import Optional, Set, Iterable, List
 
 from . import base
 from .submodel import Submodel
+from . import datatypes
 
 
 class AssetInformation:
@@ -101,7 +102,7 @@ class AssetAdministrationShell(base.Identifiable, base.UniqueIdShortNamespace, b
                  id_: base.Identifier,
                  id_short: str = "NotSet",
                  display_name: Optional[base.LangStringSet] = None,
-                 category: Optional[str] = None,
+                 category: Optional[datatypes.NameType] = None,
                  description: Optional[base.LangStringSet] = None,
                  parent: Optional[base.UniqueIdShortNamespace] = None,
                  administration: Optional[base.AdministrativeInformation] = None,

@@ -264,7 +264,7 @@ def create_example_bill_of_material_submodel() -> model.Submodel:
                                                 external_subject_id=model.GlobalReference(
                                                            (model.Key(type_=model.KeyTypes.GLOBAL_REFERENCE,
                                                                       value='http://acplt.org/SpecificAssetId/'),))),
-        category="PARAMETER",
+        category=model.datatypes.NameType("PARAMETER"),
         description=model.LangStringSet({'en-US': 'Legally valid designation of the natural or judicial person which '
                                                   'is directly responsible for the design, production, packaging and '
                                                   'labeling of a product in respect to its being brought into '
@@ -290,7 +290,7 @@ def create_example_bill_of_material_submodel() -> model.Submodel:
         statement=(),
         global_asset_id=None,
         specific_asset_id=None,
-        category="PARAMETER",
+        category=model.datatypes.NameType("PARAMETER"),
         description=model.LangStringSet({'en-US': 'Legally valid designation of the natural or judicial person which '
                                                   'is directly responsible for the design, production, packaging and '
                                                   'labeling of a product in respect to its being brought into '
@@ -523,7 +523,7 @@ def create_example_submodel() -> model.Submodel:
                 type_=model.KeyTypes.PROPERTY,
                 value='ExampleProperty2'),
         ), model.Property),
-        category='PARAMETER',
+        category=model.datatypes.NameType('PARAMETER'),
         description=model.LangStringSet({'en-US': 'Example RelationshipElement object',
                                          'de': 'Beispiel RelationshipElement Element'}),
         parent=None,
@@ -608,7 +608,7 @@ def create_example_submodel() -> model.Submodel:
         input_variable=[submodel_element_operation_variable_input],
         output_variable=[submodel_element_operation_variable_output],
         in_output_variable=[submodel_element_operation_variable_in_output],
-        category='PARAMETER',
+        category=model.datatypes.NameType('PARAMETER'),
         description=model.LangStringSet({'en-US': 'Example Operation object',
                                          'de': 'Beispiel Operation Element'}),
         parent=None,
@@ -624,7 +624,7 @@ def create_example_submodel() -> model.Submodel:
 
     submodel_element_capability = model.Capability(
         id_short='ExampleCapability',
-        category='PARAMETER',
+        category=model.datatypes.NameType('PARAMETER'),
         description=model.LangStringSet({'en-US': 'Example Capability object',
                                          'de': 'Beispiel Capability Element'}),
         parent=None,
@@ -675,7 +675,7 @@ def create_example_submodel() -> model.Submodel:
                                                        value='http://acplt.org/Properties/ExampleProperty'),)),
         value_type_list_element=model.datatypes.String,
         order_relevant=True,
-        category='PARAMETER',
+        category=model.datatypes.NameType('PARAMETER'),
         description=model.LangStringSet({'en-US': 'Example SubmodelElementList object',
                                          'de': 'Beispiel SubmodelElementList Element'}),
         parent=None,
@@ -698,7 +698,7 @@ def create_example_submodel() -> model.Submodel:
                submodel_element_range,
                submodel_element_reference_element,
                submodel_element_submodel_element_list),
-        category='PARAMETER',
+        category=model.datatypes.NameType('PARAMETER'),
         description=model.LangStringSet({'en-US': 'Example SubmodelElementCollection object',
                                          'de': 'Beispiel SubmodelElementCollection Element'}),
         parent=None,

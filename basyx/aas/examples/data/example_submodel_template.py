@@ -131,7 +131,7 @@ def create_example_submodel_template() -> model.Submodel:
                                      model.Key(type_=model.KeyTypes.PROPERTY,
                                                value='ExampleProperty'),),
                                     model.Property),
-        category='PARAMETER',
+        category=model.datatypes.NameType('PARAMETER'),
         description=model.LangStringSet({'en-US': 'Example RelationshipElement object',
                                          'de': 'Beispiel RelationshipElement Element'}),
         parent=None,
@@ -176,7 +176,7 @@ def create_example_submodel_template() -> model.Submodel:
         input_variable=[submodel_element_operation_variable_input],
         output_variable=[submodel_element_operation_variable_output],
         in_output_variable=[submodel_element_operation_variable_in_output],
-        category='PARAMETER',
+        category=model.datatypes.NameType('PARAMETER'),
         description=model.LangStringSet({'en-US': 'Example Operation object',
                                          'de': 'Beispiel Operation Element'}),
         parent=None,
@@ -188,7 +188,7 @@ def create_example_submodel_template() -> model.Submodel:
 
     submodel_element_capability = model.Capability(
         id_short='ExampleCapability',
-        category='PARAMETER',
+        category=model.datatypes.NameType('PARAMETER'),
         description=model.LangStringSet({'en-US': 'Example Capability object',
                                          'de': 'Beispiel Capability Element'}),
         parent=None,
@@ -233,7 +233,7 @@ def create_example_submodel_template() -> model.Submodel:
                submodel_element_blob,
                submodel_element_file,
                submodel_element_reference_element),
-        category='PARAMETER',
+        category=model.datatypes.NameType('PARAMETER'),
         description=model.LangStringSet({'en-US': 'Example SubmodelElementCollection object',
                                          'de': 'Beispiel SubmodelElementCollection Element'}),
         parent=None,
@@ -246,7 +246,7 @@ def create_example_submodel_template() -> model.Submodel:
     submodel_element_submodel_element_collection_2 = model.SubmodelElementCollection(
         id_short='ExampleSubmodelCollection2',
         value=(),
-        category='PARAMETER',
+        category=model.datatypes.NameType('PARAMETER'),
         description=model.LangStringSet({'en-US': 'Example SubmodelElementCollection object',
                                          'de': 'Beispiel SubmodelElementCollection Element'}),
         parent=None,
@@ -264,7 +264,7 @@ def create_example_submodel_template() -> model.Submodel:
                                                        value='http://acplt.org/SubmodelElementCollections/'
                                                                   'ExampleSubmodelElementCollection'),)),
         order_relevant=False,
-        category='PARAMETER',
+        category=model.datatypes.NameType('PARAMETER'),
         description=model.LangStringSet({'en-US': 'Example SubmodelElementList object',
                                          'de': 'Beispiel SubmodelElementList Element'}),
         parent=None,
@@ -282,7 +282,7 @@ def create_example_submodel_template() -> model.Submodel:
                                                        value='http://acplt.org/SubmodelElementCollections/'
                                                                   'ExampleSubmodelElementCollection'),)),
         order_relevant=False,
-        category='PARAMETER',
+        category=model.datatypes.NameType('PARAMETER'),
         description=model.LangStringSet({'en-US': 'Example SubmodelElementList object',
                                          'de': 'Beispiel SubmodelElementList Element'}),
         parent=None,

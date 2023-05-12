@@ -667,7 +667,7 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
                     for referable in namespace_set:
                         referable.update(max_age, recursive=True, _indirect_source=False)
 
-    def find_source(self) -> Tuple[Optional["Referable"], Optional[List[str]]]:  # type: ignore
+    def find_source(self) -> Tuple[Optional["Referable"], Optional[List[datatypes.NameType]]]:  # type: ignore
         """
         Finds the closest source in this objects ancestors. If there is no source, returns None
 
@@ -1158,7 +1158,7 @@ class Identifiable(Referable, metaclass=abc.ABCMeta):
     def __init__(self):
         super().__init__()
         self.administration: Optional[AdministrativeInformation] = None
-        self._id: Identifier = ""
+        self._id: Identifier = Identifier("")
 
     def __repr__(self) -> str:
         return "{}[{}]".format(self.__class__.__name__, self.id)
