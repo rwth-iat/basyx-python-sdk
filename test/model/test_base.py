@@ -856,8 +856,8 @@ class ModelReferenceTest(unittest.TestCase):
             ref6.resolve(DummyObjectProvider())
         self.assertIs(submodel, cm_6.exception.value)
 
-        with self.assertRaises(ValueError) as cm_5:
-            ref5 = model.ModelReference((), model.Submodel)
+        with self.assertRaises(KeyError) as cm_5:
+            ref5 = model.ModelReference((), model.Property)
         self.assertEqual('A reference must have at least one key!', str(cm_5.exception))
 
         ref6 = model.ModelReference((model.Key(model.KeyElements.SUBMODEL, False, "urn:x-test:submodel",

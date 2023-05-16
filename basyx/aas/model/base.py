@@ -789,7 +789,7 @@ class Reference(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def __init__(self, key: Tuple[Key, ...], referred_semantic_id: Optional["Reference"] = None):
         if len(key) < 1:
-            raise ValueError("A reference must have at least one key!")
+            raise KeyError("A reference must have at least one key!")
 
         # Constraint AASd-121 is enforced by checking AASd-122 for global references and AASd-123 for model references
 

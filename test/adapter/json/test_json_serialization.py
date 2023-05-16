@@ -20,7 +20,8 @@ from basyx.aas.examples.data import example_aas_missing_attributes, example_aas,
 
 class JsonSerializationTest(unittest.TestCase):
     def test_serialize_object(self) -> None:
-        test_object = model.Property("test_id_short", model.datatypes.String, category="PARAMETER",
+        test_object = model.Property("test_id_short", model.datatypes.String,
+                                     category=model.datatypes.NameType("PARAMETER"),
                                      description=model.LangStringSet({"en-US": "Germany", "de": "Deutschland"}))
         json_data = json.dumps(test_object, cls=AASToJsonEncoder)
 
@@ -190,7 +191,8 @@ class JsonSerializationStrippedObjectsTest(unittest.TestCase):
         self._checkNormalAndStripped("qualifiers", operation)
 
     def test_stripped_annotated_relationship_element(self) -> None:
-        mlp = model.MultiLanguageProperty("test_multi_language_property", category="PARAMETER")
+        mlp = model.MultiLanguageProperty("test_multi_language_property",
+                                          category=model.datatypes.NameType("PARAMETER"))
         ref = model.ModelReference(
             (model.Key(model.KeyTypes.SUBMODEL, "http://acplt.org/test_ref"),),
             model.Submodel
@@ -205,13 +207,13 @@ class JsonSerializationStrippedObjectsTest(unittest.TestCase):
         self._checkNormalAndStripped("annotations", are)
 
     def test_stripped_entity(self) -> None:
-        mlp = model.MultiLanguageProperty("test_multi_language_property", category="PARAMETER")
+        mlp = model.MultiLanguageProperty("test_multi_language_property", category=model.datatypes.NameType("PARAMETER"))
         entity = model.Entity("test_entity", model.EntityType.CO_MANAGED_ENTITY, statement=[mlp])
 
         self._checkNormalAndStripped("statements", entity)
 
     def test_stripped_submodel_element_collection(self) -> None:
-        mlp = model.MultiLanguageProperty("test_multi_language_property", category="PARAMETER")
+        mlp = model.MultiLanguageProperty("test_multi_language_property", category=model.datatypes.NameType("PARAMETER"))
         sec = model.SubmodelElementCollection("test_submodel_element_collection", value=[mlp])
 
         self._checkNormalAndStripped("value", sec)
