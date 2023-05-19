@@ -33,7 +33,7 @@ class EndPointDefinition(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def __init__(self):
         super().__init__()
-        self.endpointAddress: str
+        self.endpointAddress: str = ""
         self.endpointProtocol: Optional[str] = None
         self.endpointProtocolVersion: Optional[str] = None
         self.securityAttributes: Optional[str] = None
@@ -45,5 +45,3 @@ class EndPointDefinition(metaclass=abc.ABCMeta):
         return "{}[{}]{}{}{}{}{}{}".format(
             self.__class__.__name__, self.endpointAddress, self.endpointProtocol, self.endpointProtocolVersion,
             self.securityAttributes, self.subProtocol, self.subProtocolBody, self.subProtocolBodyEncoding)
-
-

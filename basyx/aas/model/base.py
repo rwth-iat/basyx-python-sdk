@@ -580,7 +580,7 @@ class Referable(metaclass=abc.ABCMeta):
         """
         Commits children of an ancestor recursively, if they have a specific source given
         """
-        if self.source != "":
+        if self.source is not None:
             backends.get_backend(self.source).commit_object(committed_object=self,
                                                             store_object=self,
                                                             relative_path=[])
@@ -1275,8 +1275,22 @@ class ConcreteEndPointDefinition(EndPointDefinition):
 
     """
 
-    def __init__(self):
+    def __init__(self,
+                 endpointAddress: str = "",
+                 endpointProtocol: Optional[str] = None,
+                 endpointProtocolVersion: Optional[str] = None,
+                 securityAttributes: Optional[str] = None,
+                 subProtocol: Optional[str] = None,
+                 subProtocolBody: Optional[str] = None,
+                 subProtocolBodyEncoding: Optional[str] = None):
         super().__init__()
+        self.endpointAddress = endpointAddress
+        self.endpointProtocol: Optional[str] = endpointProtocol
+        self.endpointProtocolVersion: Optional[str] = endpointProtocolVersion
+        self.securityAttributes: Optional[str] = securityAttributes
+        self.subProtocol: Optional[str] = subProtocol
+        self.subProtocolBody: Optional[str] = subProtocolBody
+        self.subProtocolBodyEncoding: Optional[str] = subProtocolBodyEncoding
 
 
 class OpcUaEndPointDefinition(EndPointDefinition):
@@ -1313,6 +1327,7 @@ class AttributeSpecificSourceDefinition:
     def __init__(self,
                  attributeName: str,
                  value: ConcreteEndPointDefinition):
+        super().__init__()
         self.attributeName: str = attributeName
         self.value: ConcreteEndPointDefinition = value
 
