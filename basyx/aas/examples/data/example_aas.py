@@ -48,6 +48,7 @@ def create_example_asset_identification_submodel() -> model.Submodel:
     :return: example asset identification submodel
 
     """
+
     qualifier = model.Qualifier(
         type_='http://acplt.org/Qualifier/ExampleQualifier',
         value_type=model.datatypes.Int,
@@ -90,7 +91,13 @@ def create_example_asset_identification_submodel() -> model.Submodel:
                                                id_type=model.KeyType.IRI),)),
         qualifier={qualifier, qualifier2},
         kind=model.ModelingKind.INSTANCE,
-        source=None)
+        source=model.SourceDefinition(model.ConcreteEndPointDefinition(endpointAddress='',
+                                                                       endpointProtocol=None,
+                                                                       endpointProtocolVersion=None,
+                                                                       securityAttributes=None,
+                                                                       subProtocol=None,
+                                                                       subProtocolBody=None,
+                                                                       subProtocolBodyEncoding=None), set()))
 
     # Property-Element conform to 'Verwaltungssschale in der Praxis' page 44 InstanceId:
     # https://www.plattform-i40.de/PI40/Redaktion/DE/Downloads/Publikation/2019-verwaltungsschale-in-der-praxis.html
@@ -116,7 +123,13 @@ def create_example_asset_identification_submodel() -> model.Submodel:
                                                id_type=model.KeyType.IRI),)),
         qualifier=None,
         kind=model.ModelingKind.INSTANCE,
-        source=None)
+        source=model.SourceDefinition(model.ConcreteEndPointDefinition(endpointAddress='',
+                                                                       endpointProtocol=None,
+                                                                       endpointProtocolVersion=None,
+                                                                       securityAttributes=None,
+                                                                       subProtocol=None,
+                                                                       subProtocolBody=None,
+                                                                       subProtocolBodyEncoding=None), set()))
 
     # asset identification submodel which will be included in the asset object
     identification_submodel = model.Submodel(
@@ -137,7 +150,13 @@ def create_example_asset_identification_submodel() -> model.Submodel:
                                                id_type=model.KeyType.IRI),)),
         qualifier=None,
         kind=model.ModelingKind.INSTANCE,
-        source=None)
+        source=model.SourceDefinition(model.ConcreteEndPointDefinition(endpointAddress='',
+                                                                       endpointProtocol=None,
+                                                                       endpointProtocolVersion=None,
+                                                                       securityAttributes=None,
+                                                                       subProtocol=None,
+                                                                       subProtocolBody=None,
+                                                                       subProtocolBodyEncoding=None), set()))
     return identification_submodel
 
 
@@ -170,7 +189,7 @@ def create_example_bill_of_material_submodel() -> model.Submodel:
                                                    local=False,
                                                    value='http://acplt.org/ValueId/ExampleValueId',
                                                    id_type=model.KeyType.IRI),))}),
-                   model.Formula()},
+            model.Formula()},
         kind=model.ModelingKind.INSTANCE)
 
     submodel_element_property2 = model.Property(
