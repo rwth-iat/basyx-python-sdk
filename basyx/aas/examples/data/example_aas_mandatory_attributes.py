@@ -49,16 +49,16 @@ def create_example_submodel() -> model.Submodel:
     """
     submodel_element_property = model.Property(
         id_short='ExampleProperty',
-        category="PARAMETER",
+        category=model.datatypes.NameType("PARAMETER"),
         value_type=model.datatypes.String)
 
     submodel_element_multi_language_property = model.MultiLanguageProperty(
-        category="PARAMETER",
+        category=model.datatypes.NameType("PARAMETER"),
         id_short='ExampleMultiLanguageProperty')
 
     submodel_element_range = model.Range(
         id_short='ExampleRange',
-        category="PARAMETER",
+        category=model.datatypes.NameType("PARAMETER"),
         value_type=model.datatypes.Int)
 
     submodel_element_blob = model.Blob(
@@ -70,7 +70,7 @@ def create_example_submodel() -> model.Submodel:
         content_type=model.ContentType('application/pdf'))
 
     submodel_element_reference_element = model.ReferenceElement(
-        category="PARAMETER",
+        category=model.datatypes.NameType("PARAMETER"),
         id_short='ExampleReferenceElement')
 
     submodel_element_relationship_element = model.RelationshipElement(

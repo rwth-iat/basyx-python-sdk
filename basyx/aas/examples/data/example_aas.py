@@ -417,7 +417,7 @@ def create_example_submodel() -> model.Submodel:
         value_type=model.datatypes.Int,
         min=0,
         max=100,
-        category='PARAMETER',
+        category=model.datatypes.NameType('PARAMETER'),
         description=model.LangStringSet({'en-US': 'Example Range object',
                                          'de': 'Beispiel Range Element'}),
         parent=None,
