@@ -1152,26 +1152,17 @@ class Identifiable(Referable, metaclass=abc.ABCMeta):
     <<abstract>>
 
     :ivar administration: :class:`~.AdministrativeInformation` of an identifiable element.
-    :ivar ~.id: The globally unique id of the element.
+    :ivar ~.id: The globally unique id of the element. Each class that inherits from Identifiable sets id to an
+    Identifier.
     """
     @abc.abstractmethod
     def __init__(self):
         super().__init__()
         self.administration: Optional[AdministrativeInformation] = None
-        self._id: Identifier = Identifier("")
+        self.id: Optional[Identifier] = None
 
     def __repr__(self) -> str:
         return "{}[{}]".format(self.__class__.__name__, self.id)
-
-    @property
-    def id(self) -> Identifier:
-        return self._id
-
-    @id.setter
-    def id(self, id_: Identifier) -> None:
-        if id_ == "":
-            raise ValueError("The id attribute must not be an empty string!")
-        self._id = id_
 
 
 _T = TypeVar("_T")
