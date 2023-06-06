@@ -1267,7 +1267,7 @@ class OrderedNamespaceSet(NamespaceSet[_RT], MutableSequence[_RT], Generic[_RT])
         del self._order[i]
 
 
-class ConcreteEndPointDefinition(EndPointDefinition):
+class CouchDBEndPointDefinition(EndPointDefinition):
     """
 
     Concrete class extending Abstract EndpointDefinition class,
@@ -1310,29 +1310,8 @@ class OpcUaEndPointDefinition(EndPointDefinition):
         self.namespaceIndex: int = namespaceIndex
         self.identifier: str = identifier
 
-    def __repr__(self) -> str:
-        return "{}{}{}".format(self.__class__.__name__, self.namespaceIndex, self.identifier)
-
-
-class AttributeSpecificSourceDefinition:
-    """
-
-    Defines the location or the data source for the specific attribute of a referable object.
-
-    :ivar attributeName: Name of referable object attribute.
-    :ivar value: is the object of EndPointDefinition class.
-
-    """
-
-    def __init__(self,
-                 attributeName: str,
-                 value: ConcreteEndPointDefinition):
-        super().__init__()
-        self.attributeName: str = attributeName
-        self.value: ConcreteEndPointDefinition = value
-
-    def __repr__(self) -> str:
-        return "AttributeSpecificSourceDefinition(attributeName={})".format(self.attributeName)
+    # def __repr__(self) -> str:
+    #     return "{}{}{}".format(self.__class__.__name__, self.namespaceIndex, self.identifier)
 
 
 class SourceDefinition:
@@ -1348,9 +1327,20 @@ class SourceDefinition:
     """
 
     def __init__(self,
-                 defaultSource: ConcreteEndPointDefinition,
-                 attributeSpecificSource: Optional[Set[AttributeSpecificSourceDefinition]] = None):
+                 defaultSource: EndPointDefinition,
+                 # attributeSpecificSource: dict[str, EndPointDefinition] = None):
+                 attributeSpecificSource: Optional[Dict[str, EndPointDefinition]] = None ):
         super().__init__()
-        self.defaultSource: ConcreteEndPointDefinition = defaultSource
-        self.attributeSpecificSource: Optional[Set[AttributeSpecificSourceDefinition]] = set() \
-            if attributeSpecificSource is None else attributeSpecificSource
+        self.defaultSource: EndPointDefinition = defaultSource
+        if attributeSpecificSource is None:
+            print("No attributeSpecificSource provided.")
+            # self.attributeSpecificSource = {}
+        else:
+            for key, value in attributeSpecificSource.items():
+                if not isinstance(key, str):
+                    raise ValueError(f"Invalid key type: {type(key)}. Key must be a string.")
+                if not issubclass(type(value), EndPointDefinition):
+                    raise ValueError(f"Invalid value type: {type(value)}. \
+                    Value must be a subclass of EndPointDefinition.")
+                print(f"Key: {key}, Value: {type(value)}")
+                self.attributeSpecificSource = attributeSpecificSource
