@@ -22,7 +22,7 @@ import urllib3  # type: ignore
 from . import backends
 from ..adapter.json import json_serialization, json_deserialization
 from basyx.aas import model
-
+from ..model import CouchDBEndPointDefinition
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +48,8 @@ class CouchDBBackend(backends.Backend):
                                      "in the CouchDB")
         if store_object.source is not None:
             url = CouchDBBackend._parse_source(store_object.source.defaultSource.endpointAddress)
+        # if updated_object.source is not None:
+            # url = CouchDBBackend._parse_source(updated_object.source.defaultSource.endpointAddress)
         try:
             data = CouchDBBackend.do_request(url)
         except CouchDBServerError as e:
@@ -167,8 +169,10 @@ class CouchDBBackend(backends.Backend):
         return data
 
 
-backends.register_backend("couchdb", CouchDBBackend)
-backends.register_backend("couchdbs", CouchDBBackend)
+# TODO check if this is still needed
+# backends.register_backend("couchdb", CouchDBBackend)
+# backends.register_backend("couchdbs", CouchDBBackend)
+backends.register_backend(CouchDBEndPointDefinition, CouchDBBackend)
 
 
 # Global registry for credentials for CouchDB Servers

@@ -5,7 +5,7 @@
 #
 # SPDX-License-Identifier: MIT
 """
-This module provides a registry and and abstract base class for Backends. A :class:`~.Backend` is a class that allows to
+This module provides a registry and abstract base class for Backends. A :class:`~.Backend` is a class that allows to
 synchronize Referable AAS objects or their included data with external data sources such as a remote API or a local
 source for real time data. Each backend provides access to one kind of data source.
 
@@ -24,9 +24,11 @@ needs to be registered to handle update/commit requests for a specific URI schem
 import abc
 import re
 from typing import List, Dict, Type, TYPE_CHECKING, Optional
+from ..model.external_source import EndPointDefinition  # type: ignore
 
 if TYPE_CHECKING:
-    from ..model import Referable, SourceDefinition
+    from ..model import Referable  # type: ignore
+
 
 
 class Backend(metaclass=abc.ABCMeta):
@@ -117,10 +119,11 @@ class Backend(metaclass=abc.ABCMeta):
 
 # Global registry for backends by URI scheme
 # TODO allow multiple backends per scheme with priority
-_backends_map: Dict[str, Type[Backend]] = {}
+_backends_map: Dict[Type[EndPointDefinition], Type[Backend]] = {}
 
 
-def register_backend(scheme: str, backend_class: Type[Backend]) -> None:
+def register_backend(source: Type[EndPointDefinition], backend_class: Type[Backend]) -> None:
+    # TODO adapt documentation
     """
     Register a Backend implementation to handle update/commit operations for a specific type of external data sources,
     identified by a source URI schema.
@@ -128,23 +131,23 @@ def register_backend(scheme: str, backend_class: Type[Backend]) -> None:
     This method may be called multiple times for a single Backend class, to register that class as a backend
     implementation for different source URI schemas (e.g. use the same backend for 'http://' and 'https://' sources).
 
-    :param scheme: The URI schema of source URIs to be handled with Backend class, without trailing colon and slashes.
+    :param source: The URI schema of source URIs to be handled with Backend class, without trailing colon and slashes.
         E.g. 'http', 'https', 'couchdb', etc.
     :param backend_class: The Backend implementation class. Should be inheriting from `Backend`.
     """
     # TODO handle multiple backends per scheme
-    _backends_map[scheme] = backend_class
+    _backends_map[source] = backend_class
+
+# TODO check if this is still needed
+# RE_URI_SCHEME = re.compile(r"^([a-zA-Z][a-zA-Z+\-\.]*):")
 
 
-RE_URI_SCHEME = re.compile(r"^([a-zA-Z][a-zA-Z+\-\.]*):")
-
-
-def get_backend(url: str) -> Type[Backend]:
+def get_backend(source: Type[Type[EndPointDefinition]]) -> Type[Backend]:
     """
-    Internal function to retrieve the Backend implementation for the external data source identified by the given `url`
-    via the url's schema.
+    Internal function to retrieve the Backend implementation for the external data source identified by the given type
+    of the EndPointDefinition Class.
 
-    :param url: External data source URI to find an appropriate Backend implementation for
+    :param source: External data source EndPointDefinition to find an appropriate Backend implementation for
     :return: A Backend class, capable of updating/committing from/to the external data source
     :raises UnknownBackendException: When no backend is available for that url
     """
@@ -152,14 +155,15 @@ def get_backend(url: str) -> Type[Backend]:
     # url = str(url or "")
 
     # TODO handle multiple backends per scheme
-    scheme_match = RE_URI_SCHEME.match(url)
-    if not scheme_match:
-        raise ValueError("{} is not a valid URL with URI scheme.".format(url))
-    scheme = scheme_match[1]
+    # TODO check if the match is still needed
+    # source_match = RE_URI_SCHEME.match(source)
+    # if not source_match:
+    #     raise ValueError("{} is not a valid EndPointDefinition.".format(source))
+    # source = source_match[1]
     try:
-        return _backends_map[scheme]
+        return _backends_map[type(source)]
     except KeyError as e:
-        raise UnknownBackendException("Could not find Backend for source '{}'".format(url)) from e
+        raise UnknownBackendException("Could not find Backend for source '{}'".format(source)) from e
 
 
 # #################################################################################################

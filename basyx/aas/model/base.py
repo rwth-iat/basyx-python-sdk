@@ -487,21 +487,21 @@ class Referable(metaclass=abc.ABCMeta):
         if not _indirect_source:
             # Update was already called on an ancestor of this Referable. Only update it, if it has its own source
             if self.source is not None:
-                backends.get_backend(self.source.defaultSource.endpointAddress).update_object(updated_object=self,
+                backends.get_backend(self.source.defaultSource).update_object(updated_object=self,
                                                                                               store_object=self,
                                                                                               relative_path=[])
 
         else:
             # Try to find a valid source for this Referable
             if self.source is not None:
-                backends.get_backend(self.source.defaultSource.endpointAddress).update_object(updated_object=self,
+                backends.get_backend(self.source.defaultSource).update_object(updated_object=self,
                                                                                               store_object=self,
                                                                                               relative_path=[])
             else:
                 store_object, relative_path = self.find_source()
                 if store_object and relative_path is not None:
                     if store_object.source is not None:
-                        backends.get_backend(store_object.source.defaultSource.endpointAddress).update_object(
+                        backends.get_backend(store_object.source.defaultSource).update_object(
                             updated_object=self,
                             store_object=store_object,
                             relative_path=list(relative_path))
@@ -1327,11 +1327,11 @@ class SourceDefinition:
     """
 
     def __init__(self,
-                 defaultSource: EndPointDefinition,
+                 defaultSource: Type[Type[EndPointDefinition]],
                  # attributeSpecificSource: dict[str, EndPointDefinition] = None):
-                 attributeSpecificSource: Optional[Dict[str, EndPointDefinition]] = None ):
+                 attributeSpecificSource: Optional[Dict[str, Type[Type[EndPointDefinition]]]] = None ):
         super().__init__()
-        self.defaultSource: EndPointDefinition = defaultSource
+        self.defaultSource: Type[Type[EndPointDefinition]] = defaultSource
         if attributeSpecificSource is None:
             print("No attributeSpecificSource provided.")
             # self.attributeSpecificSource = {}
