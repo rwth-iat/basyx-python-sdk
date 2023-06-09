@@ -567,7 +567,7 @@ class Referable(metaclass=abc.ABCMeta):
         while current_ancestor:
             assert isinstance(current_ancestor, Referable)
             if current_ancestor.source is not None:
-                backends.get_backend(current_ancestor.source.defaultSource.endpointAddress).commit_object(
+                backends.get_backend(current_ancestor.source.defaultSource).commit_object(
                     committed_object=self,
                     store_object=current_ancestor,
                     relative_path=list(relative_path))

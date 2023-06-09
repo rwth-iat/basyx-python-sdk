@@ -64,7 +64,7 @@ couchdb_password = config['couchdb']['password']
 basyx.aas.backend.couchdb.register_credentials(couchdb_url, couchdb_user, couchdb_password)
 
 # Now, we create a CouchDBObjectStore as an interface for managing the objects in the CouchDB server.
-object_store = basyx.aas.backend.couchdb.CouchDBObjectStore(couchdb_url, couchdb_database)
+# object_store = basyx.aas.backend.couchdb.CouchDBObjectStore(couchdb_url, couchdb_database)
 
 
 #####################################################
@@ -73,13 +73,11 @@ object_store = basyx.aas.backend.couchdb.CouchDBObjectStore(couchdb_url, couchdb
 
 # Create some example objects
 example_submodel1 = basyx.aas.examples.data.example_aas.create_example_asset_identification_submodel()
-example_submodel2 = basyx.aas.examples.data.example_aas.create_example_bill_of_material_submodel()
 
 # The CouchDBObjectStore behaves just like other ObjectStore implementations (see `tutorial_storage.py`). The objects
 # are transferred to the CouchDB immediately. Additionally, the `source` attribute is set automatically, so update() and
 # commit() will work automatically (see below).
-object_store.add(example_submodel1)
-object_store.add(example_submodel2)
+# object_store.add(example_submodel1)
 
 
 ###################################################################
@@ -99,6 +97,7 @@ example_submodel1.update()
 prop = example_submodel1.get_referable('ManufacturerName')
 assert isinstance(prop, basyx.aas.model.Property)
 
+prop.update()
 prop.value = "RWTH Aachen"
 
 # Commit (upload) these changes to the CouchDB server
@@ -114,5 +113,4 @@ prop.commit()
 ############
 
 # Let's delete the Submodels from the CouchDB to leave it in a clean state
-object_store.discard(example_submodel1)
-object_store.discard(example_submodel2)
+# object_store.discard(example_submodel1)

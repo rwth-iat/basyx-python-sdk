@@ -196,6 +196,7 @@ class Property(DataElement):
         self._value: Optional[base.ValueDataType] = (datatypes.trivial_cast(value, value_type)
                                                      if value is not None else None)
         self.value_id: Optional[base.Reference] = value_id
+        self.source = source
 
     @property
     def value(self):
