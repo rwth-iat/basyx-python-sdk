@@ -129,7 +129,14 @@ def create_example_asset_identification_submodel() -> model.Submodel:
                                                                        securityAttributes=None,
                                                                        subProtocol=None,
                                                                        subProtocolBody=None,
-                                                                       subProtocolBodyEncoding=None)))
+                                                                       subProtocolBodyEncoding=None),
+                                      {"value": model.CouchDBEndPointDefinition(endpointAddress='',
+                                                                       endpointProtocol=None,
+                                                                       endpointProtocolVersion=None,
+                                                                       securityAttributes=None,
+                                                                       subProtocol=None,
+                                                                       subProtocolBody=None,
+                                                                       subProtocolBodyEncoding=None)}))
 
     # asset identification submodel which will be included in the asset object
     identification_submodel = model.Submodel(
@@ -157,10 +164,7 @@ def create_example_asset_identification_submodel() -> model.Submodel:
                                                                        securityAttributes=None,
                                                                        subProtocol=None,
                                                                        subProtocolBody=None,
-                                                                       subProtocolBodyEncoding=None),
-                                      {"ManufacturerName": model.OpcUaEndPointDefinition(namespaceIndex=2,
-                                                                                         identifier="ManufacturerName")}
-                                      ))
+                                                                       subProtocolBodyEncoding=None)))
     return identification_submodel
 
 

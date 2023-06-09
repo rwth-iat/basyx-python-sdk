@@ -14,6 +14,7 @@ from pathlib import Path
 
 import basyx.aas.examples.data.example_aas
 import basyx.aas.backend.couchdb
+import basyx.aas.backend.backends
 
 # To execute this tutorial, you'll need a running CouchDB server, including an empty database and a user account with
 # access to that database.
@@ -104,6 +105,7 @@ prop.value = "RWTH Aachen"
 # We can simply call commit() on the Property object. It will check the `source` attribute of the object itself as well
 # as the source attribute of all ancestors in the object hierarchy (including the Submodel) and commit the changes to
 # all of these external data sources.
+prop.update()
 prop.commit()
 
 
