@@ -77,7 +77,7 @@ example_submodel1 = basyx.aas.examples.data.example_aas.create_example_asset_ide
 # The CouchDBObjectStore behaves just like other ObjectStore implementations (see `tutorial_storage.py`). The objects
 # are transferred to the CouchDB immediately. Additionally, the `source` attribute is set automatically, so update() and
 # commit() will work automatically (see below).
-object_store.add(example_submodel1)
+# object_store.add(example_submodel1)
 #object_store.add(example_submodel2)
 
 

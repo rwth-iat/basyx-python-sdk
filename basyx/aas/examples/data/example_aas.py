@@ -91,7 +91,7 @@ def create_example_asset_identification_submodel() -> model.Submodel:
                                                id_type=model.KeyType.IRI),)),
         qualifier={qualifier, qualifier2},
         kind=model.ModelingKind.INSTANCE,
-        source=model.SourceDefinition(model.ConcreteEndPointDefinition(endpointAddress='',
+        source=model.SourceDefinition(model.ConcreteEndPointDefinition(endpointAddress='http://localhost:5984',
                                                                        endpointProtocol=None,
                                                                        endpointProtocolVersion=None,
                                                                        securityAttributes=None,
