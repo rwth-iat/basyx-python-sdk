@@ -91,7 +91,7 @@ class Backend(metaclass=abc.ABCMeta):
 
         It is automatically called by the :meth:`~aas.model.base.Referable.update` implementation, when the source URI
         of the object or
-        the source URI one of its ancestors in the AAS object containment hierarchy include an URI schema for which this
+        the source URI one of its ancestors in the AAS object containment hierarchy include a URI schema for which this
         backend has been registered. Both of the objects are passed to this function: the one which shall be update
         (`updated_object`) and its ancestor with the relevant source URI (`store_object`). They may be the same, the
         updated object has a source with the relevant schema itself. Additionally, the `relative_path` from the

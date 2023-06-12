@@ -57,9 +57,11 @@ class CouchDBBackend(backends.Backend):
                 raise KeyError("No Identifiable found in CouchDB at {}".format(url)) from e
             raise
 
+        # TODO consider using another variable name for the updated_store_object
         updated_store_object = data['data']
         set_couchdb_revision(url, data["_rev"])
-        store_object.update_from(updated_store_object)
+        # store_object.update_from(updated_store_object)
+        updated_object.update_from(updated_store_object)
 
     @classmethod
     def commit_object(cls,

@@ -522,7 +522,7 @@ class Referable(metaclass=abc.ABCMeta):
         referable: Referable = self
         relative_path: List[str] = [self.id_short]
         while referable is not None:
-            if referable.source != "":
+            if referable.source is not None
                 relative_path.reverse()
                 return referable, relative_path
             if referable.parent:
