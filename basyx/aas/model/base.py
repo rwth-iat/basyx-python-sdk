@@ -522,7 +522,7 @@ class Referable(metaclass=abc.ABCMeta):
         referable: Referable = self
         relative_path: List[str] = [self.id_short]
         while referable is not None:
-            if referable.source is not None
+            if referable.source is not None:
                 relative_path.reverse()
                 return referable, relative_path
             if referable.parent:
@@ -1318,7 +1318,7 @@ class SourceDefinition:
     """
 
     Defines the location or the data source(s) for all the attributes of a referable object.
-
+    # TODO adapt description of attributeSpecificSource
     :ivar defaultSource: This is accessed if no separate data source is defined for the corresponding attribute.
     :ivar attributeSpecificSource: data from other data sources be used for the individual attributes can be done
                                    with this attribute, which is a key-value list. Attribute name is used as key,
