@@ -21,7 +21,9 @@ logger = logging.getLogger(__name__)
 
 couchdbAddress1 = 'couchdb://localhost:5984/backend/' \
                   'IRI-http%3A%2F%2Facplt.org%2FSubmodels%2FAssets%2FTestAsset%2FIdentification'
-defualtSource = model.CouchDBEndPointDefinition(endpointAddress= couchdbAddress1,
+couchdbAddress2 = 'couchdb://localhost:5984/backend/' \
+                  'IRI-http%3A%2F%2Facplt.org%2FSubmodels%2FAssets%2FTestAsset%2FBillOfMaterial'
+defualtSource1 = model.CouchDBEndPointDefinition(endpointAddress= couchdbAddress1,
                                                  endpointProtocol=None,
                                                  endpointProtocolVersion=None,
                                                  securityAttributes=None,
@@ -29,6 +31,13 @@ defualtSource = model.CouchDBEndPointDefinition(endpointAddress= couchdbAddress1
                                                  subProtocolBody=None,
                                                  subProtocolBodyEncoding=None)
 
+defualtSource2 = model.CouchDBEndPointDefinition(endpointAddress= couchdbAddress2,
+                                                 endpointProtocol=None,
+                                                 endpointProtocolVersion=None,
+                                                 securityAttributes=None,
+                                                 subProtocol=None,
+                                                 subProtocolBody=None,
+                                                 subProtocolBodyEncoding=None)
 
 def create_full_example() -> model.DictObjectStore:
     """
@@ -101,7 +110,7 @@ def create_example_asset_identification_submodel() -> model.Submodel:
                                                id_type=model.KeyType.IRI),)),
         qualifier={qualifier, qualifier2},
         kind=model.ModelingKind.INSTANCE,
-        source=model.SourceDefinition(defualtSource))
+        source=model.SourceDefinition(defualtSource2))
 
     # Property-Element conform to 'Verwaltungssschale in der Praxis' page 44 InstanceId:
     # https://www.plattform-i40.de/PI40/Redaktion/DE/Downloads/Publikation/2019-verwaltungsschale-in-der-praxis.html
@@ -127,7 +136,7 @@ def create_example_asset_identification_submodel() -> model.Submodel:
                                                id_type=model.KeyType.IRI),)),
         qualifier=None,
         kind=model.ModelingKind.INSTANCE,
-        source=model.SourceDefinition(defualtSource))
+        source=model.SourceDefinition(defualtSource1))
 
     # asset identification submodel which will be included in the asset object
     identification_submodel = model.Submodel(
@@ -149,7 +158,7 @@ def create_example_asset_identification_submodel() -> model.Submodel:
         qualifier=None,
         kind=model.ModelingKind.INSTANCE,
 
-        source=model.SourceDefinition(defualtSource))
+        source=model.SourceDefinition(defualtSource1))
     return identification_submodel
 
 
