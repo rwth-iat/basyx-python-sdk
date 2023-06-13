@@ -21,8 +21,6 @@ logger = logging.getLogger(__name__)
 
 couchdbAddress1 = 'couchdb://localhost:5984/backend/' \
                   'IRI-http%3A%2F%2Facplt.org%2FSubmodels%2FAssets%2FTestAsset%2FIdentification'
-couchdbAddress2 = 'couchdb://localhost:5984/backend/' \
-                  'IRI-http%3A%2F%2Facplt.org%2FSubmodels%2FAssets%2FTestAsset%2FBillOfMaterial'
 defualtSource1 = model.CouchDBEndPointDefinition(endpointAddress= couchdbAddress1,
                                                  endpointProtocol=None,
                                                  endpointProtocolVersion=None,
@@ -31,6 +29,8 @@ defualtSource1 = model.CouchDBEndPointDefinition(endpointAddress= couchdbAddress
                                                  subProtocolBody=None,
                                                  subProtocolBodyEncoding=None)
 
+couchdbAddress2 = 'couchdb://localhost:5984/backend/' \
+                  'IRI-http%3A%2F%2Facplt.org%2FSubmodels%2FAssets%2FTestAsset%2FBillOfMaterial'
 defualtSource2 = model.CouchDBEndPointDefinition(endpointAddress= couchdbAddress2,
                                                  endpointProtocol=None,
                                                  endpointProtocolVersion=None,
@@ -158,7 +158,7 @@ def create_example_asset_identification_submodel() -> model.Submodel:
         qualifier=None,
         kind=model.ModelingKind.INSTANCE,
 
-        source=model.SourceDefinition(defualtSource1))
+        source=model.SourceDefinition(defualtSource1,{'idShort': defualtSource2}))
     return identification_submodel
 
 
