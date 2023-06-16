@@ -470,7 +470,8 @@ class Referable(metaclass=abc.ABCMeta):
     def update(self,
                max_age: float = 0,
                recursive: bool = True,
-               _indirect_source: bool = True) -> None:
+               _indirect_source: bool = True,
+               only_attribute_specific: bool = False) -> None:
         """
         Update the local Referable object from any underlying external data source, using an appropriate backend
 
@@ -481,6 +482,7 @@ class Referable(metaclass=abc.ABCMeta):
             of the object has been performed less than `max_age` seconds ago.
         :param recursive: Also call update on all children of this object. Default is True
         :param _indirect_source: Internal parameter to avoid duplicate updating.
+        :param only_attribute_specific: Only update the attribute specific source, if there is one. Default is False
         :raises backends.BackendError: If no appropriate backend or the data source is not available
         """
         # TODO consider max_age
@@ -489,15 +491,19 @@ class Referable(metaclass=abc.ABCMeta):
             # TODO: add attribute specific source
             if self.source is not None:
                 backends.get_backend(self.source.defaultSource).update_object(updated_object=self,
-                                                                                              store_object=self,
-                                                                                              relative_path=[])
+                                                                              store_object=self,
+                                                                              relative_path=[])
 
         else:
             # Try to find a valid source for this Referable
             if self.source is not None:
-                backends.get_backend(self.source.defaultSource).update_object(updated_object=self,
-                                                                                              store_object=self,
-                                                                                              relative_path=[])
+                if not only_attribute_specific:
+                    endpoint = self.source.defaultSource
+                    backends.get_backend(endpoint).update_object(updated_object=self,
+                                                                 store_object=self,
+                                                                 relative_path=[],
+                                                                 specific_attribute=None,
+                                                                 endpoint=endpoint)
                 if self.source.attributeSpecificSource is not None:
                     for attribute, endpoint in self.source.attributeSpecificSource.items():
                         backends.get_backend(endpoint).update_object(updated_object=self,

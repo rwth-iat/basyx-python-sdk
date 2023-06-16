@@ -50,11 +50,8 @@ class CouchDBBackend(backends.Backend):
         if not isinstance(store_object, model.Identifiable):
             raise CouchDBSourceError("The given store_object is not Identifiable, therefore cannot be found "
                                      "in the CouchDB")
-        if store_object.source is not None:
-            if specific_attribute is None:
-                url = CouchDBBackend._parse_source(store_object.source.defaultSource.endpointAddress)
-            elif specific_attribute and endpoint:
-                url = CouchDBBackend._parse_source(endpoint.endpointAddress)
+        if endpoint is not None:
+            url = CouchDBBackend._parse_source(endpoint.endpointAddress)
 
         try:
             data = CouchDBBackend.do_request(url)
