@@ -486,6 +486,7 @@ class Referable(metaclass=abc.ABCMeta):
         # TODO consider max_age
         if not _indirect_source:
             # Update was already called on an ancestor of this Referable. Only update it, if it has its own source
+            # TODO: add attribute specific source
             if self.source is not None:
                 backends.get_backend(self.source.defaultSource).update_object(updated_object=self,
                                                                                               store_object=self,
@@ -497,6 +498,14 @@ class Referable(metaclass=abc.ABCMeta):
                 backends.get_backend(self.source.defaultSource).update_object(updated_object=self,
                                                                                               store_object=self,
                                                                                               relative_path=[])
+                if self.source.attributeSpecificSource is not None:
+                    for attribute, endpoint in self.source.attributeSpecificSource.items():
+                        backends.get_backend(endpoint).update_object(updated_object=self,
+                                                                     store_object=self,
+                                                                     relative_path=[],
+                                                                     specific_attribute=attribute,
+                                                                     endpoint=endpoint)
+            # TODO: add attribute specific source
             else:
                 store_object, relative_path = self.find_source()
                 if store_object and relative_path is not None:

@@ -97,7 +97,7 @@ example_submodel1.update()
 prop = example_submodel1.get_referable('ManufacturerName')
 assert isinstance(prop, basyx.aas.model.Property)
 
-prop.update()
+# prop.update()
 prop.value = "RWTH Aachen"
 
 # Commit (upload) these changes to the CouchDB server

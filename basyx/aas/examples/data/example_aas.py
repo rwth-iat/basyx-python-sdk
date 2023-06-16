@@ -158,7 +158,7 @@ def create_example_asset_identification_submodel() -> model.Submodel:
         qualifier=None,
         kind=model.ModelingKind.INSTANCE,
 
-        source=model.SourceDefinition(defualtSource1,{'idShort': defualtSource2}))
+        source=model.SourceDefinition(defualtSource1,{'description': defualtSource2}))
     return identification_submodel
 
 

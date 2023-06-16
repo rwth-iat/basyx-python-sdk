@@ -84,7 +84,9 @@ class Backend(metaclass=abc.ABCMeta):
     def update_object(cls,
                       updated_object: "Referable",
                       store_object: "Referable",
-                      relative_path: List[str]) -> None:
+                      relative_path: List[str],
+                      specific_attribute: str = None,
+                      endpoint: Type[Type[EndPointDefinition]] = None) -> None:
         """
         Function (class method) to be called when an object shall be updated (local object updated with changes from the
         external data source) via this backend implementation.

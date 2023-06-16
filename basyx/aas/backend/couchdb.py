@@ -23,6 +23,7 @@ from . import backends
 from ..adapter.json import json_serialization, json_deserialization
 from basyx.aas import model
 from ..model import CouchDBEndPointDefinition
+from typing import Type
 
 logger = logging.getLogger(__name__)
 
@@ -41,15 +42,20 @@ class CouchDBBackend(backends.Backend):
     def update_object(cls,
                       updated_object: model.Referable,
                       store_object: model.Referable,
-                      relative_path: List[str]) -> None:
+                      relative_path: List[str],
+                      specific_attribute: str = None,
+                      endpoint: Type[CouchDBEndPointDefinition] = None) -> None:
 
+        # TODO: check if it is necessary to check if the store_object is Identifiable
         if not isinstance(store_object, model.Identifiable):
             raise CouchDBSourceError("The given store_object is not Identifiable, therefore cannot be found "
                                      "in the CouchDB")
         if store_object.source is not None:
-            url = CouchDBBackend._parse_source(store_object.source.defaultSource.endpointAddress)
-        # if updated_object.source is not None:
-            # url = CouchDBBackend._parse_source(updated_object.source.defaultSource.endpointAddress)
+            if specific_attribute is None:
+                url = CouchDBBackend._parse_source(store_object.source.defaultSource.endpointAddress)
+            elif specific_attribute and endpoint:
+                url = CouchDBBackend._parse_source(endpoint.endpointAddress)
+
         try:
             data = CouchDBBackend.do_request(url)
         except CouchDBServerError as e:
@@ -60,8 +66,11 @@ class CouchDBBackend(backends.Backend):
         # TODO consider using another variable name for the updated_store_object
         updated_store_object = data['data']
         set_couchdb_revision(url, data["_rev"])
-        store_object.update_from(updated_store_object)
-        # updated_object.update_from(updated_store_object)
+        if specific_attribute is None:
+            store_object.update_from(updated_store_object)
+        else:
+            vars(store_object)[specific_attribute] = updated_store_object[specific_attribute]
+
 
     @classmethod
     def commit_object(cls,
