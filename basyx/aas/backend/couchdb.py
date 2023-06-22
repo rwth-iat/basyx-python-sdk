@@ -60,31 +60,41 @@ class CouchDBBackend(backends.Backend):
                 raise KeyError("No Identifiable found in CouchDB at {}".format(url)) from e
             raise
 
-        # TODO consider using another variable name for the updated_store_object
+        # TODO: consider using another variable name for the updated_store_object
         updated_store_object = data['data']
         set_couchdb_revision(url, data["_rev"])
         if specific_attribute is None:
             store_object.update_from(updated_store_object)
         else:
-            vars(store_object)[specific_attribute] = updated_store_object[specific_attribute]
+            for name, var in vars(store_object).items():
+                if name.replace('_', '').lower() == specific_attribute.replace('_', '').lower():
+                    vars(store_object)[name] = updated_store_object
 
 
     @classmethod
     def commit_object(cls,
                       committed_object: model.Referable,
                       store_object: model.Referable,
-                      relative_path: List[str]) -> None:
+                      relative_path: List[str],
+                      specific_attribute: str = None,
+                      endpoint: Type[CouchDBEndPointDefinition] = None) -> None:
         if not isinstance(store_object, model.Identifiable):
             raise CouchDBSourceError("The given store_object is not Identifiable, therefore cannot be found "
                                      "in the CouchDB")
-        if store_object.source is not None:
-            url = CouchDBBackend._parse_source(store_object.source.defaultSource.endpointAddress)
+        if endpoint is not None:
+            url = CouchDBBackend._parse_source(endpoint.endpointAddress)
         # We need to get the revision of the object, if it already exists, otherwise we cannot write to the Couchdb
         if get_couchdb_revision(url) is None:
             raise CouchDBConflictError("No revision found for the given object. Try calling `update` on it.")
 
-        data = json.dumps({'data': store_object, "_rev": get_couchdb_revision(url)},
-                          cls=json_serialization.AASToJsonEncoder)
+        if specific_attribute is None:
+            data = json.dumps({'data': store_object, "_rev": get_couchdb_revision(url)},
+                              cls=json_serialization.WithoutSpecificAttributeAASToJsonEncoder)
+        else:
+            for name, var in vars(store_object).items():
+                if name.replace('_', '').lower() == specific_attribute.replace('_', '').lower():
+                    data = json.dumps({'data': vars(store_object)[name],
+                               "_rev": get_couchdb_revision(url)})
         try:
             response = CouchDBBackend.do_request(
                 url, method='PUT', additional_headers={'Content-type': 'application/json'}, body=data.encode('utf-8'))
@@ -348,7 +358,7 @@ class CouchDBObjectStore(model.AbstractObjectStore):
         """
         logger.debug("Adding object %s to CouchDB database ...", repr(x))
         # Serialize data
-        data = json.dumps({'data': x}, cls=json_serialization.AASToJsonEncoder)
+        data = json.dumps({'data': x}, cls=json_serialization.WithoutSpecificAttributeAASToJsonEncoder)
 
         # Create and issue HTTP request (raises HTTPError on status != 200)
         try:

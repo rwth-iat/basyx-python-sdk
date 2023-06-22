@@ -16,6 +16,10 @@ import basyx.aas.examples.data.example_aas
 import basyx.aas.backend.couchdb
 import basyx.aas.backend.backends
 
+# import sys
+# sys.path.insert(0, "..")
+# from opcua import Client
+
 # To execute this tutorial, you'll need a running CouchDB server, including an empty database and a user account with
 # access to that database.
 # After installing CouchDB, you can use the CouchDB web interface "Fauxton" (typically at
@@ -92,12 +96,14 @@ example_submodel1 = basyx.aas.examples.data.example_aas.create_example_asset_ide
 
 # Fetch recent updates from the server
 example_submodel1.update()
+example_submodel1.update(only_attribute_specific=True)
 
+example_submodel1.commit()
+example_submodel1.commit(only_attribute_specific=True)
 # Make some changes to a Property within the submodel
 prop = example_submodel1.get_referable('ManufacturerName')
 assert isinstance(prop, basyx.aas.model.Property)
 
-# prop.update()
 prop.value = "RWTH Aachen"
 
 # Commit (upload) these changes to the CouchDB server
@@ -106,6 +112,34 @@ prop.value = "RWTH Aachen"
 # all of these external data sources.
 
 prop.commit()
+
+
+################
+# OPC UA  Test #
+################
+
+
+# client = Client("opc.tcp://localhost:4840/freeopcua/server/")
+# #connect using a user
+#
+# client.connect()
+#
+# # Client has a few methods to get proxy to UA nodes that
+# #  should always be in address space such as Root or Objects
+# root = client.get_root_node()
+# print("Objects node is: ", root)
+#
+# # Now getting a variable node using its browse path
+# idtest = root.get_child(["0:Objects", "2:MyObject", "2:idShort"])
+# print("the idShort saved in OPC UA Server is: ", idtest.get_value())
+#
+# var = client.get_node("ns=2;i=3")
+# print("getting value using nodeId, the result should be the same: ",var.get_value())
+#
+# idtest.set_value("RWTH Aachen")
+#
+# client.disconnect()
+
 
 
 ############

@@ -47,7 +47,9 @@ class Backend(metaclass=abc.ABCMeta):
     def commit_object(cls,
                       committed_object: "Referable",
                       store_object: "Referable",
-                      relative_path: List[str]) -> None:
+                      relative_path: List[str],
+                      specific_attribute: str = None,
+                      endpoint: Type[Type[EndPointDefinition]] = None) -> None:
         """
         Function (class method) to be called when an object shall be committed (local changes pushed to the external
         data source) via this backend implementation.

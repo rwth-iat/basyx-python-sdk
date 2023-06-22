@@ -569,7 +569,8 @@ class Referable(metaclass=abc.ABCMeta):
             else:
                 vars(self)[name] = var  # that variable is not a NameSpaceSet, so it isn't Referable
 
-    def commit(self) -> None:
+    def commit(self,
+               only_attribute_specific: bool = False) -> None:
         """
         Transfer local changes on this object to all underlying external data sources.
 
@@ -582,23 +583,43 @@ class Referable(metaclass=abc.ABCMeta):
         while current_ancestor:
             assert isinstance(current_ancestor, Referable)
             if current_ancestor.source is not None:
-                backends.get_backend(current_ancestor.source.defaultSource).commit_object(
-                    committed_object=self,
-                    store_object=current_ancestor,
-                    relative_path=list(relative_path))
+                if not only_attribute_specific:
+                    endpoint = current_ancestor.source.defaultSource
+                    backends.get_backend(endpoint).commit_object(committed_object=self,
+                                                                 store_object=current_ancestor,
+                                                                 relative_path=list(relative_path),
+                                                                 endpoint=endpoint)
+                if current_ancestor.source.attributeSpecificSource is not None:
+                    for attribute, endpoint in current_ancestor.source.attributeSpecificSource.items():
+                        backends.get_backend(endpoint).commit_object(committed_object=self,
+                                                                     store_object=current_ancestor,
+                                                                     relative_path=list(relative_path),
+                                                                     specific_attribute=attribute,
+                                                                     endpoint=endpoint)
             relative_path.insert(0, current_ancestor.id_short)
             current_ancestor = current_ancestor.parent
         # Commit to own source and check if there are children with sources to commit to
-        self._direct_source_commit()
+        self._direct_source_commit(only_attribute_specific)
 
-    def _direct_source_commit(self):
+    def _direct_source_commit(self,
+                              only_attribute_specific: bool = False):
         """
         Commits children of an ancestor recursively, if they have a specific source given
         """
         if self.source is not None:
-            backends.get_backend(self.source).commit_object(committed_object=self,
-                                                            store_object=self,
-                                                            relative_path=[])
+            if not only_attribute_specific:
+                endpoint = self.source.defaultSource
+                backends.get_backend(endpoint).commit_object(committed_object=self,
+                                                             store_object=self,
+                                                             relative_path=[],
+                                                             endpoint=endpoint)
+            if self.source.attributeSpecificSource is not None:
+                for attribute, endpoint in self.source.attributeSpecificSource.items():
+                    backends.get_backend(endpoint).commit_object(committed_object=self,
+                                                                 store_object=self,
+                                                                 relative_path=[],
+                                                                 specific_attribute=attribute,
+                                                                 endpoint=endpoint)
 
         if isinstance(self, Namespace):
             for namespace_set in self.namespace_element_sets:
@@ -1286,7 +1307,7 @@ class CouchDBEndPointDefinition(EndPointDefinition):
     """
 
     Concrete class extending Abstract EndpointDefinition class,
-    used in SourceDefinition and AttributeSpecificSourceDefinition classes.
+    representing a CouchDB endpoint.
 
     """
 
@@ -1343,19 +1364,10 @@ class SourceDefinition:
 
     def __init__(self,
                  defaultSource: Type[Type[EndPointDefinition]],
-                 # attributeSpecificSource: dict[str, EndPointDefinition] = None):
                  attributeSpecificSource: Optional[Dict[str, Type[Type[EndPointDefinition]]]] = None ):
         super().__init__()
-        self.defaultSource: Type[Type[EndPointDefinition]] = defaultSource
-        if attributeSpecificSource is None:
-            print("No attributeSpecificSource provided.")
-            # self.attributeSpecificSource = {}
+        self.defaultSource: EndPointDefinition = defaultSource
+        if attributeSpecificSource is not None:
+            self.attributeSpecificSource = attributeSpecificSource
         else:
-            for key, value in attributeSpecificSource.items():
-                if not isinstance(key, str):
-                    raise ValueError(f"Invalid key type: {type(key)}. Key must be a string.")
-                if not issubclass(type(value), EndPointDefinition):
-                    raise ValueError(f"Invalid value type: {type(value)}. \
-                    Value must be a subclass of EndPointDefinition.")
-                print(f"Key: {key}, Value: {type(value)}")
-                self.attributeSpecificSource = attributeSpecificSource
+            self.attributeSpecificSource = None

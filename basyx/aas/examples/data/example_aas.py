@@ -39,6 +39,19 @@ defualtSource2 = model.CouchDBEndPointDefinition(endpointAddress= couchdbAddress
                                                  subProtocolBody=None,
                                                  subProtocolBodyEncoding=None)
 
+couchdbAddress3 = 'couchdb://localhost:5984/backend/IRI-http%3A%2F%2Facplt.org%2FupdateTest'
+defualtSource3 = model.CouchDBEndPointDefinition(endpointAddress= couchdbAddress3,
+                                                 endpointProtocol=None,
+                                                 endpointProtocolVersion=None,
+                                                 securityAttributes=None,
+                                                 subProtocol=None,
+                                                 subProtocolBody=None,
+                                                 subProtocolBodyEncoding=None)
+
+attribute_specific_source = {'id_short': defualtSource2}
+# attribute_specific_source = defualtSource2
+# attribute_specific_source = None
+
 def create_full_example() -> model.DictObjectStore:
     """
     Creates an object store which is filled with an example :class:`~aas.model.aas.Asset`,
@@ -158,7 +171,8 @@ def create_example_asset_identification_submodel() -> model.Submodel:
         qualifier=None,
         kind=model.ModelingKind.INSTANCE,
 
-        source=model.SourceDefinition(defualtSource1,{'description': defualtSource2}))
+        source=model.SourceDefinition(defualtSource1, attribute_specific_source))
+
     return identification_submodel
 
 

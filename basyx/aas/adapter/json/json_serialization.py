@@ -55,6 +55,7 @@ class AASToJsonEncoder(json.JSONEncoder):
                     See https://git.rwth-aachen.de/acplt/pyi40aas/-/issues/91
     """
     stripped = False
+    withoutSpecificAttribute = False
 
     def default(self, obj: object) -> object:
         """
@@ -129,7 +130,9 @@ class AASToJsonEncoder(json.JSONEncoder):
         """
         data = {}
         if isinstance(obj, model.Referable):
-            data['idShort'] = obj.id_short
+            # if obj.source.attributeSpecificSource['idShort'] is None or not withoutSpecificAttribute:
+            if obj.id_short:
+                data['idShort'] = obj.id_short
             if obj.category:
                 data['category'] = obj.category
             if obj.description:
@@ -686,6 +689,14 @@ class StrippedAASToJsonEncoder(AASToJsonEncoder):
     See https://git.rwth-aachen.de/acplt/pyi40aas/-/issues/91
     """
     stripped = True
+
+
+class WithoutSpecificAttributeAASToJsonEncoder(AASToJsonEncoder):
+    """
+    AASToJsonEncoder for objects without specific attribute. Used in the backend concept.
+    See https://git.rwth-aachen.de/acplt/pyi40aas/-/issues/91
+    """
+    withoutSpecificAttribute = True
 
 
 def _select_encoder(stripped: bool, encoder: Optional[Type[AASToJsonEncoder]] = None) -> Type[AASToJsonEncoder]:
