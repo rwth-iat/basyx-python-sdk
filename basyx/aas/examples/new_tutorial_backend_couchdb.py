@@ -68,7 +68,7 @@ couchdb_password = config['couchdb']['password']
 basyx.aas.backend.couchdb.register_credentials(couchdb_url, couchdb_user, couchdb_password)
 
 # Now, we create a CouchDBObjectStore as an interface for managing the objects in the CouchDB server.
-# object_store = basyx.aas.backend.couchdb.CouchDBObjectStore(couchdb_url, couchdb_database)
+object_store = basyx.aas.backend.couchdb.CouchDBObjectStore(couchdb_url, couchdb_database)
 
 
 #####################################################
@@ -81,8 +81,8 @@ example_submodel1 = basyx.aas.examples.data.example_aas.create_example_asset_ide
 # The CouchDBObjectStore behaves just like other ObjectStore implementations (see `tutorial_storage.py`). The objects
 # are transferred to the CouchDB immediately. Additionally, the `source` attribute is set automatically, so update() and
 # commit() will work automatically (see below).
-# object_store.add(example_submodel1)
 
+object_store.add(example_submodel1)
 
 ###################################################################
 # Step 3: Updating Objects from the CouchDB and Commiting Changes #
@@ -94,16 +94,27 @@ example_submodel1 = basyx.aas.examples.data.example_aas.create_example_asset_ide
 # this to work, we must make sure to `import aas.backend.couchdb` at least once in this Python application, so the
 # CouchDB backend is loaded.
 
+
 # Fetch recent updates from the server
 example_submodel1.update()
 example_submodel1.update(only_attribute_specific=True)
 
+example_submodel1.update()
+example_submodel1.id_short = "CommitTest"
+example_submodel1.description['en-us'] = "Commit Test Description"
 example_submodel1.commit()
+
+example_submodel1.update(only_attribute_specific=True)
+example_submodel1.id_short = "CommitTestOnlyAttributeSpecific"
+example_submodel1.description['en-us'] = "Commit Test Description Only Attribute Specific"
 example_submodel1.commit(only_attribute_specific=True)
+
 # Make some changes to a Property within the submodel
 prop = example_submodel1.get_referable('ManufacturerName')
 assert isinstance(prop, basyx.aas.model.Property)
 
+prop.update()
+prop.update(only_attribute_specific=True)
 prop.value = "RWTH Aachen"
 
 # Commit (upload) these changes to the CouchDB server
@@ -111,35 +122,7 @@ prop.value = "RWTH Aachen"
 # as the source attribute of all ancestors in the object hierarchy (including the Submodel) and commit the changes to
 # all of these external data sources.
 
-prop.commit()
-
-
-################
-# OPC UA  Test #
-################
-
-
-# client = Client("opc.tcp://localhost:4840/freeopcua/server/")
-# #connect using a user
-#
-# client.connect()
-#
-# # Client has a few methods to get proxy to UA nodes that
-# #  should always be in address space such as Root or Objects
-# root = client.get_root_node()
-# print("Objects node is: ", root)
-#
-# # Now getting a variable node using its browse path
-# idtest = root.get_child(["0:Objects", "2:MyObject", "2:idShort"])
-# print("the idShort saved in OPC UA Server is: ", idtest.get_value())
-#
-# var = client.get_node("ns=2;i=3")
-# print("getting value using nodeId, the result should be the same: ",var.get_value())
-#
-# idtest.set_value("RWTH Aachen")
-#
-# client.disconnect()
-
+prop.commit(only_attribute_specific=True)
 
 
 ############
@@ -147,4 +130,4 @@ prop.commit()
 ############
 
 # Let's delete the Submodels from the CouchDB to leave it in a clean state
-# object_store.discard(example_submodel1)
+object_store.discard(example_submodel1)
