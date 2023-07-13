@@ -146,7 +146,7 @@ def register_backend(source: Type[EndPointDefinition], backend_class: Type[Backe
 # RE_URI_SCHEME = re.compile(r"^([a-zA-Z][a-zA-Z+\-\.]*):")
 
 
-def get_backend(source: Type[Type[EndPointDefinition]]) -> Type[Backend]:
+def get_backend(source: Type[EndPointDefinition]) -> Type[Backend]:
     """
     Internal function to retrieve the Backend implementation for the external data source identified by the given type
     of the EndPointDefinition Class.

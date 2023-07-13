@@ -488,22 +488,16 @@ class Referable(metaclass=abc.ABCMeta):
         # TODO consider max_age
         if not _indirect_source:
             # Update was already called on an ancestor of this Referable. Only update it, if it has its own source
-            # TODO: add attribute specific source
+            # TODO: check if update of default source is necessary, cause it is already updated by the ancestor
             if self.source is not None:
-                backends.get_backend(self.source.defaultSource).update_object(updated_object=self,
-                                                                              store_object=self,
-                                                                              relative_path=[])
-
-        else:
-            # Try to find a valid source for this Referable
-            if self.source is not None:
-                if not only_attribute_specific:
-                    endpoint = self.source.defaultSource
-                    backends.get_backend(endpoint).update_object(updated_object=self,
-                                                                 store_object=self,
-                                                                 relative_path=[],
-                                                                 specific_attribute=None,
-                                                                 endpoint=endpoint)
+                if self.source.defaultSource is not None:
+                    if not only_attribute_specific:
+                        endpoint = self.source.defaultSource
+                        backends.get_backend(endpoint).update_object(updated_object=self,
+                                                                     store_object=self,
+                                                                     relative_path=[],
+                                                                     specific_attribute=None,
+                                                                     endpoint=endpoint)
                 if self.source.attributeSpecificSource is not None:
                     for attribute, endpoint in self.source.attributeSpecificSource.items():
                         backends.get_backend(endpoint).update_object(updated_object=self,
@@ -511,15 +505,44 @@ class Referable(metaclass=abc.ABCMeta):
                                                                      relative_path=[],
                                                                      specific_attribute=attribute,
                                                                      endpoint=endpoint)
-            # TODO: add attribute specific source
-            else:
-                store_object, relative_path = self.find_source()
-                if store_object and relative_path is not None:
-                    if store_object.source is not None:
-                        backends.get_backend(store_object.source.defaultSource).update_object(
-                            updated_object=self,
-                            store_object=store_object,
-                            relative_path=list(relative_path))
+
+        else:
+            # Try to find a valid source for this Referable
+            if self.source is not None:
+                if self.source.defaultSource is not None:
+                    if not only_attribute_specific:
+                        endpoint = self.source.defaultSource
+                        backends.get_backend(endpoint).update_object(updated_object=self,
+                                                                     store_object=self,
+                                                                     relative_path=[],
+                                                                     specific_attribute=None,
+                                                                     endpoint=endpoint)
+                    if self.source.attributeSpecificSource is not None:
+                        for attribute, endpoint in self.source.attributeSpecificSource.items():
+                            backends.get_backend(endpoint).update_object(updated_object=self,
+                                                                         store_object=self,
+                                                                         relative_path=[],
+                                                                         specific_attribute=attribute,
+                                                                         endpoint=endpoint)
+                else:
+                    store_object, relative_path = self.find_source()
+                    if store_object and relative_path is not None:
+                        if store_object.source.defaultSource is not None:
+                            if not only_attribute_specific:
+                                endpoint = store_object.source.defaultSource
+                                backends.get_backend(endpoint).update_object(updated_object=store_object,
+                                                                             store_object=store_object,
+                                                                             relative_path=list(relative_path),
+                                                                             specific_attribute=None,
+                                                                             endpoint=endpoint)
+
+                    if self.source.attributeSpecificSource is not None:
+                        for attribute, endpoint in self.source.attributeSpecificSource.items():
+                            backends.get_backend(endpoint).update_object(updated_object=self,
+                                                                         store_object=store_object,
+                                                                         relative_path=list(relative_path),
+                                                                         specific_attribute=attribute,
+                                                                         endpoint=endpoint)
 
         if recursive:
             # update all the children who have their own source
@@ -537,9 +560,10 @@ class Referable(metaclass=abc.ABCMeta):
         referable: Referable = self
         relative_path: List[str] = [self.id_short]
         while referable is not None:
-            if referable.source is not None:
-                relative_path.reverse()
-                return referable, relative_path
+            if self.source is not None:
+                if referable.source.defaultSource is not None:
+                    relative_path.reverse()
+                    return referable, relative_path
             if referable.parent:
                 assert isinstance(referable.parent, Referable)
                 referable = referable.parent
@@ -583,15 +607,16 @@ class Referable(metaclass=abc.ABCMeta):
         while current_ancestor:
             assert isinstance(current_ancestor, Referable)
             if current_ancestor.source is not None:
-                if not only_attribute_specific:
-                    endpoint = current_ancestor.source.defaultSource
-                    backends.get_backend(endpoint).commit_object(committed_object=self,
-                                                                 store_object=current_ancestor,
-                                                                 relative_path=list(relative_path),
-                                                                 endpoint=endpoint)
+                if current_ancestor.source.defaultSource is not None:
+                    if not only_attribute_specific:
+                        endpoint = current_ancestor.source.defaultSource
+                        backends.get_backend(endpoint).commit_object(committed_object=current_ancestor,
+                                                                     store_object=current_ancestor,
+                                                                     relative_path=list(relative_path),
+                                                                     endpoint=endpoint)
                 if current_ancestor.source.attributeSpecificSource is not None:
                     for attribute, endpoint in current_ancestor.source.attributeSpecificSource.items():
-                        backends.get_backend(endpoint).commit_object(committed_object=self,
+                        backends.get_backend(endpoint).commit_object(committed_object=current_ancestor,
                                                                      store_object=current_ancestor,
                                                                      relative_path=list(relative_path),
                                                                      specific_attribute=attribute,
@@ -599,24 +624,28 @@ class Referable(metaclass=abc.ABCMeta):
             relative_path.insert(0, current_ancestor.id_short)
             current_ancestor = current_ancestor.parent
         # Commit to own source and check if there are children with sources to commit to
-        self._direct_source_commit(only_attribute_specific)
+        self._direct_source_commit(only_attribute_specific, current_ancestor)
 
     def _direct_source_commit(self,
-                              only_attribute_specific: bool = False):
+                              only_attribute_specific: bool = False,
+                              current_ancestor: Optional["Referable"] = None):
         """
         Commits children of an ancestor recursively, if they have a specific source given
         """
+        if current_ancestor is None:
+            current_ancestor = self
         if self.source is not None:
-            if not only_attribute_specific:
-                endpoint = self.source.defaultSource
-                backends.get_backend(endpoint).commit_object(committed_object=self,
-                                                             store_object=self,
-                                                             relative_path=[],
-                                                             endpoint=endpoint)
+            if self.source.defaultSource is not None:
+                if not only_attribute_specific:
+                    endpoint = self.source.defaultSource
+                    backends.get_backend(endpoint).commit_object(committed_object=self,
+                                                                 store_object=current_ancestor,
+                                                                 relative_path=[],
+                                                                 endpoint=endpoint)
             if self.source.attributeSpecificSource is not None:
                 for attribute, endpoint in self.source.attributeSpecificSource.items():
                     backends.get_backend(endpoint).commit_object(committed_object=self,
-                                                                 store_object=self,
+                                                                 store_object=current_ancestor,
                                                                  relative_path=[],
                                                                  specific_attribute=attribute,
                                                                  endpoint=endpoint)
@@ -624,7 +653,7 @@ class Referable(metaclass=abc.ABCMeta):
         if isinstance(self, Namespace):
             for namespace_set in self.namespace_element_sets:
                 for referable in namespace_set:
-                    referable._direct_source_commit()
+                    referable._direct_source_commit(only_attribute_specific, current_ancestor)
 
     id_short = property(_get_id_short, _set_id_short)
 
@@ -1363,11 +1392,12 @@ class SourceDefinition:
     """
 
     def __init__(self,
-                 defaultSource: Type[Type[EndPointDefinition]],
-                 attributeSpecificSource: Optional[Dict[str, Type[Type[EndPointDefinition]]]] = None ):
+                 defaultSource: Optional[Type[EndPointDefinition]] = None,
+                 attributeSpecificSource: Optional[Dict[str, Type[EndPointDefinition]]] = None ):
         super().__init__()
-        self.defaultSource: EndPointDefinition = defaultSource
-        if attributeSpecificSource is not None:
-            self.attributeSpecificSource = attributeSpecificSource
-        else:
-            self.attributeSpecificSource = None
+        self.defaultSource = defaultSource
+        self.attributeSpecificSource = attributeSpecificSource
+        # if attributeSpecificSource is not None:
+        #     self.attributeSpecificSource = attributeSpecificSource
+        # else:
+        #     self.attributeSpecificSource = None
