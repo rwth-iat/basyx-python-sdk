@@ -21,36 +21,34 @@ logger = logging.getLogger(__name__)
 
 couchdbAddress1 = 'couchdb://localhost:5984/backend/' \
                   'IRI-http%3A%2F%2Facplt.org%2FSubmodels%2FAssets%2FTestAsset%2FIdentification'
-defualtSource1 = model.CouchDBEndPointDefinition(endpointAddress= couchdbAddress1,
-                                                 endpointProtocol=None,
-                                                 endpointProtocolVersion=None,
-                                                 securityAttributes=None,
-                                                 subProtocol=None,
-                                                 subProtocolBody=None,
-                                                 subProtocolBodyEncoding=None)
+endpoint1 = model.CouchDBEndPointDefinition(endpointAddress=couchdbAddress1,
+                                            endpointProtocol=None,
+                                            endpointProtocolVersion=None,
+                                            securityAttributes=None,
+                                            subProtocol=None,
+                                            subProtocolBody=None,
+                                            subProtocolBodyEncoding=None)
 
-couchdbAddress2 = 'couchdb://localhost:5984/backend/' \
-                  'IRI-http%3A%2F%2Facplt.org%2FSubmodels%2FAssets%2FTestAsset%2FBillOfMaterial'
-defualtSource2 = model.CouchDBEndPointDefinition(endpointAddress= couchdbAddress2,
-                                                 endpointProtocol=None,
-                                                 endpointProtocolVersion=None,
-                                                 securityAttributes=None,
-                                                 subProtocol=None,
-                                                 subProtocolBody=None,
-                                                 subProtocolBodyEncoding=None)
+couchdbAddress2 = 'couchdb://localhost:5984/backend/idshortTest'
+endpoint2 = model.CouchDBEndPointDefinition(endpointAddress=couchdbAddress2,
+                                            endpointProtocol=None,
+                                            endpointProtocolVersion=None,
+                                            securityAttributes=None,
+                                            subProtocol=None,
+                                            subProtocolBody=None,
+                                            subProtocolBodyEncoding=None)
 
-couchdbAddress3 = 'couchdb://localhost:5984/backend/IRI-http%3A%2F%2Facplt.org%2FupdateTest'
-defualtSource3 = model.CouchDBEndPointDefinition(endpointAddress= couchdbAddress3,
-                                                 endpointProtocol=None,
-                                                 endpointProtocolVersion=None,
-                                                 securityAttributes=None,
-                                                 subProtocol=None,
-                                                 subProtocolBody=None,
-                                                 subProtocolBodyEncoding=None)
+couchdbAddress3 = 'couchdb://localhost:5984/backend/valueManufacturerName'
+endpoint3 = model.CouchDBEndPointDefinition(endpointAddress=couchdbAddress3,
+                                            endpointProtocol=None,
+                                            endpointProtocolVersion=None,
+                                            securityAttributes=None,
+                                            subProtocol=None,
+                                            subProtocolBody=None,
+                                            subProtocolBodyEncoding=None)
 
-attribute_specific_source = {'id_short': defualtSource2}
-# attribute_specific_source = defualtSource2
-# attribute_specific_source = None
+attribute_specific_source = {'idShort': endpoint2}
+attribute_specific_source_MF = {'value': endpoint3}
 
 def create_full_example() -> model.DictObjectStore:
     """
@@ -123,7 +121,7 @@ def create_example_asset_identification_submodel() -> model.Submodel:
                                                id_type=model.KeyType.IRI),)),
         qualifier={qualifier, qualifier2},
         kind=model.ModelingKind.INSTANCE,
-        source=model.SourceDefinition(defualtSource2))
+        source=model.SourceDefinition(defaultSource=None, attributeSpecificSource=attribute_specific_source_MF))
 
     # Property-Element conform to 'Verwaltungssschale in der Praxis' page 44 InstanceId:
     # https://www.plattform-i40.de/PI40/Redaktion/DE/Downloads/Publikation/2019-verwaltungsschale-in-der-praxis.html
@@ -149,7 +147,7 @@ def create_example_asset_identification_submodel() -> model.Submodel:
                                                id_type=model.KeyType.IRI),)),
         qualifier=None,
         kind=model.ModelingKind.INSTANCE,
-        source=model.SourceDefinition(defualtSource1))
+        source=None)
 
     # asset identification submodel which will be included in the asset object
     identification_submodel = model.Submodel(
@@ -171,7 +169,7 @@ def create_example_asset_identification_submodel() -> model.Submodel:
         qualifier=None,
         kind=model.ModelingKind.INSTANCE,
 
-        source=model.SourceDefinition(defualtSource1, attribute_specific_source))
+        source=model.SourceDefinition(endpoint1, attribute_specific_source))
 
     return identification_submodel
 
