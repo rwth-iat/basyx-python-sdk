@@ -9,7 +9,7 @@
 
 Module for serializing Asset Administration Shell objects to the official JSON format
 
-The module provides an custom JSONEncoder classes :class:`~.AASToJsonEncoder` and :class:`~.StrippedAASToJsonEncoder`
+The module provides a custom JSONEncoder classes :class:`~.AASToJsonEncoder` and :class:`~.StrippedAASToJsonEncoder`
 to be used with the Python standard `json` module. While the former serializes objects as defined in the specification,
 the latter serializes stripped objects, excluding some attributes
 (see https://git.rwth-aachen.de/acplt/pyi40aas/-/issues/91).
@@ -29,7 +29,7 @@ conversion functions to handle all the attributes of abstract base classes.
 """
 import base64
 import inspect
-from typing import List, Dict, IO, Optional, Type
+from typing import List, Dict, IO, Optional, Type, Union, Any
 import json
 
 from basyx.aas import model
@@ -54,6 +54,7 @@ class AASToJsonEncoder(json.JSONEncoder):
                     Defaults to `False`.
                     See https://git.rwth-aachen.de/acplt/pyi40aas/-/issues/91
     """
+    # TODO add description of withoutSpecificAttribute
     stripped = False
     withoutSpecificAttribute = False
 
@@ -118,6 +119,8 @@ class AASToJsonEncoder(json.JSONEncoder):
             return self._qualifier_to_json(obj)
         if isinstance(obj, model.Formula):
             return self._formula_to_json(obj)
+        if isinstance(obj, model.SourceDefinition):
+            return self._source_to_json(obj)
         return super().default(obj)
 
     @classmethod
@@ -137,6 +140,8 @@ class AASToJsonEncoder(json.JSONEncoder):
                 data['category'] = obj.category
             if obj.description:
                 data['description'] = cls._lang_string_set_to_json(obj.description)
+            if obj.source is not None:
+                data['source'] = cls._source_to_json(obj.source)
             try:
                 ref_type = next(iter(t for t in inspect.getmro(type(obj)) if t in model.KEY_ELEMENTS_CLASSES))
             except StopIteration as e:
@@ -304,6 +309,38 @@ class AASToJsonEncoder(json.JSONEncoder):
         :return: dict with the serialized attributes of this object
         """
         return {'valueReferencePairTypes': list(obj)}
+
+    @classmethod
+    def _source_to_json(cls, obj: model.SourceDefinition) -> List[Dict[str, object]]:
+        """
+        serialization of an object from class Source to json
+
+        :param obj: object of class Source
+        :return: dict with the serialized attributes of this object
+        """
+        if obj is None:
+            return None
+        elif obj is not None:
+            ret = {}
+            if obj.defaultSource:
+                ret['defaultSource'] = cls._endpoint_definition_to_json(obj.defaultSource)
+            if obj.attributeSpecificSource:
+                ret['attributeSpecificSource'] = \
+                    [{'attributeName': attributeName, 'endpoint': cls._endpoint_definition_to_json(endpoint)}
+                     for attributeName, endpoint in obj.attributeSpecificSource.items()]
+            return ret
+
+    @classmethod
+    def _endpoint_definition_to_json(cls, obj: model.EndPointDefinition) -> dict[str, Union[list[dict[Any, Any]], str]]:
+        """
+        serialization of an object from class Endpoint to json
+
+        :param obj: object of class Endpoint
+        :return: dict with the serialized attributes of this object
+        """
+        ret = {'endpointType': obj.__class__.__name__,
+               'endpointDefinition': obj.__dict__}
+        return ret
 
     # ############################################################
     # transformation functions to serialize classes from model.aas

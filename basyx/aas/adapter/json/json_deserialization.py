@@ -33,7 +33,7 @@ import base64
 import json
 import logging
 import pprint
-from typing import Dict, Callable, TypeVar, Type, List, IO, Optional, Set
+from typing import Dict, Callable, TypeVar, Type, List, IO, Optional, Set,  Union, Any
 
 from basyx.aas import model
 from .._generic import MODELING_KIND_INVERSE, ASSET_KIND_INVERSE, KEY_ELEMENTS_INVERSE, KEY_TYPES_INVERSE,\
@@ -233,6 +233,8 @@ class AASFromJsonDecoder(json.JSONDecoder):
                 obj.category = _get_ts(dct, 'category', str)
             if 'description' in dct:
                 obj.description = cls._construct_lang_string_set(_get_ts(dct, 'description', list))
+            if 'source' in dct:
+                obj.source = cls._construct_source(_get_ts(dct, 'source', dict))
         if isinstance(obj, model.Identifiable):
             if 'idShort' in dct:
                 obj.id_short = _get_ts(dct, 'idShort', str)
@@ -355,6 +357,38 @@ class AASFromJsonDecoder(json.JSONDecoder):
         return object_class(value_type=value_type,
                             value=model.datatypes.from_xsd(_get_ts(dct, 'value', str), value_type),
                             value_id=cls._construct_reference(_get_ts(dct, 'valueId', dict)))
+
+    @classmethod
+    def _construct_source(cls, dct: dict[str, Union[list[dict[Any, Any]], str]],
+                          object_class=model.SourceDefinition) -> model.SourceDefinition:
+        defaultSource = None
+        attributeSpecificSource = None
+        if 'defaultSource' in dct:
+            defaultSource = cls._construct_endpoint_definition(dct['defaultSource'])
+        if 'attributeSpecificSource' in dct:
+            attributeSpecificSource = {_get_ts(endpoint, 'attributeName', str):
+                                           cls._construct_endpoint_definition(endpoint['endpoint'])
+                                       for endpoint in dct['attributeSpecificSource']}
+            # for endpoint in dct['attributeSpecificSource']:
+            #     attributeSpecificSource[_get_ts(endpoint, 'attributeName', str)] \
+            #         = cls._construct_endpoint_definition(endpoint['endpoint'])
+        ret = object_class(defaultSource=defaultSource, attributeSpecificSource=attributeSpecificSource)
+        return ret
+
+    @classmethod
+    def _construct_endpoint_definition(cls, dct) -> model.EndPointDefinition:
+        # TODO add new endpoint types here
+        if dct['endpointType'] == 'CouchDBEndPointDefinition':
+            endpointDefinition = dct['endpointDefinition']
+            return model.CouchDBEndPointDefinition(
+                endpointAddress=endpointDefinition['endpointAddress'],
+                endpointProtocol=endpointDefinition['endpointProtocol'],
+                endpointProtocolVersion=endpointDefinition['endpointProtocolVersion'],
+                securityAttributes=endpointDefinition['securityAttributes'],
+                subProtocol=endpointDefinition['subProtocol'],
+                subProtocolBody=endpointDefinition['subProtocolBody'],
+                subProtocolBodyEncoding=endpointDefinition['subProtocolBodyEncoding'])
+
 
     # #############################################################################
     # Direct Constructor Methods (for classes with `modelType`) starting from here
