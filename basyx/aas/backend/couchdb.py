@@ -47,9 +47,9 @@ class CouchDBBackend(backends.Backend):
                       endpoint: Type[CouchDBEndPointDefinition] = None) -> None:
 
         # TODO: check if it is necessary to check if the store_object is Identifiable
-        if not isinstance(store_object, model.Identifiable):
-            raise CouchDBSourceError("The given store_object is not Identifiable, therefore cannot be found "
-                                     "in the CouchDB")
+        # if not isinstance(store_object, model.Identifiable):
+        #     raise CouchDBSourceError("The given store_object is not Identifiable, therefore cannot be found "
+        #                              "in the CouchDB")
         if endpoint is not None:
             url = CouchDBBackend._parse_source(endpoint.endpointAddress)
 
@@ -60,15 +60,14 @@ class CouchDBBackend(backends.Backend):
                 raise KeyError("No Identifiable found in CouchDB at {}".format(url)) from e
             raise
 
-        # TODO: consider using another variable name for the updated_store_object
-        updated_store_object = data['data']
+        requested_object = data['data']
         set_couchdb_revision(url, data["_rev"])
         if specific_attribute is None:
-            store_object.update_from(updated_store_object)
+            updated_object.update_from(requested_object)
         else:
-            for name, var in vars(store_object).items():
+            for name, var in vars(updated_object).items():
                 if name.replace('_', '').lower() == specific_attribute.replace('_', '').lower():
-                    vars(store_object)[name] = updated_store_object
+                    vars(updated_object)[name] = requested_object
 
 
     @classmethod
@@ -78,9 +77,10 @@ class CouchDBBackend(backends.Backend):
                       relative_path: List[str],
                       specific_attribute: str = None,
                       endpoint: Type[CouchDBEndPointDefinition] = None) -> None:
-        if not isinstance(store_object, model.Identifiable):
-            raise CouchDBSourceError("The given store_object is not Identifiable, therefore cannot be found "
-                                     "in the CouchDB")
+        # TODO: check if it is necessary to check if the store_object is Identifiable
+        # if not isinstance(store_object, model.Identifiable):
+        #     raise CouchDBSourceError("The given store_object is not Identifiable, therefore cannot be found "
+        #                              "in the CouchDB")
         if endpoint is not None:
             url = CouchDBBackend._parse_source(endpoint.endpointAddress)
         # We need to get the revision of the object, if it already exists, otherwise we cannot write to the Couchdb
@@ -88,12 +88,12 @@ class CouchDBBackend(backends.Backend):
             raise CouchDBConflictError("No revision found for the given object. Try calling `update` on it.")
 
         if specific_attribute is None:
-            data = json.dumps({'data': store_object, "_rev": get_couchdb_revision(url)},
+            data = json.dumps({'data': committed_object, "_rev": get_couchdb_revision(url)},
                               cls=json_serialization.WithoutSpecificAttributeAASToJsonEncoder)
         else:
-            for name, var in vars(store_object).items():
+            for name, var in vars(committed_object).items():
                 if name.replace('_', '').lower() == specific_attribute.replace('_', '').lower():
-                    data = json.dumps({'data': vars(store_object)[name],
+                    data = json.dumps({'data': vars(committed_object)[name],
                                "_rev": get_couchdb_revision(url)})
         try:
             response = CouchDBBackend.do_request(

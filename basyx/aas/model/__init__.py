@@ -68,3 +68,7 @@ KEY_ELEMENTS_CLASSES: Dict[Type[Referable], KeyElements] = {
     RelationshipElement: KeyElements.RELATIONSHIP_ELEMENT,
     SubmodelElement: KeyElements.SUBMODEL_ELEMENT,
 }
+
+
+class Source:
+    pass
