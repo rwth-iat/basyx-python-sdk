@@ -122,6 +122,11 @@ prop.value = "RWTH Aachen"
 # as the source attribute of all ancestors in the object hierarchy (including the Submodel) and commit the changes to
 # all of these external data sources.
 
+prop.update()
+prop.commit()
+
+prop.update(only_attribute_specific=True)
+prop.value = "RWTH Aachen University"
 prop.commit(only_attribute_specific=True)
 
 
