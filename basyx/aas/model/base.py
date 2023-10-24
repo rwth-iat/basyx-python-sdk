@@ -920,13 +920,28 @@ class ExternalReference(Reference):
 
     def __init__(self, key: Tuple[Key, ...], referred_semantic_id: Optional["Reference"] = None):
         super().__init__(key, referred_semantic_id)
+        self.validate_external_reference_keys(key)
 
+    @staticmethod
+    def validate_external_reference_keys(key: Tuple[Key, ...]):
+        """Validates constraints for external reference based on provided keys."""
         if not key[0].type.is_generic_globally_identifiable:
-            raise AASConstraintViolation(122, "The type of the first key of an ExternalReference must be a "
+            raise AASConstraintViolation(122, f"The type of the first key of an ExternalReference must be a "
                                               f"GenericGloballyIdentifiable: {key[0]!r}")
-        if not key[-1].type.is_generic_globally_identifiable and not key[-1].type.is_generic_fragment_key:
-            raise AASConstraintViolation(124, "The type of the last key of an ExternalReference must be a "
+        if (not key[-1].type.is_generic_globally_identifiable and
+                not key[-1].type.is_generic_fragment_key):
+            raise AASConstraintViolation(124, f"The type of the last key of an ExternalReference must be a "
                                               f"GenericGloballyIdentifiable or a GenericFragmentKey: {key[-1]!r}")
+
+    @classmethod
+    def from_reference(cls, reference: Reference) -> "ExternalReference":
+        """
+        Creates an ExternalReference from a Reference.
+
+        :param reference: The reference to copy.
+        :return: The new ExternalReference.
+        """
+        return cls(reference.key, reference.referred_semantic_id)
 
     def __repr__(self) -> str:
         return "ExternalReference(key={})".format(self.key)
