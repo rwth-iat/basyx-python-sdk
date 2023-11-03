@@ -100,8 +100,8 @@ example_submodel1.update()
 example_submodel1.update(only_attribute_specific=True)
 
 example_submodel1.update()
-example_submodel1.id_short = "CommitTest"
-example_submodel1.description['en-us'] = "Commit Test Description"
+example_submodel1.id_short = "CommitTest4"
+example_submodel1.description['en-us'] = "Commit Test Description4"
 example_submodel1.commit()
 
 example_submodel1.update(only_attribute_specific=True)
@@ -115,7 +115,7 @@ assert isinstance(prop, basyx.aas.model.Property)
 
 prop.update()
 prop.update(only_attribute_specific=True)
-prop.value = "RWTH Aachen"
+
 
 # Commit (upload) these changes to the CouchDB server
 # We can simply call commit() on the Property object. It will check the `source` attribute of the object itself as well
@@ -123,11 +123,13 @@ prop.value = "RWTH Aachen"
 # all of these external data sources.
 
 prop.update()
+prop.value = "RWTH Aachen"
 prop.commit()
 
 prop.update(only_attribute_specific=True)
 prop.value = "RWTH Aachen University"
 prop.commit(only_attribute_specific=True)
+
 
 
 ############

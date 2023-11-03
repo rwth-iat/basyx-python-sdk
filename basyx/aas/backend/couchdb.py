@@ -65,6 +65,7 @@ class CouchDBBackend(backends.Backend):
         if specific_attribute is None:
             updated_object.update_from(requested_object)
         else:
+            # Update only the specific attribute with requested data
             for name, var in vars(updated_object).items():
                 if name.replace('_', '').lower() == specific_attribute.replace('_', '').lower():
                     vars(updated_object)[name] = requested_object
