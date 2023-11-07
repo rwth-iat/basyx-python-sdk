@@ -46,9 +46,20 @@ endpoint3 = model.CouchDBEndPointDefinition(endpointAddress=couchdbAddress3,
                                             subProtocol=None,
                                             subProtocolBody=None,
                                             subProtocolBodyEncoding=None)
+opcuaAddress1 = 'opc.tcp://localhost:4840/freeopcua/server/'
+endpoint4 = model.OpcUaEndPointDefinition(endpointAddress=opcuaAddress1,
+                                          endpointProtocolVersion=None,
+                                          securityAttributes=None,
+                                          endpointProtocol=None,
+                                          subProtocol=None,
+                                          subProtocolBody=None,
+                                          subProtocolBodyEncoding=None,
+                                          namespaceIndex=2,
+                                          identifier='3')
 
 attribute_specific_source = {'idShort': endpoint2}
-attribute_specific_source_MF = {'value': endpoint3}
+# attribute_specific_source_MF = {'value': endpoint3}
+attribute_specific_source_MF = {'value': endpoint4}
 
 def create_full_example() -> model.DictObjectStore:
     """

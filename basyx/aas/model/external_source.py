@@ -31,15 +31,21 @@ class EndPointDefinition(metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def __init__(self):
-        super().__init__()
-        self.endpointAddress: str = ""
-        self.endpointProtocol: Optional[str] = None
-        self.endpointProtocolVersion: Optional[str] = None
-        self.securityAttributes: Optional[str] = None
-        self.subProtocol: Optional[str] = None
-        self.subProtocolBody: Optional[str] = None
-        self.subProtocolBodyEncoding: Optional[str] = None
+    def __init__(self,
+                 endpointAddress: str = "",
+                 endpointProtocol: Optional[str] = None,
+                 endpointProtocolVersion: Optional[str] = None,
+                 securityAttributes: Optional[str] = None,
+                 subProtocol: Optional[str] = None,
+                 subProtocolBody: Optional[str] = None,
+                 subProtocolBodyEncoding: Optional[str] = None):
+        self.endpointAddress: str = endpointAddress
+        self.endpointProtocol: Optional[str] = endpointProtocol
+        self.endpointProtocolVersion: Optional[str] = endpointProtocolVersion
+        self.securityAttributes: Optional[str] = securityAttributes
+        self.subProtocol: Optional[str] = subProtocol
+        self.subProtocolBody: Optional[str] = subProtocolBody
+        self.subProtocolBodyEncoding: Optional[str] = subProtocolBodyEncoding
 
     def __repr__(self) -> str:
         return "{}[{}]{}{}{}{}{}{}".format(

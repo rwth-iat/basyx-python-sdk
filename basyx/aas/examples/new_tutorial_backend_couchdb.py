@@ -14,6 +14,7 @@ from pathlib import Path
 
 import basyx.aas.examples.data.example_aas
 import basyx.aas.backend.couchdb
+import basyx.aas.backend.opcua
 import basyx.aas.backend.backends
 
 # import sys
@@ -82,7 +83,7 @@ example_submodel1 = basyx.aas.examples.data.example_aas.create_example_asset_ide
 # are transferred to the CouchDB immediately. Additionally, the `source` attribute is set automatically, so update() and
 # commit() will work automatically (see below).
 
-object_store.add(example_submodel1)
+# object_store.add(example_submodel1)
 
 ###################################################################
 # Step 3: Updating Objects from the CouchDB and Commiting Changes #
@@ -100,7 +101,7 @@ example_submodel1.update()
 example_submodel1.update(only_attribute_specific=True)
 
 example_submodel1.update()
-example_submodel1.id_short = "CommitTest4"
+example_submodel1.id_short = "Commit_Test"
 example_submodel1.description['en-us'] = "Commit Test Description4"
 example_submodel1.commit()
 

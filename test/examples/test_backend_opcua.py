@@ -1,6 +1,6 @@
 import sys
-
 sys.path.insert(0, "..")
+
 from opcua import Client
 
 client = Client("opc.tcp://localhost:4840/freeopcua/server/")
@@ -18,7 +18,6 @@ print("Objects node is: ", root)
 print("Children of root are: ", root.get_children())
 
 # get a specific node knowing its node id
-var = client.get_node(root.NodeId(2, 2))
 var = client.get_node("ns=2;i=2")
 var2 = client.get_node("ns=2;i=3")
 print(var)

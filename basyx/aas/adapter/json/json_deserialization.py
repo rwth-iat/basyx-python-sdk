@@ -388,6 +388,18 @@ class AASFromJsonDecoder(json.JSONDecoder):
                 subProtocol=endpointDefinition['subProtocol'],
                 subProtocolBody=endpointDefinition['subProtocolBody'],
                 subProtocolBodyEncoding=endpointDefinition['subProtocolBodyEncoding'])
+        if dct['endpointType'] == 'OpcUaEndPointDefinition':
+            endpointDefinition = dct['endpointDefinition']
+            return model.OpcUaEndPointDefinition(
+                endpointAddress=endpointDefinition['endpointAddress'],
+                endpointProtocol=endpointDefinition['endpointProtocol'],
+                endpointProtocolVersion=endpointDefinition['endpointProtocolVersion'],
+                securityAttributes=endpointDefinition['securityAttributes'],
+                subProtocol=endpointDefinition['subProtocol'],
+                subProtocolBody=endpointDefinition['subProtocolBody'],
+                subProtocolBodyEncoding=endpointDefinition['subProtocolBodyEncoding'],
+                namespaceIndex=endpointDefinition['namespaceIndex'],
+                identifier=endpointDefinition['identifier'])
 
 
     # #############################################################################

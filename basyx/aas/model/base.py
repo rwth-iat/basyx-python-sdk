@@ -1348,15 +1348,14 @@ class CouchDBEndPointDefinition(EndPointDefinition):
                  subProtocol: Optional[str] = None,
                  subProtocolBody: Optional[str] = None,
                  subProtocolBodyEncoding: Optional[str] = None):
-        super().__init__()
-        self.endpointAddress = endpointAddress
-        self.endpointProtocol: Optional[str] = endpointProtocol
-        self.endpointProtocolVersion: Optional[str] = endpointProtocolVersion
-        self.securityAttributes: Optional[str] = securityAttributes
-        self.subProtocol: Optional[str] = subProtocol
-        self.subProtocolBody: Optional[str] = subProtocolBody
-        self.subProtocolBodyEncoding: Optional[str] = subProtocolBodyEncoding
-
+        # TODO: check the structure of the CouchDB endpoint
+        super().__init__(endpointAddress,
+                         endpointProtocol,
+                         endpointProtocolVersion,
+                         securityAttributes,
+                         subProtocol,
+                         subProtocolBody,
+                         subProtocolBodyEncoding)
 
 class OpcUaEndPointDefinition(EndPointDefinition):
     """
@@ -1369,9 +1368,22 @@ class OpcUaEndPointDefinition(EndPointDefinition):
     """
 
     def __init__(self,
-                 namespaceIndex: int,
-                 identifier: str):
-        super().__init__()
+                 endpointAddress: str = "",
+                 endpointProtocol: Optional[str] = None,
+                 endpointProtocolVersion: Optional[str] = None,
+                 securityAttributes: Optional[str] = None,
+                 subProtocol: Optional[str] = None,
+                 subProtocolBody: Optional[str] = None,
+                 subProtocolBodyEncoding: Optional[str] = None,
+                 namespaceIndex: int = None,
+                 identifier: str = None):
+        super().__init__(endpointAddress,
+                         endpointProtocol,
+                         endpointProtocolVersion,
+                         securityAttributes,
+                         subProtocol,
+                         subProtocolBody,
+                         subProtocolBodyEncoding)
         self.namespaceIndex: int = namespaceIndex
         self.identifier: str = identifier
 
