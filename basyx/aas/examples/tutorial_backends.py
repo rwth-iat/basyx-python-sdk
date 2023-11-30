@@ -2,11 +2,8 @@
 # This work is licensed under a Creative Commons CCZero 1.0 Universal License.
 # See http://creativecommons.org/publicdomain/zero/1.0/ for more information.
 """
-Tutorial for storing Asset Administration Shells, Submodels and Assets in a CouchDB database server, using the
-CouchDBObjectStore and CouchDB Backend.
-
-This tutorial also shows the usage of the commit()/update() mechanism for synchronizing objects with an external data
-source.
+This tutorial shows the usage of the commit()/update() mechanism for synchronizing objects with an external data
+source. For example, this can be used to synchronize objects with a CouchDB server or an OPC UA server.
 """
 
 from configparser import ConfigParser
@@ -16,10 +13,6 @@ import basyx.aas.examples.data.example_aas
 import basyx.aas.backend.couchdb
 import basyx.aas.backend.opcua
 import basyx.aas.backend.backends
-
-# import sys
-# sys.path.insert(0, "..")
-# from opcua import Client
 
 # To execute this tutorial, you'll need a running CouchDB server, including an empty database and a user account with
 # access to that database.
@@ -83,12 +76,12 @@ example_submodel1 = basyx.aas.examples.data.example_aas.create_example_asset_ide
 # are transferred to the CouchDB immediately. Additionally, the `source` attribute is set automatically, so update() and
 # commit() will work automatically (see below).
 
-# object_store.add(example_submodel1)
+object_store.add(example_submodel1)
 
 ###################################################################
 # Step 3: Updating Objects from the CouchDB and Commiting Changes #
 ###################################################################
-
+# TODO: Adapt this section to the new update() and commit() mechanism and EndpointDefinition
 # Since the CouchDBObjectStore has set the `source` attribute of our Submodel objects, we can now use update() and
 # commit() to synchronize changes to these objects with the database. The `source` indicates (via its URI scheme) that
 # the CouchDB backend is used for the synchronization and references the correct CouchDB server url and database. For
@@ -96,18 +89,28 @@ example_submodel1 = basyx.aas.examples.data.example_aas.create_example_asset_ide
 # CouchDB backend is loaded.
 
 
-# Fetch recent updates from the server
+# Fetch recent updates from the server from all available sources
 example_submodel1.update()
+# Fetch recent updates from the server only from the source defined in the attribute specific source
 example_submodel1.update(only_attribute_specific=True)
 
+# Make some changes within the example submodel
+example_submodel1.id_short = "Commit_Test_1"
+example_submodel1.description['en-us'] = "Commit Test 1"
+# Update is needed before commit (Mechanism due to CouchDB revision handling)
 example_submodel1.update()
-example_submodel1.id_short = "Commit_Test"
-example_submodel1.description['en-us'] = "Commit Test Description4"
+# Commit (upload) these changes to all avaible data sources
+# We can simply call commit() on the Property object. It will check the `source` attribute of the object itself as well
+# as the source attribute of all ancestors in the object hierarchy (including the Submodel) and commit the changes to
+# all of these external data sources.
 example_submodel1.commit()
 
+# Make some changes within the example submodel (both in default and attribute specific source)
+example_submodel1.id_short = "Commit_Test_2"
+example_submodel1.description['en-us'] = "Commit Test 2"
+
 example_submodel1.update(only_attribute_specific=True)
-example_submodel1.id_short = "CommitTestOnlyAttributeSpecific"
-example_submodel1.description['en-us'] = "Commit Test Description Only Attribute Specific"
+# Only commit changes to the attribute specific source
 example_submodel1.commit(only_attribute_specific=True)
 
 # Make some changes to a Property within the submodel
@@ -118,16 +121,16 @@ prop.update()
 prop.update(only_attribute_specific=True)
 
 
-# Commit (upload) these changes to the CouchDB server
-# We can simply call commit() on the Property object. It will check the `source` attribute of the object itself as well
-# as the source attribute of all ancestors in the object hierarchy (including the Submodel) and commit the changes to
-# all of these external data sources.
+
+
 
 prop.update()
+prop.description['en-us'] = "Commit Test 3"
 prop.value = "RWTH Aachen"
 prop.commit()
 
 prop.update(only_attribute_specific=True)
+prop.description['en-us'] = "Commit Test 4"
 prop.value = "RWTH Aachen University"
 prop.commit(only_attribute_specific=True)
 

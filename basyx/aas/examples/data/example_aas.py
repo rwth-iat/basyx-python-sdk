@@ -38,14 +38,15 @@ endpoint2 = model.CouchDBEndPointDefinition(endpointAddress=couchdbAddress2,
                                             subProtocolBody=None,
                                             subProtocolBodyEncoding=None)
 
-couchdbAddress3 = 'couchdb://localhost:5984/backend/valueManufacturerName'
-endpoint3 = model.CouchDBEndPointDefinition(endpointAddress=couchdbAddress3,
-                                            endpointProtocol=None,
-                                            endpointProtocolVersion=None,
-                                            securityAttributes=None,
-                                            subProtocol=None,
-                                            subProtocolBody=None,
-                                            subProtocolBodyEncoding=None)
+# couchdbAddress3 = 'couchdb://localhost:5984/backend/valueManufacturerName'
+# endpoint3 = model.CouchDBEndPointDefinition(endpointAddress=couchdbAddress3,
+#                                             endpointProtocol=None,
+#                                             endpointProtocolVersion=None,
+#                                             securityAttributes=None,
+#                                             subProtocol=None,
+#                                             subProtocolBody=None,
+#                                             subProtocolBodyEncoding=None)
+
 opcuaAddress1 = 'opc.tcp://localhost:4840/freeopcua/server/'
 endpoint4 = model.OpcUaEndPointDefinition(endpointAddress=opcuaAddress1,
                                           endpointProtocolVersion=None,
