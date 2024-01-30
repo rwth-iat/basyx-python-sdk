@@ -10,7 +10,7 @@ from icontract import ensure
 
 @ensure(lambda result: (result[0] is None) ^ (result[1] is None))
 def source_to_atok(
-    source: str,
+        source: str,
 ) -> Tuple[Optional[asttokens.ASTTokens], Optional[str]]:
     """
     Parse the Python code.
@@ -50,8 +50,87 @@ def adapt_common(paths: AASBaSyxPaths) -> List[str]:
     return errors
 
 
+def apply_patches(
+        patches: List[Tuple[ast.AST, str]],
+        text: str
+) -> str:
+    """Apply the patches by replacing the text correspond to a node with the new text."""
+    if len(patches) == 0:
+        return text
+
+    sorted_patches = sorted(
+        patches,
+        key=lambda patch: patch[0].first_token.startpos
+    )
+
+    # region Assert no overlaps
+    prev_node: Optional[ast.AST] = None
+    for node, _ in sorted_patches:
+        if prev_node is None:
+            prev_node = node
+            continue
+
+        if prev_node.last_token.endpos >= node.first_toke.startpos:
+            raise AssertionError(
+                f"The patch for the node {ast.dump(prev_node)} overlaps with the node {ast.dump(node)}"
+            )
+
+        prev_node = node
+    # endregion
+
+    parts: List[str] = []
+
+    last_node: Optional[ast.AST] = None
+
+    for node, new_text in sorted_patches:
+        if last_node is None:
+            parts.append(
+                text[0:node.first_token.startpos]
+            )
+        else:
+            parts.append(
+                text[last_node.last_token.endpos:node.first_token.startpos]
+            )
+
+        parts.append(new_text)
+        last_node = node
+
+    assert last_node is not None
+    parts.append(text[last_node.last_token.endpos:])
+
+    return "".join(parts)
+
+
+class ImportFixVisitor(ast.NodeVisitor):
+    def __init__(self):
+        self.patches: List[Tuple[ast.AST, str]] = []
+
+
 def adapt_types(paths: AASBaSyxPaths) -> List[str]:
+    types_path = paths.aas_core_path / "types.py"
+
+    atok, error = parse_file(types_path)
+    if error is not None:
+        return [error]
+
     errors: List[str] = []
+
+    assert atok.tree is not None
+    assert isinstance(atok.tree, ast.Module)
+
+    visitor = ImportFixVisitor()
+    visitor.visit(atok.tree)
+    new_text = apply_patches(patches=visitor.patches, text=atok.text)
+
+    target_path = paths.basyx_path / "aas" / "model" / "types.py"
+    if not target_path.parent.exists() or not target_path.parent.is_dir():
+        errors.append(
+            f"The model module does not exist or is not a directory: {target_path.parent}"
+        )
+        return errors
+
+    target_path.write_text(new_text, encoding='utf-8')
+
     return errors
 
 
@@ -100,11 +179,30 @@ def main() -> int:
     parser.add_argument("--aas_core_path", required=True, help="Path to the aas-core Python module")
     parser.add_argument("--basyx_path", required=True, help="Path to the BaSyx module")
     args = parser.parse_args()
-    errors = aas_core_to_basyx(
-        paths=AASBaSyxPaths(
-            aas_core_path=pathlib.Path(args.aas_core_path),
-            basyx_path=pathlib.Path(args.basyx_path)
+
+    paths = AASBaSyxPaths(
+        aas_core_path=pathlib.Path(args.aas_core_path),
+        basyx_path=pathlib.Path(args.basyx_path)
+    )
+
+    aas_core_init_path = paths.aas_core_path / "__init__.py"
+    if not aas_core_init_path.exists():
+        print(
+            f"--aas_core_path does not point to a module: the __init__.py is missing: {aas_core_init_path}",
+            file=sys.stderr
         )
+        return 1
+
+    basyx_init_path = paths.basyx_path / "__init__.py"
+    if not basyx_init_path.exists():
+        print(
+            f"--basyx_path does not point to a module: the __init__.py is missing: {basyx_init_path}",
+            file=sys.stderr
+        )
+        return 1
+
+    errors = aas_core_to_basyx(
+        paths=paths
     )
     if len(errors) > 0:
         print("There were errors :(", file=sys.stderr)
