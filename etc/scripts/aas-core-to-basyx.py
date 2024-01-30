@@ -1,6 +1,6 @@
 import pathlib
 import sys
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 import dataclasses
 import argparse
 import ast
@@ -57,9 +57,15 @@ def adapt_common(paths: AASBaSyxPaths) -> List[str]:
         errors = []
     return errors
 
+@dataclasses.dataclass
+class Patch:
+    node: ast.AST
+    prefix: Optional[str] = None
+    replacement: Optional[str] = None
+    suffix: Optional[str] = None
 
 def apply_patches(
-        patches: List[Tuple[ast.AST, str]],
+        patches: List[Patch],
         text: str
 ) -> str:
     """Apply the patches by replacing the text correspond to a node with the new text."""
@@ -68,40 +74,52 @@ def apply_patches(
 
     sorted_patches = sorted(
         patches,
-        key=lambda patch: patch[0].first_token.startpos
+        key=lambda patch: patch.node.first_token.startpos
     )
 
     # region Assert no overlaps
     prev_node: Optional[ast.AST] = None
-    for node, _ in sorted_patches:
+    for patch in sorted_patches:
         if prev_node is None:
-            prev_node = node
+            prev_node = patch.node
             continue
 
-        if prev_node.last_token.endpos >= node.first_toke.startpos:
+        if prev_node.last_token.endpos >= patch.node.first_toke.startpos:
             raise AssertionError(
-                f"The patch for the node {ast.dump(prev_node)} overlaps with the node {ast.dump(node)}"
+                f"The patch for the node {ast.dump(prev_node)} overlaps with the node {ast.dump(patch.node)}"
             )
 
-        prev_node = node
+        prev_node = patch.node
     # endregion
 
     parts: List[str] = []
 
     last_node: Optional[ast.AST] = None
 
-    for node, new_text in sorted_patches:
+    for patch in sorted_patches:
         if last_node is None:
             parts.append(
-                text[0:node.first_token.startpos]
+                text[0:patch.node.first_token.startpos]
             )
         else:
             parts.append(
-                text[last_node.last_token.endpos:node.first_token.startpos]
+                text[last_node.last_token.endpos:patch.node.first_token.startpos]
             )
 
-        parts.append(new_text)
-        last_node = node
+        if patch.prefix is not None:
+            parts.append(patch.prefix)
+
+        if patch.replacement is not None:
+            parts.append(patch.replacement)
+        else:
+            parts.append(
+                text[patch.node.first_token.startpos:patch.node.last_token.endpos]
+            )
+
+        if patch.suffix is not None:
+            parts.append(patch.suffix)
+
+        last_node = patch.node
 
     assert last_node is not None
     parts.append(text[last_node.last_token.endpos:])
@@ -112,6 +130,25 @@ def apply_patches(
 class ImportFixVisitor(ast.NodeVisitor):
     def __init__(self):
         self.patches: List[Tuple[ast.AST, str]] = []
+
+
+@ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))
+def patch_types_to_import_provider(module: ast.Module) -> Tuple[Optional[List[Patch]], Optional[str]]:
+    last_import: Optional[Union[ast.Import, ast.ImportFrom]] = None
+
+    for stmt in module.body:
+        if isinstance(stmt, ast.Import) or isinstance(stmt, ast.ImportFrom):
+            last_import = stmt
+
+    if last_import is None:
+        return None, "No import statements, so we do not know where to append our own import"
+
+    return [
+        Patch(
+            node=last_import,
+            suffix="\n\nfrom . import provider"
+        )
+    ], None
 
 
 def adapt_types(paths: AASBaSyxPaths) -> List[str]:
@@ -126,9 +163,17 @@ def adapt_types(paths: AASBaSyxPaths) -> List[str]:
     assert atok.tree is not None
     assert isinstance(atok.tree, ast.Module)
 
-    visitor = ImportFixVisitor()
-    visitor.visit(atok.tree)
-    new_text = apply_patches(patches=visitor.patches, text=atok.text)
+    patches: List[Patch] = []
+
+    import_patches, error = patch_types_to_import_provider(module=atok.tree)
+    if error is not None:
+        errors.append(error)
+    else:
+        assert import_patches is not None
+        patches.extend(import_patches)
+
+    if len(errors) > 0:
+        return errors
 
     target_path = paths.basyx_path / "aas" / "model" / "types.py"
     if not target_path.parent.exists() or not target_path.parent.is_dir():
@@ -136,6 +181,8 @@ def adapt_types(paths: AASBaSyxPaths) -> List[str]:
             f"The model module does not exist or is not a directory: {target_path.parent}"
         )
         return errors
+
+    new_text = apply_patches(patches=patches, text=atok.text)
 
     target_path.write_text(new_text, encoding='utf-8')
 
