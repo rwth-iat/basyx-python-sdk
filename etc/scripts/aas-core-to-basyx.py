@@ -1,8 +1,42 @@
 import pathlib
 import sys
-from typing import List
+from typing import List, Optional, Tuple
 import dataclasses
 import argparse
+import ast
+import asttokens
+from icontract import ensure
+
+
+@ensure(lambda result: (result[0] is None) ^ (result[1] is None))
+def source_to_atok(
+    source: str,
+) -> Tuple[Optional[asttokens.ASTTokens], Optional[str]]:
+    """
+    Parse the Python code.
+
+    :param source: Python code as text
+    :return: parsed module or error, if any
+    """
+    try:
+        atok = asttokens.ASTTokens(source, parse=True)
+    except Exception as exception:
+        return None, str(exception)
+
+    return atok, None
+
+
+@ensure(lambda result: (result[0] is None) ^ (result[1] is None))
+def parse_file(path: pathlib.Path) -> Tuple[Optional[asttokens.ASTTokens], Optional[str]]:
+    source = path.read_text(encoding='utf-8')
+
+    atok, error = source_to_atok(source=source)
+    if error is not None:
+        return None, f"Failed to parse {path}: {error}"
+
+    assert atok is not None
+
+    return atok, None
 
 
 @dataclasses.dataclass
