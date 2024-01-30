@@ -46,7 +46,15 @@ class AASBaSyxPaths:
 
 
 def adapt_common(paths: AASBaSyxPaths) -> List[str]:
-    errors: List[str] = []
+    common_path = paths.aas_core_path / 'aas_core3' / 'common.py'
+    target_basyx_path = paths.basyx_path / 'aas' / 'util' / 'common.py'
+    # Copy common.py to basyx/aas/utils/common.py
+    try:
+        target_basyx_path.write_text(common_path.read_text(encoding='utf-8'), encoding='utf-8')
+    except Exception as exception:
+        errors = [f"Failed to copy {common_path} to {target_basyx_path}: {exception}"]
+    else:
+        errors = []
     return errors
 
 
