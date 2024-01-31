@@ -1,204 +1,37 @@
 import itertools
 import pathlib
 import sys
-import textwrap
-from typing import List, Optional, Tuple, Union, Sequence, Dict, Iterable, Iterator, TypeVar, NoReturn, Set
+from typing import List, Optional, Tuple, Union
 import dataclasses
 import argparse
 import ast
 
-import asttokens
 from icontract import ensure, require
 
+from basic import (
+    Error,
+    parse_file,
+    copy_file,
+)
+from patching import (
+    Patch,
+    apply_patches
+)
+from ast_building_blocks import (
+    add_import_statement,
+    extract_property_from_self_dot_property,
+    VisitorReplaceListWith,
+    add_inheritance_to_class
+)
+
+
 _FRAGMENTS_DIR = pathlib.Path(__file__).parent / "fragments"
-
-T = TypeVar("T")
-
-def pairwise(iterable: Iterable[T]) -> Iterator[Tuple[T, T]]:
-    """
-    Iterate pair-wise over the iterator.
-
-    >>> list(pairwise("ABCDE"))
-    [('A', 'B'), ('B', 'C'), ('C', 'D'), ('D', 'E')]
-    """
-    a, b = itertools.tee(iterable)
-    next(b, None)
-    return zip(a, b)
-
-
-def assert_never(value: NoReturn) -> NoReturn:
-    """
-    Signal to mypy to perform an exhaustive matching.
-
-    Please see the following page for more details:
-    https://hakibenita.com/python-mypy-exhaustive-checking
-    """
-    assert False, f"Unhandled value: {value} ({type(value).__name__})"
-
-
-class Error:
-    def __init__(self, message: str, underlying_errors: Optional[List["Error"]] = None) -> None:
-        self.message = message
-        self.underlying_errors = underlying_errors
-
-    def __str__(self) -> str:
-        if self.underlying_errors is None or len(self.underlying_errors) == 0:
-            return self.message
-
-        blocks = [self.message]
-        for sub_error in self.underlying_errors:
-            sub_message = textwrap.indent(str(sub_error), "  ")
-            sub_message = "*" + sub_message[1:]
-
-            blocks.append(sub_message)
-
-        return "\n".join(blocks)
-
-
-@ensure(lambda result: (result[0] is None) ^ (result[1] is None))
-def source_to_atok(
-        source: str,
-) -> Tuple[Optional[asttokens.ASTTokens], Optional[Error]]:
-    """
-    Parse the Python code.
-
-    :param source: Python code as text
-    :return: parsed module or error, if any
-    """
-    try:
-        atok = asttokens.ASTTokens(source, parse=True)
-    except Exception as exception:
-        return None, Error(str(exception))
-
-    return atok, None
-
-
-@ensure(lambda result: (result[0] is None) ^ (result[1] is None))
-def parse_file(path: pathlib.Path) -> Tuple[Optional[asttokens.ASTTokens], Optional[Error]]:
-    source = path.read_text(encoding='utf-8')
-
-    atok, error = source_to_atok(source=source)
-    if error is not None:
-        return None, Error(f"Failed to parse {path}", underlying_errors=[error])
-
-    assert atok is not None
-    assert atok.tree is not None
-    assert isinstance(atok.tree, ast.Module)
-
-    return atok, None
 
 
 @dataclasses.dataclass
 class AASBaSyxPaths:
-    aas_core_path: pathlib.Path
-    basyx_path: pathlib.Path
-
-
-def copy_file(source_path: pathlib.Path, target_path: pathlib.Path) -> Optional[Error]:
-    try:
-        target_path.write_text(source_path.read_text(encoding='utf-8'), encoding='utf-8')
-    except Exception as exception:
-        return Error(f"Failed to copy {source_path} to {target_path}: {exception}")
-    return None
-
-
-@dataclasses.dataclass
-class Patch:
-    node: ast.AST
-    prefix: Optional[str] = None
-    replacement: Optional[str] = None
-    suffix: Optional[str] = None
-
-
-@dataclasses.dataclass
-class InsertPrefix:
-    text: str
-    position: int
-
-    @property
-    def end(self) -> int:
-        return self.position
-
-
-@dataclasses.dataclass
-class InsertSuffix:
-    text: str
-    position: int
-
-    @property
-    def end(self) -> int:
-        return self.position
-
-
-@dataclasses.dataclass
-class Replace:
-    text: str
-    position: int
-    end: int
-
-
-Action = Union[InsertPrefix, InsertSuffix, Replace]
-
-
-def check_replaces_do_not_overlap(actions: Sequence[Action]) -> Optional[Error]:
-    previous_replace: Optional[Replace] = None
-    for action in actions:
-        if not isinstance(action, Replace):
-            continue
-
-        if previous_replace is None:
-            previous_replace = action
-            continue
-
-        if previous_replace.end >= action.position:
-            return Error(
-                f"The text to be replaced, {previous_replace}, "
-                f"overlaps with another text to be replaced, {action}."
-            )
-
-        previous_replace = action
-
-    return None
-
-
-@require(lambda actions: check_replaces_do_not_overlap(actions) is None)
-@require(lambda actions: actions == sorted(actions, key=lambda action: action.position))
-@ensure(
-    lambda result:
-    all(
-        previous_action.position < action.position for previous_action, action in pairwise(result)
-    )
-)
-def merge_actions(actions: Sequence[Action]) -> List[Action]:
-    result: List[Action] = []
-
-    previous_prefix: Optional[InsertPrefix] = None
-    previous_suffix: Optional[InsertSuffix] = None
-
-    for action in actions:
-        if isinstance(action, InsertPrefix):
-            if previous_prefix is not None and previous_prefix.position == action.position:
-                previous_prefix.text = f"{action.text}{previous_prefix.text}"
-            else:
-                prefix_copy = dataclasses.replace(action)
-                result.append(prefix_copy)
-                previous_prefix = prefix_copy
-
-        elif isinstance(action, InsertSuffix):
-            if previous_suffix is not None and previous_suffix.position == action.position:
-                previous_suffix.text = f"{previous_suffix.text}{action.text}"
-            else:
-                suffix_copy = dataclasses.replace(action)
-                result.append(suffix_copy)
-                previous_suffix = suffix_copy
-
-        elif isinstance(action, Replace):
-            result.append(dataclasses.replace(action))
-
-        else:
-            assert_never(action)
-
-    return result
+    aas_core_path: pathlib.Path  # Path to the aas-core module (with __init__.py)
+    basyx_path: pathlib.Path  # Path to the BaSyx module (with __init__.py)
 
 
 def adapt_common(paths: AASBaSyxPaths) -> Optional[Error]:
@@ -207,82 +40,18 @@ def adapt_common(paths: AASBaSyxPaths) -> Optional[Error]:
     return copy_file(source_path=common_path, target_path=target_basyx_path)
 
 
-def apply_patches(
-        patches: List[Patch],
-        text: str
-) -> str:
-    """Apply the patches by replacing the text correspond to a node with the new text."""
-    if len(patches) == 0:
-        return text
-
-    actions: List[Action] = []
-    for patch in patches:
-        if patch.prefix is not None:
-            actions.append(InsertPrefix(text=patch.prefix, position=patch.node.first_token.startpos))
-
-        if patch.suffix is not None:
-            actions.append(InsertSuffix(text=patch.suffix, position=patch.node.last_token.endpos))
-
-        if patch.replacement is not None:
-            actions.append(Replace(text=patch.replacement, position=patch.node.first_token.startpos, end=patch.node.last_token.endpos))
-
-    actions = sorted(actions, key=lambda action: action.position)
-
-    error = check_replaces_do_not_overlap(actions)
-    if error is not None:
-        raise AssertionError(error)
-
-    actions = merge_actions(actions)
-
-    parts: List[str] = []
-    previous_action: Optional[Action] = None
-
-    for action in actions:
-        if previous_action is None:
-            parts.append(
-                text[0:action.position]
-            )
-        else:
-            parts.append(
-                text[previous_action.end:action.position]
-            )
-        parts.append(
-            action.text
-        )
-        previous_action = action
-    assert previous_action is not None
-    parts.append(
-        text[previous_action.end:]
-    )
-
-    return "".join(parts)
-
-
-@ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))
-def patch_types_to_import_provider(module: ast.Module) -> Tuple[Optional[List[Patch]], Optional[Error]]:
-    last_import: Optional[Union[ast.Import, ast.ImportFrom]] = None
-
-    for stmt in module.body:
-        if isinstance(stmt, ast.Import) or isinstance(stmt, ast.ImportFrom):
-            last_import = stmt
-
-    if last_import is None:
-        return None, Error(
-            "No import statements, so we do not know where to append our own import of the provider module"
-        )
-
-    return [
-        Patch(
-            node=last_import,
-            suffix="\n\nfrom . import provider"
-        )
-    ], None
-
-
 @ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))
 def patch_types_to_add_namespace_classes(module: ast.Module) -> Tuple[Optional[List[Patch]], Optional[Error]]:
-    # We need to copy the classes Namespace, OrderedNamespaceSet, UniqueIdShortNamespaceSet
-    # and UniqueSemanticIdNamespaceSet into types.py
+    """
+    The Namespace classes allow for accessing AAS objects with O(1), since they use Dicts internally.
+    However, in order to make them work, they need to be deeply interwoven with the objects themselves.
+    Therefore, we patch the classes
+        - Namespace,
+        - OrderedNamespaceSet,
+        - UniqueIdShortNamespaceSet
+        - UniqueSemanticIdNamespaceSet
+    into the types.py from the fragment Python file
+    """
     last_import: Optional[Union[ast.Import, ast.ImportFrom]] = None
     for stmt in module.body:
         if isinstance(stmt, ast.Import) or isinstance(stmt, ast.ImportFrom):
@@ -296,46 +65,6 @@ def patch_types_to_add_namespace_classes(module: ast.Module) -> Tuple[Optional[L
             node=last_import,
             suffix="\n\n" + (_FRAGMENTS_DIR / "namespace.py").read_text(encoding='utf-8')
         )
-    ], None
-
-
-class VisitorReplaceListWithNamespaceSet(ast.NodeVisitor):
-    def __init__(self) -> None:
-        self.patches: List[Patch] = []
-
-    def visit_Name(self, node: ast.Name) -> None:
-        if node.id == "List":
-            self.patches.append(Patch(node=node, replacement="NamespaceSet"))
-
-
-class VisitorReplaceListWithIterable(ast.NodeVisitor):
-    def __init__(self) -> None:
-        self.patches: List[Patch] = []
-
-    def visit_Name(self, node: ast.Name) -> None:
-        if node.id == "List":
-            self.patches.append(Patch(node=node, replacement="Iterable"))
-
-
-def extract_property_from_self_dot_property(node: ast.expr) -> Optional[str]:
-    # Given an expression `self.foo = bar`, returns `"foo"`
-    if not isinstance(node, ast.Attribute):
-        return None
-    if not isinstance(node.value, ast.Name) and node.value.id != "self":
-        return None
-    return node.attr
-
-
-@ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))
-def patch_class_to_inherit_from_namespace(cls: ast.ClassDef) -> Tuple[Optional[List[Patch]], Optional[Error]]:
-    if len(cls.bases) == 0:
-        return None, Error("Expected the class to already inherit from other classes, but no inheritance found.")
-
-    return [
-        Patch(
-                node=cls.bases[-1],
-                suffix=", Namespace"
-            )
     ], None
 
 
@@ -393,7 +122,7 @@ def patch_class_has_extension_for_namespace(
     patches: List[Patch] = []
     errors: List[Error] = []
 
-    sub_patches, sub_error = patch_class_to_inherit_from_namespace(cls)
+    sub_patches, sub_error = add_inheritance_to_class(cls, inherit_from="Namespace")
     if sub_error is not None:
         errors.append(sub_error)
     else:
@@ -403,12 +132,12 @@ def patch_class_has_extension_for_namespace(
     # Adapt property definitions
     for stmt in cls.body:
         if isinstance(stmt, ast.AnnAssign) and stmt.target.id == "extensions":
-            visitor = VisitorReplaceListWithNamespaceSet()
+            visitor = VisitorReplaceListWith(replace_with="NamespaceSet")
             visitor.visit(stmt)
             patches.extend(visitor.patches)
 
         if isinstance(stmt, ast.FunctionDef) and stmt.name == "__init__":
-            visitor = VisitorReplaceListWithIterable()
+            visitor = VisitorReplaceListWith(replace_with="Iterable")
 
             for arg in itertools.chain(stmt.args.args, stmt.args.kwonlyargs, stmt.args.posonlyargs):
                 if arg.arg == "extensions":
@@ -457,7 +186,7 @@ def patch_class_qualifiable_for_namespace(
     patches: List[Patch] = []
     errors: List[Error] = []
 
-    sub_patches, sub_error = patch_class_to_inherit_from_namespace(cls)
+    sub_patches, sub_error = add_inheritance_to_class(cls, inherit_from="Namespace")
     if sub_error is not None:
         errors.append(sub_error)
     else:
@@ -467,12 +196,12 @@ def patch_class_qualifiable_for_namespace(
     # Adapt property definitions
     for stmt in cls.body:
         if isinstance(stmt, ast.AnnAssign) and stmt.target.id == "qualifiers":
-            visitor = VisitorReplaceListWithNamespaceSet()
+            visitor = VisitorReplaceListWith(replace_with="NamespaceSet")
             visitor.visit(stmt)
             patches.extend(visitor.patches)
 
         if isinstance(stmt, ast.FunctionDef) and stmt.name == "__init__":
-            visitor = VisitorReplaceListWithIterable()
+            visitor = VisitorReplaceListWith(replace_with="Iterable")
 
             for arg in itertools.chain(stmt.args.args, stmt.args.kwonlyargs, stmt.args.posonlyargs):
                 if arg.arg == "qualifiers":
@@ -522,12 +251,16 @@ def adapt_types(paths: AASBaSyxPaths) -> Optional[Error]:
     patches: List[Patch] = []
     errors: List[Error] = []
 
-    import_patches, error = patch_types_to_import_provider(module=atok.tree)
+    # Patch types.py to import provider
+    sub_patches, error = add_import_statement(
+        module=atok.tree,
+        import_statement="\nfrom . import provider"
+    )
     if error is not None:
         errors.append(error)
     else:
-        assert import_patches is not None
-        patches.extend(import_patches)
+        assert sub_patches is not None
+        patches.extend(sub_patches)
 
     # Add the BaSyx classes Namespace, OrderedNamespaceSet, UniqueIdShortNamespaceSet
     # and UniqueSemanticIdNamespaceSet.
