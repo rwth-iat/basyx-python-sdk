@@ -339,6 +339,52 @@ def patch_class_to_inherit_from_namespace(cls: ast.ClassDef) -> Tuple[Optional[L
     ], None
 
 
+@ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))
+def patch_types_to_use_namespace_sets(module: ast.Module) -> Tuple[Optional[List[Patch]], Optional[Error]]:
+    patches: List[Patch] = []
+    errors: List[Error] = []
+
+    for stmt in module.body:
+        # HasExtensions.extensions
+        if isinstance(stmt, ast.ClassDef) and stmt.name == "HasExtensions":
+            sub_patches, error = patch_class_has_extension_for_namespace(
+                cls=stmt
+            )
+
+            if error is not None:
+                errors.append(error)
+            else:
+                assert sub_patches is not None
+                patches.extend(sub_patches)
+
+        # Qualifiable.qualifiers
+        if isinstance(stmt, ast.ClassDef) and stmt.name == "Qualifiable":
+            sub_patches, error = patch_class_qualifiable_for_namespace(
+                cls=stmt
+            )
+
+            if error is not None:
+                errors.append(error)
+            else:
+                assert sub_patches is not None
+                patches.extend(sub_patches)
+
+        # AnnotatedRelationshipElement.annotation
+        # Todo
+        # Entity.statement
+        # Todo
+        # Operation.variables
+        # Todo
+        # Submodel.submodel_element
+        # Todo
+        # SubmodelElementCollection.value
+
+    if len(errors) > 0:
+        return None, Error("Failed to patch types.py for Namespace", underlying_errors=errors)
+
+    return patches, None
+
+
 @require(lambda cls: cls.name == "HasExtensions")
 @ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))
 def patch_class_has_extension_for_namespace(
@@ -353,7 +399,7 @@ def patch_class_has_extension_for_namespace(
     else:
         assert sub_patches is not None
         patches.extend(sub_patches)
-    
+
     # Adapt property definitions
     for stmt in cls.body:
         if isinstance(stmt, ast.AnnAssign) and stmt.target.id == "extensions":
@@ -402,36 +448,67 @@ def patch_class_has_extension_for_namespace(
 
     return patches, None
 
+
+@require(lambda cls: cls.name == "Qualifiable")
 @ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))
-def patch_types_to_use_namespace(module: ast.Module) -> Tuple[Optional[List[Patch]], Optional[Error]]:
+def patch_class_qualifiable_for_namespace(
+        cls: ast.ClassDef
+) -> Tuple[Optional[List[Patch]], Optional[Error]]:
     patches: List[Patch] = []
     errors: List[Error] = []
 
-    for stmt in module.body:
-        # HasExtensions and Qualifiable inherit from basyx.Namespace
-        if isinstance(stmt, ast.ClassDef) and stmt.name == "HasExtensions":
-            sub_patches, error = patch_class_has_extension_for_namespace(
-                cls=stmt
-            )
+    sub_patches, sub_error = patch_class_to_inherit_from_namespace(cls)
+    if sub_error is not None:
+        errors.append(sub_error)
+    else:
+        assert sub_patches is not None
+        patches.extend(sub_patches)
 
-            if error is not None:
-                errors.append(error)
-            else:
-                assert sub_patches is not None
-                patches.extend(sub_patches)
+    # Adapt property definitions
+    for stmt in cls.body:
+        if isinstance(stmt, ast.AnnAssign) and stmt.target.id == "qualifiers":
+            visitor = VisitorReplaceListWithNamespaceSet()
+            visitor.visit(stmt)
+            patches.extend(visitor.patches)
 
-        # TODO
-        # if isinstance(stmt, ast.ClassDef) and stmt.name == "Qualifiable":
-        #     last_node = stmt.bases[-1]  # These are the classes that are inherited from
-        #     patches.append(
-        #         Patch(
-        #             node=last_node,
-        #             suffix=", Namespace"
-        #         )
-        #     )
+        if isinstance(stmt, ast.FunctionDef) and stmt.name == "__init__":
+            visitor = VisitorReplaceListWithIterable()
+
+            for arg in itertools.chain(stmt.args.args, stmt.args.kwonlyargs, stmt.args.posonlyargs):
+                if arg.arg == "qualifiers":
+                    if arg.annotation is not None:
+                        visitor.visit(arg.annotation)
+
+            patches.extend(visitor.patches)
+
+    # Adapt constructor body
+    # (`self.qualifiers = qualifiers` => `self.qualifiers = base.NamespaceSet(self, [("type", True)], qualifier)`)
+    for stmt in cls.body:
+        if isinstance(stmt, ast.FunctionDef) and stmt.name == "__init__":
+            for node in stmt.body:
+                if not isinstance(node, ast.Assign):
+                    continue
+
+                if len(node.targets) != 1:
+                    errors.append(Error(f"Unexpected targets in assignment in the constructor: {ast.dump(node)}"))
+                    continue
+
+                property_name = extract_property_from_self_dot_property(node.targets[0])
+                if property_name is None:
+                    continue
+
+                if property_name != "qualifiers":
+                    continue
+
+                patches.append(
+                    Patch(
+                        node=node.value,
+                        replacement=f'NamespaceSet(self, [("type", True)], qualifiers)'
+                    )
+                )
 
     if len(errors) > 0:
-        return None, Error("Failed to patch types.py for Namespace", underlying_errors=errors)
+        return None, Error(f"Failed to patch the class {cls.name} for Namespace", underlying_errors=errors)
 
     return patches, None
 
@@ -452,6 +529,8 @@ def adapt_types(paths: AASBaSyxPaths) -> Optional[Error]:
         assert import_patches is not None
         patches.extend(import_patches)
 
+    # Add the BaSyx classes Namespace, OrderedNamespaceSet, UniqueIdShortNamespaceSet
+    # and UniqueSemanticIdNamespaceSet.
     namespace_class_patches, error = patch_types_to_add_namespace_classes(module=atok.tree)
     if error is not None:
         errors.append(error)
@@ -459,13 +538,20 @@ def adapt_types(paths: AASBaSyxPaths) -> Optional[Error]:
         assert namespace_class_patches is not None
         patches.extend(namespace_class_patches)
 
-
-    sub_patches, error = patch_types_to_use_namespace(module=atok.tree)
+    # Patch aas-core to use NamespaceSets
+    sub_patches, error = patch_types_to_use_namespace_sets(module=atok.tree)
     if error is not None:
         errors.append(error)
     else:
         assert sub_patches is not None
         patches.extend(sub_patches)
+
+    # Patch aas-core to use OrderedNamespaceSets
+    # Todo SubmodelElementList._value
+    # Patch aas-core to use UniqueIdShortNamespaceSets
+    # Todo Referable.parent
+    # Patch aas-core to use UniqueSemanticIdNamespaceSets
+    # Todo
 
     # Handle applying patches
     if len(errors) > 0:
