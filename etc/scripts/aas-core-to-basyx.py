@@ -587,7 +587,7 @@ def adapt_jsonization(paths: AASBaSyxPaths) -> Optional[Error]:
 
 def adapt_xmlization(paths: AASBaSyxPaths) -> Optional[Error]:
     xmlization_path = paths.aas_core_path / 'xmlization.py'
-    target_basyx_path = paths.basyx_path / 'aas/adapter/json/xmlization.py'
+    target_basyx_path = paths.basyx_path / 'aas/adapter/xml/xmlization.py'
     return copy_file(source_path=xmlization_path, target_path=target_basyx_path)
 
 

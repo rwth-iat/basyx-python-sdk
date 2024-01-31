@@ -20,7 +20,7 @@ import threading
 import weakref
 
 from . import backends
-from ..adapter.json import json_serialization, json_deserialization
+from ..adapter.json import jsonization
 from basyx.aas import model
 
 
@@ -46,8 +46,7 @@ class LocalFileBackend(backends.Backend):
                                          "in the FileBackend")
         file_name: str = store_object.source.replace("file://localhost/", "")
         with open(file_name, "r") as file:
-            data = json.load(file, cls=json_deserialization.AASFromJsonDecoder)
-            updated_store_object = data["data"]
+            updated_store_object = jsonization.referable_from_jsonable(file.read())
             store_object.update_from(updated_store_object)
 
     @classmethod
@@ -60,7 +59,7 @@ class LocalFileBackend(backends.Backend):
                                          "in the FileBackend")
         file_name: str = store_object.source.replace("file://localhost/", "")
         with open(file_name, "w") as file:
-            json.dump({'data': store_object}, file, cls=json_serialization.AASToJsonEncoder, indent=4)
+            json.dump({'data': jsonization.to_jsonable(store_object)}, file, indent=4)
 
 
 backends.register_backend("file", LocalFileBackend)
@@ -111,8 +110,7 @@ class LocalFileObjectStore(model.AbstractObjectStore):
         # Try to get the correct file
         try:
             with open("{}/{}.json".format(self.directory_path, hash_), "r") as file:
-                data = json.load(file, cls=json_deserialization.AASFromJsonDecoder)
-                obj = data["data"]
+                obj = jsonization.referable_from_jsonable(file.read())
                 self.generate_source(obj)
         except FileNotFoundError as e:
             raise KeyError("No Identifiable with hash {} found in local file database".format(hash_)) from e
@@ -150,7 +148,7 @@ class LocalFileObjectStore(model.AbstractObjectStore):
         if os.path.exists("{}/{}.json".format(self.directory_path, self._transform_id(x.id))):
             raise KeyError("Identifiable with id {} already exists in local file database".format(x.id))
         with open("{}/{}.json".format(self.directory_path, self._transform_id(x.id)), "w") as file:
-            json.dump({"data": x}, file, cls=json_serialization.AASToJsonEncoder, indent=4)
+            json.dump({"data": jsonization.to_jsonable(x)}, file, indent=4)
             with self._object_cache_lock:
                 self._object_cache[x.id] = x
             self.generate_source(x)  # Set the source of the object

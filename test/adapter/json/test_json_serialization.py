@@ -10,7 +10,7 @@ import unittest
 import json
 
 from basyx.aas import model
-from basyx.aas.adapter.json import AASToJsonEncoder, StrippedAASToJsonEncoder, write_aas_json_file, JSON_SCHEMA_FILE
+from basyx.aas.adapter.json import write_aas_json_file, JSON_SCHEMA_FILE, jsonization
 from jsonschema import validate  # type: ignore
 from typing import Set, Union
 
@@ -22,7 +22,7 @@ class JsonSerializationTest(unittest.TestCase):
     def test_serialize_object(self) -> None:
         test_object = model.Property("test_id_short", model.datatypes.String, category="PARAMETER",
                                      description=model.MultiLanguageTextType({"en-US": "Germany", "de": "Deutschland"}))
-        json_data = json.dumps(test_object, cls=AASToJsonEncoder)
+        json_data = jsonization.to_jsonable(test_object)
 
     def test_random_object_serialization(self) -> None:
         aas_identifier = "AAS1"
@@ -36,11 +36,11 @@ class JsonSerializationTest(unittest.TestCase):
 
         # serialize object to json
         json_data = json.dumps({
-                'assetAdministrationShells': [test_aas],
-                'submodels': [submodel],
+                'assetAdministrationShells': [jsonization.to_jsonable(test_aas)],
+                'submodels': [jsonization.to_jsonable(submodel)],
                 'assets': [],
                 'conceptDescriptions': [],
-            }, cls=AASToJsonEncoder)
+            })
         json_data_new = json.loads(json_data)
 
 
@@ -61,9 +61,9 @@ class JsonSerializationSchemaTest(unittest.TestCase):
 
         # serialize object to json
         json_data = json.dumps({
-                'assetAdministrationShells': [test_aas],
-                'submodels': [submodel]
-            }, cls=AASToJsonEncoder)
+                'assetAdministrationShells': [jsonization.to_jsonable(test_aas)],
+                'submodels': [jsonization.to_jsonable(submodel)]
+            })
         json_data_new = json.loads(json_data)
 
         # load schema
@@ -158,69 +158,3 @@ class JsonSerializationSchemaTest(unittest.TestCase):
 
         # validate serialization against schema
         validate(instance=json_data, schema=aas_json_schema)
-
-
-class JsonSerializationStrippedObjectsTest(unittest.TestCase):
-    def _checkNormalAndStripped(self, attributes: Union[Set[str], str], obj: object) -> None:
-        if isinstance(attributes, str):
-            attributes = {attributes}
-
-        # attributes should be present when using the normal encoder,
-        # but must not be present when using the stripped encoder
-        for cls, assert_fn in ((AASToJsonEncoder, self.assertIn), (StrippedAASToJsonEncoder, self.assertNotIn)):
-            data = json.loads(json.dumps(obj, cls=cls))
-            for attr in attributes:
-                assert_fn(attr, data)
-
-    def test_stripped_qualifiable(self) -> None:
-        qualifier = model.Qualifier("test_qualifier", str)
-        qualifier2 = model.Qualifier("test_qualifier2", str)
-        operation = model.Operation("test_operation", qualifier={qualifier})
-        submodel = model.Submodel(
-            "http://acplt.org/test_submodel",
-            submodel_element=[operation],
-            qualifier={qualifier2}
-        )
-
-        self._checkNormalAndStripped({"submodelElements", "qualifiers"}, submodel)
-        self._checkNormalAndStripped("qualifiers", operation)
-
-    def test_stripped_annotated_relationship_element(self) -> None:
-        mlp = model.MultiLanguageProperty("test_multi_language_property", category="PARAMETER")
-        ref = model.ModelReference(
-            (model.Key(model.KeyTypes.SUBMODEL, "http://acplt.org/test_ref"),),
-            model.Submodel
-        )
-        are = model.AnnotatedRelationshipElement(
-            "test_annotated_relationship_element",
-            ref,
-            ref,
-            annotation=[mlp]
-        )
-
-        self._checkNormalAndStripped("annotations", are)
-
-    def test_stripped_entity(self) -> None:
-        mlp = model.MultiLanguageProperty("test_multi_language_property", category="PARAMETER")
-        entity = model.Entity("test_entity", model.EntityType.CO_MANAGED_ENTITY, statement=[mlp])
-
-        self._checkNormalAndStripped("statements", entity)
-
-    def test_stripped_submodel_element_collection(self) -> None:
-        mlp = model.MultiLanguageProperty("test_multi_language_property", category="PARAMETER")
-        sec = model.SubmodelElementCollection("test_submodel_element_collection", value=[mlp])
-
-        self._checkNormalAndStripped("value", sec)
-
-    def test_stripped_asset_administration_shell(self) -> None:
-        submodel_ref = model.ModelReference(
-            (model.Key(model.KeyTypes.SUBMODEL, "http://acplt.org/test_ref"),),
-            model.Submodel
-        )
-        aas = model.AssetAdministrationShell(
-            model.AssetInformation(global_asset_id="http://acplt.org/test_ref"),
-            "http://acplt.org/test_aas",
-            submodel={submodel_ref}
-        )
-
-        self._checkNormalAndStripped({"submodels"}, aas)
