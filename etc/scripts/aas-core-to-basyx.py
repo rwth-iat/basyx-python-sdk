@@ -78,14 +78,11 @@ class AASBaSyxPaths:
     basyx_path: pathlib.Path
 
 
-def adapt_common(paths: AASBaSyxPaths) -> List[str]:
-    common_path = paths.aas_core_path / 'common.py'
-    target_basyx_path = paths.basyx_path / 'aas' / 'util' / 'common.py'
-    # Copy common.py to basyx/aas/utils/common.py
+def copy_file(source_path: pathlib.Path, target_path: pathlib.Path) -> List[str]:
     try:
-        target_basyx_path.write_text(common_path.read_text(encoding='utf-8'), encoding='utf-8')
+        target_path.write_text(source_path.read_text(encoding='utf-8'), encoding='utf-8')
     except Exception as exception:
-        errors = [f"Failed to copy {common_path} to {target_basyx_path}: {exception}"]
+        errors = [f"Failed to copy {source_path} to {target_path}: {exception}"]
     else:
         errors = []
     return errors
@@ -190,6 +187,13 @@ def merge_actions(actions: Sequence[Action]) -> List[Action]:
     return result
 
 
+def adapt_common(paths: AASBaSyxPaths) -> List[str]:
+    common_path = paths.aas_core_path / 'common.py'
+    target_basyx_path = paths.basyx_path / 'aas/util/common.py'
+    errors = copy_file(source_path=common_path, target_path=target_basyx_path)
+    return errors
+
+
 def apply_patches(
         patches: List[Patch],
         text: str
@@ -202,10 +206,10 @@ def apply_patches(
     for patch in patches:
         if patch.prefix is not None:
             actions.append(InsertPrefix(text=patch.prefix, position=patch.node.first_token.startpos))
-            
+
         if patch.suffix is not None:
             actions.append(InsertSuffix(text=patch.suffix, position=patch.node.last_token.endpos))
-            
+
         if patch.replacement is not None:
             actions.append(Replace(text=patch.replacement, start=patch.node.first_token.startpos, end=patch.node.last_token.endpos))
 
@@ -365,12 +369,16 @@ def adapt_verification(paths: AASBaSyxPaths) -> List[str]:
 
 
 def adapt_jsonization(paths: AASBaSyxPaths) -> List[str]:
-    errors: List[str] = []
+    jsonization_path = paths.aas_core_path / 'jsonization.py'
+    target_basyx_path = paths.basyx_path / 'aas/adapter/json/jsonization.py'
+    errors = copy_file(source_path=jsonization_path, target_path=target_basyx_path)
     return errors
 
 
 def adapt_xmlization(paths: AASBaSyxPaths) -> List[str]:
-    errors: List[str] = []
+    xmlization_path = paths.aas_core_path / 'xmlization.py'
+    target_basyx_path = paths.basyx_path / 'aas/adapter/json/xmlization.py'
+    errors = copy_file(source_path=xmlization_path, target_path=target_basyx_path)
     return errors
 
 
