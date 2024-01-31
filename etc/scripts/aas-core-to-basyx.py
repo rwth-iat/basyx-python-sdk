@@ -45,14 +45,11 @@ class AASBaSyxPaths:
     basyx_path: pathlib.Path
 
 
-def adapt_common(paths: AASBaSyxPaths) -> List[str]:
-    common_path = paths.aas_core_path / 'aas_core3' / 'common.py'
-    target_basyx_path = paths.basyx_path / 'aas' / 'util' / 'common.py'
-    # Copy common.py to basyx/aas/utils/common.py
+def copy_file(source_path: pathlib.Path, target_path: pathlib.Path) -> List[str]:
     try:
-        target_basyx_path.write_text(common_path.read_text(encoding='utf-8'), encoding='utf-8')
+        target_path.write_text(source_path.read_text(encoding='utf-8'), encoding='utf-8')
     except Exception as exception:
-        errors = [f"Failed to copy {common_path} to {target_basyx_path}: {exception}"]
+        errors = [f"Failed to copy {source_path} to {target_path}: {exception}"]
     else:
         errors = []
     return errors
@@ -63,6 +60,12 @@ class Patch:
     prefix: Optional[str] = None
     replacement: Optional[str] = None
     suffix: Optional[str] = None
+
+def adapt_common(paths: AASBaSyxPaths) -> List[str]:
+    common_path = paths.aas_core_path / 'aas_core3' / 'common.py'
+    target_basyx_path = paths.basyx_path / 'aas' / 'util' / 'common.py'
+    return copy_file(source_path=common_path, target_path=target_basyx_path)
+
 
 def apply_patches(
         patches: List[Patch],
