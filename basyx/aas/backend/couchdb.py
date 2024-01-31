@@ -22,7 +22,7 @@ import json
 import urllib3  # type: ignore
 
 from . import backends
-from ..adapter.json import json_serialization, json_deserialization
+from ..adapter.json import json_serialization, json_deserialization, jsonization
 from basyx.aas import model
 
 
@@ -72,8 +72,7 @@ class CouchDBBackend(backends.Backend):
         if get_couchdb_revision(url) is None:
             raise CouchDBConflictError("No revision found for the given object. Try calling `update` on it.")
 
-        data = json.dumps({'data': store_object, "_rev": get_couchdb_revision(url)},
-                          cls=json_serialization.AASToJsonEncoder)
+        data = json.dumps({'data': jsonization.to_jsonable(store_object), "_rev": get_couchdb_revision(url)})
 
         try:
             response = CouchDBBackend.do_request(
@@ -160,7 +159,8 @@ class CouchDBBackend(backends.Backend):
         if response.headers.get('Content-type') != 'application/json':
             raise CouchDBResponseError("Unexpected Content-type header")
         try:
-            data = json.loads(response.data.decode('utf-8'), cls=json_deserialization.AASFromJsonDecoder)
+            store_object = jsonization.referable_from_jsonable(response.data.decode('utf-8'))
+            data = {'data': store_object}
         except json.JSONDecodeError as e:
             raise CouchDBResponseError("Could not parse CouchDB server response as JSON data.") from e
         return data
@@ -347,7 +347,7 @@ class CouchDBObjectStore(model.AbstractObjectStore):
         """
         logger.debug("Adding object %s to CouchDB database ...", repr(x))
         # Serialize data
-        data = json.dumps({'data': x}, cls=json_serialization.AASToJsonEncoder)
+        data = jsonization.to_jsonable(self.get_environment())
 
         # Create and issue HTTP request (raises HTTPError on status != 200)
 

@@ -10,7 +10,7 @@ import json
 import unittest
 
 from basyx.aas import model
-from basyx.aas.adapter.json import AASToJsonEncoder, write_aas_json_file, read_aas_json_file
+from basyx.aas.adapter.json import write_aas_json_file, read_aas_json_file, jsonization
 
 from basyx.aas.examples.data import example_aas_missing_attributes, example_aas, \
     example_aas_mandatory_attributes, example_submodel_template, create_example
@@ -30,12 +30,12 @@ class JsonSerializationDeserializationTest(unittest.TestCase):
 
         # serialize object to json
         json_data = json.dumps({
-                'assetAdministrationShells': [test_aas],
-                'submodels': [submodel],
+                'assetAdministrationShells': [jsonization.to_jsonable(test_aas)],
+                'submodels': [jsonization.to_jsonable(submodel)],
                 'assets': [],
                 'conceptDescriptions': [],
-            }, cls=AASToJsonEncoder)
-        json_data_new = json.loads(json_data)
+            })
+        json_data_new = jsonization.referable_from_jsonable(json_data)
 
         # try deserializing the json string into a DictObjectStore of AAS objects with help of the json module
         json_object_store = read_aas_json_file(io.StringIO(json_data), failsafe=False)

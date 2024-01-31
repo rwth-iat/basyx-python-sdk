@@ -13,7 +13,7 @@ This module implements Registries for the AAS, in order to enable resolving glob
 import abc
 from typing import MutableSet, Iterator, Generic, TypeVar, Dict, List, Optional, Iterable
 
-from .base import Identifier, Identifiable
+from .types import Identifiable, Environment, AssetAdministrationShell, Submodel, ConceptDescription
 
 
 class AbstractObjectProvider(metaclass=abc.ABCMeta):
@@ -79,6 +79,9 @@ class AbstractObjectStore(AbstractObjectProvider, MutableSet[_IT], Generic[_IT],
         for x in other:
             self.add(x)
 
+    def get_environment(self) -> Environment:
+        pass
+
 
 class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
     """
@@ -93,6 +96,24 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
 
     def get_identifiable(self, identifier: Identifier) -> _IT:
         return self._backend[identifier]
+
+    def get_environment(self) -> Environment:
+        asset_administration_shells: List[AssetAdministrationShell] = []
+        submodels: List[Submodel] = []
+        concept_descriptions: List[ConceptDescription] = []
+        for obj in self._backend.values():
+            if isinstance(obj, AssetAdministrationShell):
+                asset_administration_shells.append(obj)
+            elif isinstance(obj, Submodel):
+                submodels.append(obj)
+            elif isinstance(obj, ConceptDescription):
+                concept_descriptions.append(obj)
+
+        environment = Environment(
+            asset_administration_shells, submodels, concept_descriptions
+        )
+        return environment
+
 
     def add(self, x: _IT) -> None:
         if x.id in self._backend and self._backend.get(x.id) is not x:

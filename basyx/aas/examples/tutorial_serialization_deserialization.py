@@ -11,6 +11,7 @@ import json
 from basyx.aas import model
 import basyx.aas.adapter.json
 import basyx.aas.adapter.xml
+from basyx.aas.adapter.json import jsonization
 
 # 'Details of the Asset Administration Shell' specifies multiple official serialization formats for AAS data. In this
 # tutorial, we show how the Eclipse BaSyx Python library can be used to serialize AAS objects into JSON or XML and to
@@ -66,16 +67,14 @@ aashell.update()
 # 'Details of the Asset Administration Shell', chapter 5.5, using Python's built-in JSON library. When provided to the
 # the `json.dump()` and `json.dumps()` methods, these methods are enabled to correctly handle AAS objects within the
 # dumped data structure.
-aashell_json_string = json.dumps(aashell, cls=basyx.aas.adapter.json.AASToJsonEncoder)
+aashell_json_string = jsonization.to_jsonable(aashell)
 
-property_json_string = json.dumps(submodel.submodel_element.get_object_by_attribute("id_short", 'ExampleProperty'),
-                                  cls=basyx.aas.adapter.json.AASToJsonEncoder)
+property_json_string = jsonization.to_jsonable(
+    submodel.submodel_element.get_object_by_attribute("id_short", 'ExampleProperty'))
 
 # Using this technique, we can also serialize Python dict and list data structures with nested AAS objects:
-json_string = json.dumps({'the_submodel': submodel,
-                          'the_aas': aashell
-                          },
-                         cls=basyx.aas.adapter.json.AASToJsonEncoder)
+json_string = json.dumps({'the_submodel': jsonization.to_jsonable(submodel),
+                          'the_aas': jsonization.to_jsonable(aashell)})
 
 
 ######################################################################
@@ -86,7 +85,10 @@ json_string = json.dumps({'the_submodel': submodel,
 # JSONDecoder class, called `AASFromJSONDecoder` which can be passed to `json.load()` or `json.loads()` to ensure that
 # AAS objects contained in the JSON data are transformed into their BaSyx Python SDK object representation instead of
 # simple Python dicts:
-submodel_and_aas = json.loads(json_string, cls=basyx.aas.adapter.json.AASFromJsonDecoder)
+
+jsonable = json.loads(json_string)
+environment = jsonization.environment_from_jsonable(jsonable)
+submodel_and_aas = environment.asset_administration_shells + environment.submodels + environment.concept_descriptions
 
 # Alternatively, one can use the `StrictAASFromJsonDecoder` which works in just the same way, but enforces the format
 # specification more strictly. While `AASFromJSONDecoder` will tolerate some semantic errors by simple skipping the
