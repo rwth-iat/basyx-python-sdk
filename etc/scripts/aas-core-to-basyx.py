@@ -62,9 +62,10 @@ class Patch:
     suffix: Optional[str] = None
 
 def adapt_common(paths: AASBaSyxPaths) -> List[str]:
-    common_path = paths.aas_core_path / 'aas_core3' / 'common.py'
-    target_basyx_path = paths.basyx_path / 'aas' / 'util' / 'common.py'
-    return copy_file(source_path=common_path, target_path=target_basyx_path)
+    common_path = paths.aas_core_path / 'common.py'
+    target_basyx_path = paths.basyx_path / 'aas/util/common.py'
+    errors = copy_file(source_path=common_path, target_path=target_basyx_path)
+    return errors
 
 
 def apply_patches(
@@ -203,12 +204,16 @@ def adapt_verification(paths: AASBaSyxPaths) -> List[str]:
 
 
 def adapt_jsonization(paths: AASBaSyxPaths) -> List[str]:
-    errors: List[str] = []
+    jsonization_path = paths.aas_core_path / 'jsonization.py'
+    target_basyx_path = paths.basyx_path / 'aas/adapter/json/jsonization.py'
+    errors = copy_file(source_path=jsonization_path, target_path=target_basyx_path)
     return errors
 
 
 def adapt_xmlization(paths: AASBaSyxPaths) -> List[str]:
-    errors: List[str] = []
+    xmlization_path = paths.aas_core_path / 'xmlization.py'
+    target_basyx_path = paths.basyx_path / 'aas/adapter/json/xmlization.py'
+    errors = copy_file(source_path=xmlization_path, target_path=target_basyx_path)
     return errors
 
 
