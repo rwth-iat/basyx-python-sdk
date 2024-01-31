@@ -64,6 +64,7 @@ class Patch:
     replacement: Optional[str] = None
     suffix: Optional[str] = None
 
+
 def apply_patches(
         patches: List[Patch],
         text: str
