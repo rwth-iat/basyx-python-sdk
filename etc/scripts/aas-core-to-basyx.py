@@ -1,11 +1,40 @@
+import itertools
 import pathlib
 import sys
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, Sequence, Dict, Iterable, Iterator, TypeVar, NoReturn
 import dataclasses
 import argparse
 import ast
+
 import asttokens
-from icontract import ensure
+from icontract import ensure, require
+
+_FRAGMENTS_DIR = pathlib.Path(__file__).parent / "fragments"
+
+T = TypeVar("T")
+
+def pairwise(iterable: Iterable[T]) -> Iterator[Tuple[T, T]]:
+    """
+    Iterate pair-wise over the iterator.
+
+    >>> list(pairwise("ABCDE"))
+    [('A', 'B'), ('B', 'C'), ('C', 'D'), ('D', 'E')]
+    """
+    a, b = itertools.tee(iterable)
+    next(b, None)
+    return zip(a, b)
+
+
+
+def assert_never(value: NoReturn) -> NoReturn:
+    """
+    Signal to mypy to perform an exhaustive matching.
+
+    Please see the following page for more details:
+    https://hakibenita.com/python-mypy-exhaustive-checking
+    """
+    assert False, f"Unhandled value: {value} ({type(value).__name__})"
+
 
 
 @ensure(lambda result: (result[0] is None) ^ (result[1] is None))
@@ -26,17 +55,21 @@ def source_to_atok(
     return atok, None
 
 
-@ensure(lambda result: (result[0] is None) ^ (result[1] is None))
-def parse_file(path: pathlib.Path) -> Tuple[Optional[asttokens.ASTTokens], Optional[str]]:
+@ensure(lambda result: (result[0] is None) ^ (len(result[1])) == 0)
+def parse_file(path: pathlib.Path) -> Tuple[Optional[asttokens.ASTTokens], List[str]]:
     source = path.read_text(encoding='utf-8')
 
     atok, error = source_to_atok(source=source)
     if error is not None:
-        return None, f"Failed to parse {path}: {error}"
+        return None, [f"Failed to parse {path}: {error}"]
+
+    errors: List[str] = []
 
     assert atok is not None
+    assert atok.tree is not None
+    assert isinstance(atok.tree, ast.Module)
 
-    return atok, None
+    return atok, errors
 
 
 @dataclasses.dataclass
@@ -46,7 +79,7 @@ class AASBaSyxPaths:
 
 
 def adapt_common(paths: AASBaSyxPaths) -> List[str]:
-    common_path = paths.aas_core_path / 'aas_core3' / 'common.py'
+    common_path = paths.aas_core_path / 'common.py'
     target_basyx_path = paths.basyx_path / 'aas' / 'util' / 'common.py'
     # Copy common.py to basyx/aas/utils/common.py
     try:
@@ -57,12 +90,104 @@ def adapt_common(paths: AASBaSyxPaths) -> List[str]:
         errors = []
     return errors
 
+
 @dataclasses.dataclass
 class Patch:
     node: ast.AST
     prefix: Optional[str] = None
     replacement: Optional[str] = None
     suffix: Optional[str] = None
+
+
+@dataclasses.dataclass
+class InsertPrefix:
+    text: str
+    position: int
+
+    @property
+    def end(self) -> int:
+        return self.position
+
+
+@dataclasses.dataclass
+class InsertSuffix:
+    text: str
+    position: int
+
+    @property
+    def end(self) -> int:
+        return self.position
+
+
+@dataclasses.dataclass
+class Replace:
+    text: str
+    position: int
+    end: int
+
+
+Action = Union[InsertPrefix, InsertSuffix, Replace]
+
+
+def check_replaces_do_not_overlap(actions: Sequence[Action]) -> Optional[str]:
+    previous_replace: Optional[Replace] = None
+    for action in actions:
+        if not isinstance(action, Replace):
+            continue
+
+        if previous_replace is None:
+            previous_replace = action
+            continue
+
+        if previous_replace.end >= action.position:
+            return (
+                f"The text to be replaced, {previous_replace}, "
+                f"overlaps with another text to be replaced, {action}."
+            )
+
+        previous_replace = action
+
+    return None
+
+
+@require(lambda actions: check_replaces_do_not_overlap(actions) is None)
+@require(lambda actions: actions == sorted(actions, key=lambda action: action.position))
+@ensure(
+    lambda result:
+    all(
+        previous_action.position < action.position for previous_action, action in pairwise(result)
+    )
+)
+def merge_actions(actions: Sequence[Action]) -> List[Action]:
+    result: List[Action] = []
+
+    previous_prefix: Optional[InsertPrefix] = None
+    previous_suffix: Optional[InsertSuffix] = None
+
+    for action in actions:
+        if isinstance(action, InsertPrefix):
+            if previous_prefix is not None and previous_prefix.position == action.position:
+                previous_prefix.text = f"{action.text}{previous_prefix.text}"
+            else:
+                prefix_copy = dataclasses.replace(action)
+                result.append(prefix_copy)
+                previous_prefix = prefix_copy
+
+        elif isinstance(action, InsertSuffix):
+            if previous_suffix is not None and previous_suffix.position == action.position:
+                previous_suffix.text = f"{previous_suffix.text}{action.text}"
+            else:
+                suffix_copy = dataclasses.replace(action)
+                result.append(suffix_copy)
+                previous_suffix = suffix_copy
+
+        elif isinstance(action, Replace):
+            result.append(dataclasses.replace(action))
+
+        else:
+            assert_never(action)
+
+    return result
 
 
 def apply_patches(
@@ -73,64 +198,47 @@ def apply_patches(
     if len(patches) == 0:
         return text
 
-    sorted_patches = sorted(
-        patches,
-        key=lambda patch: patch.node.first_token.startpos
-    )
+    actions: List[Action] = []
+    for patch in patches:
+        if patch.prefix is not None:
+            actions.append(InsertPrefix(text=patch.prefix, position=patch.node.first_token.startpos))
+            
+        if patch.suffix is not None:
+            actions.append(InsertSuffix(text=patch.suffix, position=patch.node.last_token.endpos))
+            
+        if patch.replacement is not None:
+            actions.append(Replace(text=patch.replacement, start=patch.node.first_token.startpos, end=patch.node.last_token.endpos))
 
-    # region Assert no overlaps
-    prev_node: Optional[ast.AST] = None
-    for patch in sorted_patches:
-        if prev_node is None:
-            prev_node = patch.node
-            continue
+    actions = sorted(actions, key=lambda action: action.position)
 
-        if prev_node.last_token.endpos >= patch.node.first_toke.startpos:
-            raise AssertionError(
-                f"The patch for the node {ast.dump(prev_node)} overlaps with the node {ast.dump(patch.node)}"
-            )
+    error = check_replaces_do_not_overlap(actions)
+    if error is not None:
+        raise AssertionError(error)
 
-        prev_node = patch.node
-    # endregion
+    actions = merge_actions(actions)
 
     parts: List[str] = []
+    previous_action: Optional[Action] = None
 
-    last_node: Optional[ast.AST] = None
-
-    for patch in sorted_patches:
-        if last_node is None:
+    for action in actions:
+        if previous_action is None:
             parts.append(
-                text[0:patch.node.first_token.startpos]
+                text[0:action.position]
             )
         else:
             parts.append(
-                text[last_node.last_token.endpos:patch.node.first_token.startpos]
+                text[previous_action.end:action.position]
             )
-
-        if patch.prefix is not None:
-            parts.append(patch.prefix)
-
-        if patch.replacement is not None:
-            parts.append(patch.replacement)
-        else:
-            parts.append(
-                text[patch.node.first_token.startpos:patch.node.last_token.endpos]
-            )
-
-        if patch.suffix is not None:
-            parts.append(patch.suffix)
-
-        last_node = patch.node
-
-    assert last_node is not None
-    parts.append(text[last_node.last_token.endpos:])
+        parts.append(
+            action.text
+        )
+        previous_action = action
+    assert previous_action is not None
+    parts.append(
+        text[previous_action.end:]
+    )
 
     return "".join(parts)
-
-
-class ImportFixVisitor(ast.NodeVisitor):
-    def __init__(self):
-        self.patches: List[Tuple[ast.AST, str]] = []
 
 
 @ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))
@@ -152,20 +260,61 @@ def patch_types_to_import_provider(module: ast.Module) -> Tuple[Optional[List[Pa
     ], None
 
 
+@ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))
+def patch_types_to_add_namespace_classes(module: ast.Module) -> Tuple[Optional[List[Patch]], Optional[str]]:
+    # We need to copy the classes Namespace, OrderedNamespaceSet, UniqueIdShortNamespaceSet
+    # and UniqueSemanticIdNamespaceSet into types.py
+    last_import: Optional[Union[ast.Import, ast.ImportFrom]] = None
+    for stmt in module.body:
+        if isinstance(stmt, ast.Import) or isinstance(stmt, ast.ImportFrom):
+            last_import = stmt
+
+    if last_import is None:
+        return None, "No import statements, so we do not know where to append the Namespace* classes"
+
+    return [
+        Patch(
+            node=last_import,
+            suffix="\n\n" + (_FRAGMENTS_DIR / "namespace.py").read_text(encoding='utf-8')
+        )
+    ], None
+
+
+@ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))
+def patch_namespace_inheritances(module: ast.Module) -> Tuple[Optional[List[Patch]], Optional[str]]:
+    patches: List[Patch] = []
+    for stmt in module.body:
+        # HasExtensions and Qualifiable inherit from basyx.Namespace
+        if isinstance(stmt, ast.ClassDef) and stmt.name == "HasExtensions":
+            last_node = stmt.bases[-1]  # These are the classes that are inherited from
+            patches.append(
+                Patch(
+                    node=last_node,
+                    suffix=", Namespace"
+                )
+            )
+            # Todo: Change extension definition to NamespaceSet[Extension]
+        if isinstance(stmt, ast.ClassDef) and stmt.name == "Qualifiable":
+            last_node = stmt.bases[-1]  # These are the classes that are inherited from
+            patches.append(
+                Patch(
+                    node=last_node,
+                    suffix=", Namespace"
+                )
+            )
+
+    return patches, None
+
+
 def adapt_types(paths: AASBaSyxPaths) -> List[str]:
     types_path = paths.aas_core_path / "types.py"
-
-    atok, error = parse_file(types_path)
-    if error is not None:
-        return [error]
-
-    errors: List[str] = []
-
-    assert atok.tree is not None
-    assert isinstance(atok.tree, ast.Module)
+    atok, errors = parse_file(types_path)
+    if len(errors) > 0:
+        return errors
 
     patches: List[Patch] = []
 
+    # Find what we need to patch
     import_patches, error = patch_types_to_import_provider(module=atok.tree)
     if error is not None:
         errors.append(error)
@@ -173,6 +322,21 @@ def adapt_types(paths: AASBaSyxPaths) -> List[str]:
         assert import_patches is not None
         patches.extend(import_patches)
 
+    namespace_class_patches, error = patch_types_to_add_namespace_classes(module=atok.tree)
+    if error is not None:
+        errors.append(error)
+    else:
+        assert namespace_class_patches is not None
+        patches.extend(namespace_class_patches)
+
+    namespace_inheritance_patches, error = patch_namespace_inheritances(module=atok.tree)
+    if error is not None:
+        errors.append(error)
+    else:
+        assert namespace_inheritance_patches is not None
+        patches.extend(namespace_inheritance_patches)
+
+    # Handle applying patches
     if len(errors) > 0:
         return errors
 
