@@ -70,13 +70,323 @@ def patch_types_to_add_namespace_classes(module: ast.Module) -> Tuple[Optional[L
     ], None
 
 
+@require(lambda cls: cls.name == "AnnotatedRelationshipElement")
+@ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))
+def patch_class_annotated_relationship_element_for_namespace(
+        cls: ast.ClassDef
+) -> Tuple[Optional[List[Patch]], Optional[Error]]:
+    patches: List[Patch] = []
+    errors: List[Error] = []
+
+    # (2024-02-01, s-heppner)
+    # Note, we do not have to adapt the inheritance, since Referable objects automatically inherit from Namespace via
+    # `HasExtension`
+
+    # Adapt property definitions
+    for stmt in cls.body:
+        if isinstance(stmt, ast.AnnAssign) and stmt.target.id == "annotations":
+            visitor = VisitorReplaceListWith(replace_with="NamespaceSet")
+            visitor.visit(stmt)
+            patches.extend(visitor.patches)
+
+        if isinstance(stmt, ast.FunctionDef) and stmt.name == "__init__":
+            visitor = VisitorReplaceListWith(replace_with="Iterable")
+
+            for arg in itertools.chain(stmt.args.args, stmt.args.kwonlyargs, stmt.args.posonlyargs):
+                if arg.arg == "annotations":
+                    if arg.annotation is not None:
+                        visitor.visit(arg.annotation)
+
+            patches.extend(visitor.patches)
+
+    # Adapt constructor body
+    for stmt in cls.body:
+        if isinstance(stmt, ast.FunctionDef) and stmt.name == "__init__":
+            for node in stmt.body:
+                if not isinstance(node, ast.Assign):
+                    continue
+
+                if len(node.targets) != 1:
+                    errors.append(Error(f"Unexpected targets in assignment in the constructor: {ast.dump(node)}"))
+                    continue
+
+                property_name = extract_property_from_self_dot_property(node.targets[0])
+                if property_name is None:
+                    continue
+
+                if property_name != "annotations":
+                    continue
+
+                patches.append(
+                    Patch(
+                        node=node.value,
+                        replacement=f'NamespaceSet(self, [("id_short", True)], annotations)'
+                    )
+                )
+
+    return patches, None
+
+
+@require(lambda cls: cls.name == "Entity")
+@ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))
+def patch_class_entity_for_namespace(
+        cls: ast.ClassDef
+) -> Tuple[Optional[List[Patch]], Optional[Error]]:
+    patches: List[Patch] = []
+    errors: List[Error] = []
+
+    # (2024-02-01, s-heppner)
+    # Note, we do not have to adapt the inheritance, since Referable objects automatically inherit from Namespace via
+    # `HasExtension`
+
+    # Adapt property definitions
+    for stmt in cls.body:
+        if isinstance(stmt, ast.AnnAssign) and stmt.target.id == "statements":
+            visitor = VisitorReplaceListWith(replace_with="NamespaceSet")
+            visitor.visit(stmt)
+            patches.extend(visitor.patches)
+
+        if isinstance(stmt, ast.FunctionDef) and stmt.name == "__init__":
+            visitor = VisitorReplaceListWith(replace_with="Iterable")
+
+            for arg in itertools.chain(stmt.args.args, stmt.args.kwonlyargs, stmt.args.posonlyargs):
+                if arg.arg == "statements":
+                    if arg.annotation is not None:
+                        visitor.visit(arg.annotation)
+
+            patches.extend(visitor.patches)
+
+    # Adapt constructor body
+    for stmt in cls.body:
+        if isinstance(stmt, ast.FunctionDef) and stmt.name == "__init__":
+            for node in stmt.body:
+                if not isinstance(node, ast.Assign):
+                    continue
+
+                if len(node.targets) != 1:
+                    errors.append(Error(f"Unexpected targets in assignment in the constructor: {ast.dump(node)}"))
+                    continue
+
+                property_name = extract_property_from_self_dot_property(node.targets[0])
+                if property_name is None:
+                    continue
+
+                if property_name != "statements":
+                    continue
+
+                patches.append(
+                    Patch(
+                        node=node.value,
+                        replacement=f'NamespaceSet(self, [("id_short", True)], statements)'
+                    )
+                )
+
+    return patches, None
+
+
+@require(lambda cls: cls.name == "Operation")
+@ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))
+def patch_class_operation_for_namespace(
+        cls: ast.ClassDef
+) -> Tuple[Optional[List[Patch]], Optional[Error]]:
+    patches: List[Patch] = []
+    errors: List[Error] = []
+
+    # (2024-02-01, s-heppner)
+    # Note, we do not have to adapt the inheritance, since Referable objects automatically inherit from Namespace via
+    # `HasExtension`
+
+    # Adapt property definitions
+    for stmt in cls.body:
+        if isinstance(stmt, ast.AnnAssign) and stmt.target.id in [
+            "input_variables",
+            "output_variables",
+            "inoutput_variables"
+        ]:
+            visitor = VisitorReplaceListWith(replace_with="NamespaceSet")
+            visitor.visit(stmt)
+            patches.extend(visitor.patches)
+
+        if isinstance(stmt, ast.FunctionDef) and stmt.name == "__init__":
+            visitor = VisitorReplaceListWith(replace_with="Iterable")
+
+            for arg in itertools.chain(stmt.args.args, stmt.args.kwonlyargs, stmt.args.posonlyargs):
+                if arg.arg in [
+                    "input_variables",
+                    "output_variables",
+                    "inoutput_variables"
+                ]:
+                    if arg.annotation is not None:
+                        visitor.visit(arg.annotation)
+
+            patches.extend(visitor.patches)
+
+    # Adapt constructor body
+    for stmt in cls.body:
+        if isinstance(stmt, ast.FunctionDef) and stmt.name == "__init__":
+            for node in stmt.body:
+                if not isinstance(node, ast.Assign):
+                    continue
+
+                if len(node.targets) != 1:
+                    errors.append(Error(f"Unexpected targets in assignment in the constructor: {ast.dump(node)}"))
+                    continue
+
+                property_name = extract_property_from_self_dot_property(node.targets[0])
+                if property_name is None:
+                    continue
+
+                if property_name == "input_variables":
+                    patches.append(
+                        Patch(
+                            node=node.value,
+                            replacement=f'NamespaceSet(self, [("id_short", True)], input_variables)'
+                        )
+                    )
+                    continue
+
+                if property_name == "output_variables":
+                    patches.append(
+                        Patch(
+                            node=node.value,
+                            replacement=f'NamespaceSet(self, [("id_short", True)], output_variables)'
+                        )
+                    )
+                    continue
+
+                if property_name == "inoutput_variables":
+                    patches.append(
+                        Patch(
+                            node=node.value,
+                            replacement=f'NamespaceSet(self, [("id_short", True)], inoutput_variables)'
+                        )
+                    )
+                    continue
+
+    return patches, None
+
+
+@require(lambda cls: cls.name == "Submodel")
+@ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))
+def patch_class_submodel_for_namespace(
+        cls: ast.ClassDef
+) -> Tuple[Optional[List[Patch]], Optional[Error]]:
+    patches: List[Patch] = []
+    errors: List[Error] = []
+
+    # (2024-02-01, s-heppner)
+    # Note, we do not have to adapt the inheritance, since Referable objects automatically inherit from Namespace via
+    # `HasExtension`
+
+    # Adapt property definitions
+    for stmt in cls.body:
+        if isinstance(stmt, ast.AnnAssign) and stmt.target.id == "submodel_elements":
+            visitor = VisitorReplaceListWith(replace_with="NamespaceSet")
+            visitor.visit(stmt)
+            patches.extend(visitor.patches)
+
+        if isinstance(stmt, ast.FunctionDef) and stmt.name == "__init__":
+            visitor = VisitorReplaceListWith(replace_with="Iterable")
+
+            for arg in itertools.chain(stmt.args.args, stmt.args.kwonlyargs, stmt.args.posonlyargs):
+                if arg.arg == "submodel_elements":
+                    if arg.annotation is not None:
+                        visitor.visit(arg.annotation)
+
+            patches.extend(visitor.patches)
+
+    # Adapt constructor body
+    for stmt in cls.body:
+        if isinstance(stmt, ast.FunctionDef) and stmt.name == "__init__":
+            for node in stmt.body:
+                if not isinstance(node, ast.Assign):
+                    continue
+
+                if len(node.targets) != 1:
+                    errors.append(Error(f"Unexpected targets in assignment in the constructor: {ast.dump(node)}"))
+                    continue
+
+                property_name = extract_property_from_self_dot_property(node.targets[0])
+                if property_name is None:
+                    continue
+
+                if property_name != "submodel_elements":
+                    continue
+
+                patches.append(
+                    Patch(
+                        node=node.value,
+                        replacement=f'NamespaceSet(self, [("id_short", True)], submodel_elements)'
+                    )
+                )
+
+    return patches, None
+
+
+@require(lambda cls: cls.name == "SubmodelElementCollection")
+@ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))
+def patch_class_submodel_element_collection_for_namespace(
+        cls: ast.ClassDef
+) -> Tuple[Optional[List[Patch]], Optional[Error]]:
+    patches: List[Patch] = []
+    errors: List[Error] = []
+
+    # (2024-02-01, s-heppner)
+    # Note, we do not have to adapt the inheritance, since Referable objects automatically inherit from Namespace via
+    # `HasExtension`
+
+    # Adapt property definitions
+    for stmt in cls.body:
+        if isinstance(stmt, ast.AnnAssign) and stmt.target.id == "value":
+            visitor = VisitorReplaceListWith(replace_with="NamespaceSet")
+            visitor.visit(stmt)
+            patches.extend(visitor.patches)
+
+        if isinstance(stmt, ast.FunctionDef) and stmt.name == "__init__":
+            visitor = VisitorReplaceListWith(replace_with="Iterable")
+
+            for arg in itertools.chain(stmt.args.args, stmt.args.kwonlyargs, stmt.args.posonlyargs):
+                if arg.arg == "value":
+                    if arg.annotation is not None:
+                        visitor.visit(arg.annotation)
+
+            patches.extend(visitor.patches)
+
+    # Adapt constructor body
+    for stmt in cls.body:
+        if isinstance(stmt, ast.FunctionDef) and stmt.name == "__init__":
+            for node in stmt.body:
+                if not isinstance(node, ast.Assign):
+                    continue
+
+                if len(node.targets) != 1:
+                    errors.append(Error(f"Unexpected targets in assignment in the constructor: {ast.dump(node)}"))
+                    continue
+
+                property_name = extract_property_from_self_dot_property(node.targets[0])
+                if property_name is None:
+                    continue
+
+                if property_name != "value":
+                    continue
+
+                patches.append(
+                    Patch(
+                        node=node.value,
+                        replacement=f'NamespaceSet(self, [("id_short", True)], value)'
+                    )
+                )
+
+    return patches, None
+
+
 @ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))
 def patch_types_to_use_namespace_sets(module: ast.Module) -> Tuple[Optional[List[Patch]], Optional[Error]]:
     patches: List[Patch] = []
     errors: List[Error] = []
 
     for stmt in module.body:
-        # Todo: Use `get_class()`
+        # HasExtension.extensions
         if isinstance(stmt, ast.ClassDef) and stmt.name == "HasExtensions":
             sub_patches, error = patch_class_has_extension_for_namespace(
                 cls=stmt
@@ -88,27 +398,59 @@ def patch_types_to_use_namespace_sets(module: ast.Module) -> Tuple[Optional[List
                 assert sub_patches is not None
                 patches.extend(sub_patches)
 
-        # Todo: Use `get_class()`
+        # Qualifiable.qualifiers
         if isinstance(stmt, ast.ClassDef) and stmt.name == "Qualifiable":
-            sub_patches, error = patch_class_qualifiable_for_namespace(
-                cls=stmt
-            )
-
+            sub_patches, error = patch_class_qualifiable_for_namespace(cls=stmt)
             if error is not None:
                 errors.append(error)
             else:
                 assert sub_patches is not None
                 patches.extend(sub_patches)
 
-        # AnnotatedRelationshipElement.annotation
-        # Todo
+        # AnnotatedRelationshipElement.annotations
+        if isinstance(stmt, ast.ClassDef) and stmt.name == "AnnotatedRelationshipElement":
+            sub_patches, error = patch_class_annotated_relationship_element_for_namespace(cls=stmt)
+            if error is not None:
+                errors.append(error)
+            else:
+                assert sub_patches is not None
+                patches.extend(sub_patches)
+
         # Entity.statement
-        # Todo
+        if isinstance(stmt, ast.ClassDef) and stmt.name == "Entity":
+            sub_patches, error = patch_class_entity_for_namespace(cls=stmt)
+            if error is not None:
+                errors.append(error)
+            else:
+                assert sub_patches is not None
+                patches.extend(sub_patches)
+
         # Operation.variables
-        # Todo
+        if isinstance(stmt, ast.ClassDef) and stmt.name == "Operation":
+            sub_patches, error = patch_class_operation_for_namespace(cls=stmt)
+            if error is not None:
+                errors.append(error)
+            else:
+                assert sub_patches is not None
+                patches.extend(sub_patches)
+
         # Submodel.submodel_element
-        # Todo
+        if isinstance(stmt, ast.ClassDef) and stmt.name == "Submodel":
+            sub_patches, error = patch_class_submodel_for_namespace(cls=stmt)
+            if error is not None:
+                errors.append(error)
+            else:
+                assert sub_patches is not None
+                patches.extend(sub_patches)
+
         # SubmodelElementCollection.value
+        if isinstance(stmt, ast.ClassDef) and stmt.name == "SubmodelElementCollection":
+            sub_patches, error = patch_class_submodel_element_collection_for_namespace(cls=stmt)
+            if error is not None:
+                errors.append(error)
+            else:
+                assert sub_patches is not None
+                patches.extend(sub_patches)
 
     if len(errors) > 0:
         return None, Error("Failed to patch types.py for Namespace", underlying_errors=errors)
@@ -245,17 +587,6 @@ def patch_class_qualifiable_for_namespace(
 
 
 @ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))
-def patch_types_to_use_ordered_namespace_sets(module: ast.Module) -> Tuple[Optional[List[Patch]], Optional[Error]]:
-    """
-    Todo: `OrderedNamespaceSet` is currently only used in `SubmodelElementList.value`. It might be sensible to change
-    """
-    patches: List[Patch] = []
-    errors: List[Error] = []
-
-    return patches, None
-
-
-@ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))
 def patch_types_to_use_unique_id_short_namespace(
         module: ast.Module) -> Tuple[Optional[List[Patch]], Optional[Error]]:
     patches: List[Patch] = []
@@ -319,13 +650,10 @@ def adapt_types(paths: AASBaSyxPaths) -> Optional[Error]:
         assert sub_patches is not None
         patches.extend(sub_patches)
 
-    # Patch aas-core to use OrderedNamespaceSets
-    sub_patches, error = patch_types_to_use_ordered_namespace_sets(module=atok.tree)
-    if error is not None:
-        errors.append(error)
-    else:
-        assert sub_patches is not None
-        patches.extend(sub_patches)
+    # (2024-02-01, s-heppner)
+    # We decided not to patch aas-core to use OrderedNamespaceSets,
+    # since has only been used in `SubmodelElementList.value` and we decided for allowing accessing the elements
+    # only via the aas-core methods
 
     # Patch aas-core to use UniqueIdShortNamespace
     sub_patches, error = patch_types_to_use_unique_id_short_namespace(module=atok.tree)
@@ -334,10 +662,6 @@ def adapt_types(paths: AASBaSyxPaths) -> Optional[Error]:
     else:
         assert sub_patches is not None
         patches.extend(sub_patches)
-
-    # Todo Referable.parent
-    # Patch aas-core to use UniqueSemanticIdNamespaceSets
-    # Todo
 
     # Handle applying patches
     if len(errors) > 0:
@@ -358,10 +682,12 @@ def adapt_types(paths: AASBaSyxPaths) -> Optional[Error]:
 
 
 def adapt_constants(paths: AASBaSyxPaths) -> Optional[Error]:
+    # Todo
     return None
 
 
 def adapt_verification(paths: AASBaSyxPaths) -> Optional[Error]:
+    # Todo
     return None
 
 
