@@ -587,17 +587,6 @@ def patch_class_qualifiable_for_namespace(
 
 
 @ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))
-def patch_types_to_use_ordered_namespace_sets(module: ast.Module) -> Tuple[Optional[List[Patch]], Optional[Error]]:
-    """
-    Todo: `OrderedNamespaceSet` is currently only used in `SubmodelElementList.value`. It might be sensible to change
-    """
-    patches: List[Patch] = []
-    errors: List[Error] = []
-
-    return patches, None
-
-
-@ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))
 def patch_types_to_use_unique_id_short_namespace(
         module: ast.Module) -> Tuple[Optional[List[Patch]], Optional[Error]]:
     patches: List[Patch] = []
@@ -661,13 +650,10 @@ def adapt_types(paths: AASBaSyxPaths) -> Optional[Error]:
         assert sub_patches is not None
         patches.extend(sub_patches)
 
-    # Patch aas-core to use OrderedNamespaceSets
-    sub_patches, error = patch_types_to_use_ordered_namespace_sets(module=atok.tree)
-    if error is not None:
-        errors.append(error)
-    else:
-        assert sub_patches is not None
-        patches.extend(sub_patches)
+    # (2024-02-01, s-heppner)
+    # We decided not to patch aas-core to use OrderedNamespaceSets,
+    # since has only been used in `SubmodelElementList.value` and we decided for allowing accessing the elements
+    # only via the aas-core methods
 
     # Patch aas-core to use UniqueIdShortNamespace
     sub_patches, error = patch_types_to_use_unique_id_short_namespace(module=atok.tree)
@@ -696,10 +682,12 @@ def adapt_types(paths: AASBaSyxPaths) -> Optional[Error]:
 
 
 def adapt_constants(paths: AASBaSyxPaths) -> Optional[Error]:
+    # Todo
     return None
 
 
 def adapt_verification(paths: AASBaSyxPaths) -> Optional[Error]:
+    # Todo
     return None
 
 
