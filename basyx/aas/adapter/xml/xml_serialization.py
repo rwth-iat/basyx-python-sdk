@@ -33,4 +33,4 @@ def write_aas_xml_file(file: IO,
                  the AAS meta model which should be serialized to an XML file
     """
 
-    file.write(xmlization.to_str(data.get_environment()))
+    file.write(xmlization.to_str(data.as_environment()))

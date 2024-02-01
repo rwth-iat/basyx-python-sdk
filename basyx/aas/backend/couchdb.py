@@ -347,7 +347,7 @@ class CouchDBObjectStore(model.AbstractObjectStore):
         """
         logger.debug("Adding object %s to CouchDB database ...", repr(x))
         # Serialize data
-        data = jsonization.to_jsonable(self.get_environment())
+        data = jsonization.to_jsonable(self.as_environment())
 
         # Create and issue HTTP request (raises HTTPError on status != 200)
 
