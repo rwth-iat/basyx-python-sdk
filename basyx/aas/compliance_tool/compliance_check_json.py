@@ -145,7 +145,7 @@ def check_deserialization(file_path: str, state_manager: ComplianceToolStateMana
             state_manager.add_step('Read file {} and check if it is deserializable'.format(file_info))
         else:
             state_manager.add_step('Read file and check if it is deserializable')
-        obj_store = json_deserialization.read_aas_json_file(file_to_be_checked, failsafe=True)
+        obj_store = json_deserialization.read_aas_json_file(file_to_be_checked)
 
     state_manager.set_step_status_from_log()
 

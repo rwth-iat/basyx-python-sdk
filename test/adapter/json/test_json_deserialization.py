@@ -36,9 +36,7 @@ class JsonDeserializationTest(unittest.TestCase):
                 ]
             }"""
         with self.assertRaisesRegex(TypeError, r"submodels.*AssetAdministrationShell"):
-            read_aas_json_file(io.StringIO(data), failsafe=False)
-        with self.assertLogs(logging.getLogger(), level=logging.WARNING) as cm:
-            read_aas_json_file(io.StringIO(data), failsafe=True)
+            read_aas_json_file(io.StringIO(data))
         self.assertIn("submodels", cm.output[0])  # type: ignore
         self.assertIn("AssetAdministrationShell", cm.output[0])  # type: ignore
 
@@ -53,9 +51,7 @@ class JsonDeserializationTest(unittest.TestCase):
                 ]
             }"""
         with self.assertRaisesRegex(TypeError, r"submodels.*'foo'"):
-            read_aas_json_file(io.StringIO(data), failsafe=False)
-        with self.assertLogs(logging.getLogger(), level=logging.WARNING) as cm:
-            read_aas_json_file(io.StringIO(data), failsafe=True)
+            read_aas_json_file(io.StringIO(data))
         self.assertIn("submodels", cm.output[0])  # type: ignore
         self.assertIn("'foo'", cm.output[0])  # type: ignore
 
@@ -143,62 +139,11 @@ class JsonDeserializationTest(unittest.TestCase):
             }"""
         string_io = io.StringIO(data)
         with self.assertLogs(logging.getLogger(), level=logging.ERROR) as cm:
-            read_aas_json_file(string_io, failsafe=True)
+            read_aas_json_file(string_io)
         self.assertIn("duplicate identifier", cm.output[0])  # type: ignore
         string_io.seek(0)
         with self.assertRaisesRegex(KeyError, r"duplicate identifier"):
-            read_aas_json_file(string_io, failsafe=False)
-
-    def test_duplicate_identifier_object_store(self) -> None:
-        sm_id = "http://acplt.org/test_submodel"
-
-        def get_clean_store() -> model.DictObjectStore:
-            store: model.DictObjectStore = model.DictObjectStore()
-            submodel_ = model.Submodel(sm_id, id_short="test123")
-            store.add(submodel_)
-            return store
-
-        data = """
-            {
-                "submodels": [{
-                    "modelType": "Submodel",
-                    "id": "http://acplt.org/test_submodel",
-                    "idShort": "test456"
-                }],
-                "assetAdministrationShells": [],
-                "conceptDescriptions": []
-            }"""
-
-        string_io = io.StringIO(data)
-
-        object_store = get_clean_store()
-        identifiers = read_aas_json_file_into(object_store, string_io, replace_existing=True, ignore_existing=False)
-        self.assertEqual(identifiers.pop(), sm_id)
-        submodel = object_store.pop()
-        self.assertIsInstance(submodel, model.Submodel)
-        self.assertEqual(submodel.id_short, "test456")
-
-        string_io.seek(0)
-
-        object_store = get_clean_store()
-        with self.assertLogs(logging.getLogger(), level=logging.INFO) as log_ctx:
-            identifiers = read_aas_json_file_into(object_store, string_io, replace_existing=False, ignore_existing=True)
-        self.assertEqual(len(identifiers), 0)
-        self.assertIn("already exists in the object store", log_ctx.output[0])  # type: ignore
-        submodel = object_store.pop()
-        self.assertIsInstance(submodel, model.Submodel)
-        self.assertEqual(submodel.id_short, "test123")
-
-        string_io.seek(0)
-
-        object_store = get_clean_store()
-        with self.assertRaisesRegex(KeyError, r"already exists in the object store"):
-            identifiers = read_aas_json_file_into(object_store, string_io, replace_existing=False,
-                                                  ignore_existing=False)
-        self.assertEqual(len(identifiers), 0)
-        submodel = object_store.pop()
-        self.assertIsInstance(submodel, model.Submodel)
-        self.assertEqual(submodel.id_short, "test123")
+            read_aas_json_file(string_io)
 
 
 class JsonDeserializationDerivingTest(unittest.TestCase):

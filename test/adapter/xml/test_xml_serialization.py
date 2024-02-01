@@ -106,7 +106,7 @@ class XMLSerializationSchemaTest(unittest.TestCase):
     def test_missing_serialization(self) -> None:
         data = example_aas_missing_attributes.create_full_example()
         file = io.BytesIO()
-        write_aas_xml_file(file=file, data=data, pretty_print=True)
+        write_aas_xml_file(file=file, data=data)
 
         # load schema
         aas_schema = etree.XMLSchema(file=XML_SCHEMA_FILE)

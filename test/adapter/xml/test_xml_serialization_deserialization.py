@@ -22,7 +22,7 @@ def _serialize_and_deserialize(data: model.DictObjectStore) -> model.DictObjectS
 
     # try deserializing the xml document into a DictObjectStore of AAS objects with help of the xml module
     file.seek(0)
-    return read_aas_xml_file(file, failsafe=False)
+    return read_aas_xml_file(file)
 
 
 class XMLSerializationDeserializationTest(unittest.TestCase):

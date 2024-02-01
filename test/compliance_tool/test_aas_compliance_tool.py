@@ -133,7 +133,7 @@ class ComplianceToolTest(unittest.TestCase):
         self.assertIn('SUCCESS:      Write data to file', str(output.stdout))
 
         with open(filename, "r", encoding='utf-8-sig') as f:
-            json_object_store = read_aas_json_file(f, failsafe=False)
+            json_object_store = read_aas_json_file(f)
             data = create_example()
             checker = AASDataChecker(raise_immediately=True)
             checker.check_object_store(json_object_store, data)
@@ -179,7 +179,7 @@ class ComplianceToolTest(unittest.TestCase):
         self.assertIn('SUCCESS:      Write data to file', str(output.stdout))
 
         with open(filename, "rb") as f:
-            xml_object_store = read_aas_xml_file(f, failsafe=False)
+            xml_object_store = read_aas_xml_file(f)
             data = create_example()
             checker = AASDataChecker(raise_immediately=True)
             checker.check_object_store(xml_object_store, data)

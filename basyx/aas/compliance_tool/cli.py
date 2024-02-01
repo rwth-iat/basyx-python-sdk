@@ -145,7 +145,7 @@ def main():
                 with open(args.file_1, 'wb') as file:
                     manager.set_step_status(Status.SUCCESS)
                     manager.add_step('Write data to file')
-                    write_aas_xml_file(file=file, data=data, pretty_print=True)
+                    write_aas_xml_file(file=file, data=data)
                     manager.set_step_status(Status.SUCCESS)
         except IOError as error:
             logger.error(error)
