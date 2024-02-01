@@ -79,7 +79,8 @@ class AbstractObjectStore(AbstractObjectProvider, MutableSet[_IT], Generic[_IT],
         for x in other:
             self.add(x)
 
-    def get_environment(self) -> Environment:
+    @abc.abstractmethod
+    def as_environment(self) -> Environment:
         pass
 
 
@@ -97,7 +98,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
     def get_identifiable(self, identifier: Identifier) -> _IT:
         return self._backend[identifier]
 
-    def get_environment(self) -> Environment:
+    def as_environment(self) -> Environment:
         asset_administration_shells: List[AssetAdministrationShell] = []
         submodels: List[Submodel] = []
         concept_descriptions: List[ConceptDescription] = []

@@ -28,7 +28,7 @@ def object_store_to_json(data: model.AbstractObjectStore, **kwargs) -> str:
                  the AAS meta model which should be serialized to a JSON file
     :param kwargs: Additional keyword arguments to be passed to :func:`json.dumps`
     """
-    environment = data.get_environment()
+    environment = data.as_environment()
     # Serialize to a JSON-able mapping
     jsonable = jsonization.to_jsonable(environment)
 
@@ -45,7 +45,7 @@ def write_aas_json_file(file: IO, data: model.AbstractObjectStore, **kwargs) -> 
                  the AAS meta model which should be serialized to a JSON file
     :param kwargs: Additional keyword arguments to be passed to `json.dump()`
     """
-    environment = data.get_environment()
+    environment = data.as_environment()
     # Serialize to a JSON-able mapping
     jsonable = jsonization.to_jsonable(environment)
 
