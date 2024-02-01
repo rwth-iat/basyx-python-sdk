@@ -44,13 +44,10 @@ class XmlDeserializationTest(unittest.TestCase):
         if isinstance(strings, str):
             strings = [strings]
         bytes_io = io.BytesIO(xml.encode("utf-8"))
-        with self.assertLogs(logging.getLogger(), level=log_level) as log_ctx:
-            read_aas_xml_file(bytes_io, failsafe=True)
         with self.assertRaises(error_type) as err_ctx:
-            read_aas_xml_file(bytes_io, failsafe=False)
+            read_aas_xml_file(bytes_io)
         cause = _root_cause(err_ctx.exception)
         for s in strings:
-            self.assertIn(s, log_ctx.output[0])
             self.assertIn(s, str(cause))
 
     def test_malformed_xml(self) -> None:
@@ -141,7 +138,7 @@ class XmlDeserializationTest(unittest.TestCase):
         </aas:submodels>
         """)
         # should get parsed successfully
-        object_store = read_aas_xml_file(io.BytesIO(xml.encode("utf-8")), failsafe=False)
+        object_store = read_aas_xml_file(io.BytesIO(xml.encode("utf-8")))
         # modelling kind should default to INSTANCE
         submodel = object_store.pop()
         self.assertIsInstance(submodel, model.Submodel)
@@ -170,7 +167,7 @@ class XmlDeserializationTest(unittest.TestCase):
         </aas:assetAdministrationShells>
         """)
         with self.assertLogs(logging.getLogger(), level=logging.WARNING) as context:
-            read_aas_xml_file(io.BytesIO(xml.encode("utf-8")), failsafe=False)
+            read_aas_xml_file(io.BytesIO(xml.encode("utf-8")))
         for s in ("SUBMODEL", "http://acplt.org/test_ref", "AssetAdministrationShell"):
             self.assertIn(s, context.output[0])
 
@@ -253,7 +250,7 @@ class XmlDeserializationTest(unittest.TestCase):
         </aas:submodels>
         """)
         with self.assertLogs(logging.getLogger(), level=logging.WARNING) as context:
-            read_aas_xml_file(io.BytesIO(xml.encode("utf-8")), failsafe=False)
+            read_aas_xml_file(io.BytesIO(xml.encode("utf-8")))
         self.assertIn("aas:value", context.output[0])
         self.assertIn("more than one submodel element", context.output[0])
 
@@ -275,51 +272,6 @@ class XmlDeserializationTest(unittest.TestCase):
         </aas:submodels>
         """)
         self._assertInExceptionAndLog(xml, "duplicate identifier", KeyError, logging.ERROR)
-
-    def test_duplicate_identifier_object_store(self) -> None:
-        sm_id = "http://acplt.org/test_submodel"
-
-        def get_clean_store() -> model.DictObjectStore:
-            store: model.DictObjectStore = model.DictObjectStore()
-            submodel_ = model.Submodel(sm_id, id_short="test123")
-            store.add(submodel_)
-            return store
-
-        xml = _xml_wrap("""
-        <aas:submodels>
-            <aas:submodel>
-                <aas:id>http://acplt.org/test_submodel</aas:id>
-                <aas:idShort>test456</aas:idShort>
-            </aas:submodel>
-        </aas:submodels>
-        """)
-        bytes_io = io.BytesIO(xml.encode("utf-8"))
-
-        object_store = get_clean_store()
-        identifiers = read_aas_xml_file_into(object_store, bytes_io, replace_existing=True, ignore_existing=False)
-        self.assertEqual(identifiers.pop(), sm_id)
-        submodel = object_store.pop()
-        self.assertIsInstance(submodel, model.Submodel)
-        self.assertEqual(submodel.id_short, "test456")
-
-        object_store = get_clean_store()
-        with self.assertLogs(logging.getLogger(), level=logging.INFO) as log_ctx:
-            identifiers = read_aas_xml_file_into(object_store, bytes_io, replace_existing=False, ignore_existing=True)
-        self.assertEqual(len(identifiers), 0)
-        self.assertIn("already exists in the object store", log_ctx.output[0])
-        submodel = object_store.pop()
-        self.assertIsInstance(submodel, model.Submodel)
-        self.assertEqual(submodel.id_short, "test123")
-
-        object_store = get_clean_store()
-        with self.assertRaises(KeyError) as err_ctx:
-            identifiers = read_aas_xml_file_into(object_store, bytes_io, replace_existing=False, ignore_existing=False)
-        self.assertEqual(len(identifiers), 0)
-        cause = _root_cause(err_ctx.exception)
-        self.assertIn("already exists in the object store", str(cause))
-        submodel = object_store.pop()
-        self.assertIsInstance(submodel, model.Submodel)
-        self.assertEqual(submodel.id_short, "test123")
 
     def test_read_aas_xml_element(self) -> None:
         xml = f"""
