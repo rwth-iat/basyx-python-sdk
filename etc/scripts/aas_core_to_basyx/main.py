@@ -613,6 +613,24 @@ def patch_types_to_use_unique_id_short_namespace(
     return patches, None
 
 
+@ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))
+def patch_types_datatypes(
+        module: ast.Module) -> Tuple[Optional[List[Patch]], Optional[Error]]:
+    """
+    Adapt the types.py to include an attribute `_value_native` for all AAS-objects with `value` and `value_type`
+    attributes.
+    This new attribute allows for getting and setting native Python values additionally to the aas-core String values.
+
+    Affected classes
+        - Property.value
+        - Range.min, Range.max
+    """
+    patches: List[Patch] = []
+    errors: List[Error] = []
+
+    return patches, None
+
+
 def adapt_types(paths: AASBaSyxPaths) -> Optional[Error]:
     types_path = paths.aas_core_path / "types.py"
     atok, sub_error = parse_file(types_path)
@@ -657,6 +675,14 @@ def adapt_types(paths: AASBaSyxPaths) -> Optional[Error]:
 
     # Patch aas-core to use UniqueIdShortNamespace
     sub_patches, error = patch_types_to_use_unique_id_short_namespace(module=atok.tree)
+    if error is not None:
+        errors.append(error)
+    else:
+        assert sub_patches is not None
+        patches.extend(sub_patches)
+
+    # Patch datatypes
+    sub_patches, error = patch_types_datatypes(module=atok.tree)
     if error is not None:
         errors.append(error)
     else:
