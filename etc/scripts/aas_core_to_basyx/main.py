@@ -22,7 +22,7 @@ from ast_building_blocks import (
     extract_property_from_self_dot_property,
     VisitorReplaceListWith,
     add_inheritance_to_class,
-    get_class,
+    find_class_def,
     add_attribute_to_class_body
 )
 
@@ -592,7 +592,7 @@ def patch_types_to_use_unique_id_short_namespace(
     patches: List[Patch] = []
     errors: List[Error] = []
     # We need to add `parent: Optional[UniqueIdShortNamespace]` attribute to `Referable` and set it to `None' by default
-    referable_node: Optional[ast.ClassDef] = get_class(module, class_name="Referable")
+    referable_node: Optional[ast.ClassDef] = find_class_def(module, class_name="Referable")
     if referable_node is None or not isinstance(referable_node, ast.ClassDef):
         return None, Error(f"Could not find class Referable in module {ast.dump(module)}")
 

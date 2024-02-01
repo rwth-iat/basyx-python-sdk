@@ -16,7 +16,7 @@ def extract_property_from_self_dot_property(node: ast.expr) -> Optional[str]:
     return node.attr
 
 
-def get_class(module: ast.Module, class_name: str) -> Optional[ast.ClassDef]:
+def find_class_def(module: ast.Module, class_name: str) -> Optional[ast.ClassDef]:
     """
     Find an AST class node by its name, if it exists in the given module
     """
