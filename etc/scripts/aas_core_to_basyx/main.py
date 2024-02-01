@@ -687,8 +687,9 @@ def adapt_constants(paths: AASBaSyxPaths) -> Optional[Error]:
 
 
 def adapt_verification(paths: AASBaSyxPaths) -> Optional[Error]:
-    # Todo
-    return None
+    verification_path = paths.aas_core_path / 'verification.py'
+    target_basyx_path = paths.basyx_path / 'aas/model/verification.py'
+    return copy_file(source_path=verification_path, target_path=target_basyx_path)
 
 
 def adapt_jsonization(paths: AASBaSyxPaths) -> Optional[Error]:
@@ -704,8 +705,9 @@ def adapt_xmlization(paths: AASBaSyxPaths) -> Optional[Error]:
 
 
 def adapt_stringification(paths: AASBaSyxPaths) -> Optional[Error]:
-    # Todo
-    return None
+    stringification_path = paths.aas_core_path / 'stringification.py'
+    target_basyx_path = paths.basyx_path / 'aas/adapter/stringification.py'
+    return copy_file(source_path=stringification_path, target_path=target_basyx_path)
 
 
 def aas_core_to_basyx(paths: AASBaSyxPaths) -> Optional[Error]:
