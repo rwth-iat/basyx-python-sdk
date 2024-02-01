@@ -682,8 +682,9 @@ def adapt_types(paths: AASBaSyxPaths) -> Optional[Error]:
 
 
 def adapt_constants(paths: AASBaSyxPaths) -> Optional[Error]:
-    # Todo
-    return None
+    constants_path = paths.aas_core_path / 'constants.py'
+    target_basyx_path = paths.basyx_path / 'aas/model/constants.py'
+    return copy_file(source_path=constants_path, target_path=target_basyx_path)
 
 
 def adapt_verification(paths: AASBaSyxPaths) -> Optional[Error]:
