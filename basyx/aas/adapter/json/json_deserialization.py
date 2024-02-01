@@ -64,7 +64,10 @@ def read_aas_json_file_into(object_store: model.AbstractObjectStore, file: IO, r
     identifiables = environment.asset_administration_shells + environment.submodels + environment.concept_descriptions
     object_store.update(identifiables)
 
-    return set([i.id for i in identifiables])
+    ret: Set[model.Identifier] = set()
+    ret.update([i.id for i in identifiables])
+
+    return ret
 
 
 def read_aas_json_file(file: IO, **kwargs) -> model.DictObjectStore[model.Identifiable]:

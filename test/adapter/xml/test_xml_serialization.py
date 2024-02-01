@@ -10,21 +10,13 @@ import unittest
 from lxml import etree  # type: ignore
 
 from basyx.aas import model
-from basyx.aas.adapter.xml import write_aas_xml_file, xml_serialization, XML_SCHEMA_FILE
+from basyx.aas.adapter.xml import write_aas_xml_file, xml_serialization, XML_SCHEMA_FILE, xmlization
 
 from basyx.aas.examples.data import example_aas_missing_attributes, example_aas, \
     example_submodel_template, example_aas_mandatory_attributes
 
 
 class XMLSerializationTest(unittest.TestCase):
-    def test_serialize_object(self) -> None:
-        test_object = model.Property("test_id_short",
-                                     model.datatypes.String,
-                                     category="PARAMETER",
-                                     description=model.MultiLanguageTextType({"en-US": "Germany", "de": "Deutschland"}))
-        xml_data = xml_serialization.property_to_xml(test_object,  xml_serialization.NS_AAS+"test_object")
-        # todo: is this a correct way to test it?
-
     def test_random_object_serialization(self) -> None:
         aas_identifier = "AAS1"
         submodel_key = (model.Key(model.KeyTypes.SUBMODEL, "SM1"),)

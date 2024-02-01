@@ -10,8 +10,7 @@ import logging
 import unittest
 
 from basyx.aas import model
-from basyx.aas.adapter.xml import StrictAASFromXmlDecoder, XMLConstructables, read_aas_xml_file, \
-    read_aas_xml_file_into, read_aas_xml_element
+from basyx.aas.adapter.xml import read_aas_xml_file, read_aas_xml_file_into, xmlization
 from basyx.aas.adapter._generic import XML_NS_MAP
 from lxml import etree  # type: ignore
 from typing import Iterable, Type, Union
@@ -20,7 +19,7 @@ from typing import Iterable, Type, Union
 def _xml_wrap(xml: str) -> str:
     return \
         """<?xml version="1.0" encoding="utf-8" ?>""" \
-        f"""<aas:aasenv xmlns:aas="{XML_NS_MAP["aas"]}"> """ \
+        """<aas:aasenv xmlns:aas="https://admin-shell.io/aas/3/0"> """ \
         + xml + """</aas:aasenv>"""
 
 
@@ -324,115 +323,11 @@ class XmlDeserializationTest(unittest.TestCase):
 
     def test_read_aas_xml_element(self) -> None:
         xml = f"""
-        <aas:submodel xmlns:aas="{XML_NS_MAP["aas"]}">
+        <aas:submodel xmlns:aas="https://admin-shell.io/aas/3/0">
             <aas:id>http://acplt.org/test_submodel</aas:id>
         </aas:submodel>
         """
         bytes_io = io.BytesIO(xml.encode("utf-8"))
 
-        submodel = read_aas_xml_element(bytes_io, XMLConstructables.SUBMODEL)
+        submodel = xmlization.referable_from_str(bytes_io.read().decode("utf-8"))
         self.assertIsInstance(submodel, model.Submodel)
-
-
-class XmlDeserializationStrippedObjectsTest(unittest.TestCase):
-    def test_stripped_qualifiable(self) -> None:
-        xml = f"""
-        <aas:submodel xmlns:aas="{XML_NS_MAP["aas"]}">
-            <aas:id>http://acplt.org/test_stripped_submodel</aas:id>
-            <aas:submodelElements>
-                <aas:operation>
-                    <aas:idShort>test_operation</aas:idShort>
-                    <aas:qualifiers>
-                        <aas:qualifier>
-                            <aas:type>test_qualifier</aas:type>
-                            <aas:valueType>xs:string</aas:valueType>
-                        </aas:qualifier>
-                    </aas:qualifiers>
-                </aas:operation>
-            </aas:submodelElements>
-            <aas:qualifiers>
-                <aas:qualifier>
-                    <aas:type>test_qualifier</aas:type>
-                    <aas:valueType>xs:string</aas:valueType>
-                </aas:qualifier>
-            </aas:qualifiers>
-        </aas:submodel>
-        """
-        bytes_io = io.BytesIO(xml.encode("utf-8"))
-
-        # check if XML with qualifiers can be parsed successfully
-        submodel = read_aas_xml_element(bytes_io, XMLConstructables.SUBMODEL, failsafe=False)
-        self.assertIsInstance(submodel, model.Submodel)
-        assert isinstance(submodel, model.Submodel)
-        self.assertEqual(len(submodel.qualifier), 1)
-        operation = submodel.submodel_element.pop()
-        self.assertEqual(len(operation.qualifier), 1)
-
-        # check if qualifiers are ignored in stripped mode
-        submodel = read_aas_xml_element(bytes_io, XMLConstructables.SUBMODEL, failsafe=False, stripped=True)
-        self.assertIsInstance(submodel, model.Submodel)
-        assert isinstance(submodel, model.Submodel)
-        self.assertEqual(len(submodel.qualifier), 0)
-        self.assertEqual(len(submodel.submodel_element), 0)
-
-    def test_stripped_asset_administration_shell(self) -> None:
-        xml = f"""
-        <aas:assetAdministrationShell xmlns:aas="{XML_NS_MAP["aas"]}">
-            <aas:id>http://acplt.org/test_aas</aas:id>
-            <aas:assetInformation>
-                <aas:assetKind>Instance</aas:assetKind>
-                <aas:globalAssetId>http://acplt.org/TestAsset/</aas:globalAssetId>
-            </aas:assetInformation>
-            <aas:submodels>
-                <aas:reference>
-                    <aas:type>ModelReference</aas:type>
-                    <aas:keys>
-                        <aas:key>
-                            <aas:type>Submodel</aas:type>
-                            <aas:value>http://acplt.org/test_ref</aas:value>
-                        </aas:key>
-                    </aas:keys>
-                </aas:reference>
-            </aas:submodels>
-        </aas:assetAdministrationShell>
-        """
-        bytes_io = io.BytesIO(xml.encode("utf-8"))
-
-        # check if XML with submodels can be parsed successfully
-        aas = read_aas_xml_element(bytes_io, XMLConstructables.ASSET_ADMINISTRATION_SHELL, failsafe=False)
-        self.assertIsInstance(aas, model.AssetAdministrationShell)
-        assert isinstance(aas, model.AssetAdministrationShell)
-        self.assertEqual(len(aas.submodel), 1)
-
-        # check if submodels are ignored in stripped mode
-        aas = read_aas_xml_element(bytes_io, XMLConstructables.ASSET_ADMINISTRATION_SHELL, failsafe=False,
-                                   stripped=True)
-        self.assertIsInstance(aas, model.AssetAdministrationShell)
-        assert isinstance(aas, model.AssetAdministrationShell)
-        self.assertEqual(len(aas.submodel), 0)
-
-
-class XmlDeserializationDerivingTest(unittest.TestCase):
-    def test_submodel_constructor_overriding(self) -> None:
-        class EnhancedSubmodel(model.Submodel):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.enhanced_attribute = "fancy!"
-
-        class EnhancedAASDecoder(StrictAASFromXmlDecoder):
-            @classmethod
-            def construct_submodel(cls, element: etree.Element, object_class=EnhancedSubmodel, **kwargs) \
-                    -> model.Submodel:
-                return super().construct_submodel(element, object_class=object_class, **kwargs)
-
-        xml = f"""
-        <aas:submodel xmlns:aas="{XML_NS_MAP["aas"]}">
-            <aas:id>http://acplt.org/test_stripped_submodel</aas:id>
-        </aas:submodel>
-        """
-        bytes_io = io.BytesIO(xml.encode("utf-8"))
-
-        submodel = read_aas_xml_element(bytes_io, XMLConstructables.SUBMODEL, decoder=EnhancedAASDecoder)
-        self.assertIsInstance(submodel, EnhancedSubmodel)
-        assert isinstance(submodel, EnhancedSubmodel)
-        self.assertEqual(submodel.enhanced_attribute, "fancy!")
