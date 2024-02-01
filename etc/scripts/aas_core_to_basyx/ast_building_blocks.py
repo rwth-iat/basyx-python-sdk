@@ -3,7 +3,7 @@ import ast
 
 from icontract import ensure
 
-from basic import Error
+from common import Error
 from patching import Patch
 
 
@@ -14,6 +14,47 @@ def extract_property_from_self_dot_property(node: ast.expr) -> Optional[str]:
     if not isinstance(node.value, ast.Name) and node.value.id != "self":
         return None
     return node.attr
+
+
+def get_class(module: ast.Module, class_name: str) -> Optional[ast.ClassDef]:
+    """
+    Find an AST class node by its name, if it exists in the given module
+    """
+    for stmt in module.body:
+        if isinstance(stmt, ast.ClassDef) and stmt.name == class_name:
+            return stmt
+    return None
+
+
+@ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))
+def add_attribute_to_class_body(cls: ast.ClassDef, attribute_def: str) -> Tuple[Optional[List[Patch]], Optional[Error]]:
+    """
+    Adds a given attribute string to a classes body. For example with `attribute_def='example: int'`:
+
+    class Foo:
+        bar: str
+
+    becomes
+
+    class Foo:
+        bar: str
+        example: int
+    """
+    patches: List[Patch] = []
+    errors: List[Error] = []
+
+    # Find the last AnnAssign to append the new attribute
+    for stmt in reversed(cls.body):
+        if isinstance(stmt, ast.AnnAssign):
+            patches.append(Patch(
+                node=stmt,
+                suffix=f"\n    {attribute_def}"
+            ))
+            return patches, None
+    # If we ended up here, there are no AnnAssigns, so we add the attribute as the first element
+    # (2024-02-01, s-heppner):
+    # I won't implement this right now, since I am not sure this case exists in practice
+    return None, Error(f"Could not add attribute_def {attribute_def} to class {ast.dump(cls)}")
 
 
 @ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))

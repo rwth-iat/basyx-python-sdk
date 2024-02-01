@@ -4,7 +4,7 @@ import ast
 
 from icontract import ensure, require
 
-from basic import Error, pairwise, assert_never
+from common import Error, pairwise, assert_never
 
 
 @dataclasses.dataclass

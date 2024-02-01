@@ -8,7 +8,7 @@ import ast
 
 from icontract import ensure, require
 
-from basic import (
+from common import (
     Error,
     parse_file,
     copy_file,
@@ -21,7 +21,9 @@ from ast_building_blocks import (
     add_import_statement,
     extract_property_from_self_dot_property,
     VisitorReplaceListWith,
-    add_inheritance_to_class
+    add_inheritance_to_class,
+    get_class,
+    add_attribute_to_class_body
 )
 
 
@@ -74,7 +76,7 @@ def patch_types_to_use_namespace_sets(module: ast.Module) -> Tuple[Optional[List
     errors: List[Error] = []
 
     for stmt in module.body:
-        # HasExtensions.extensions
+        # Todo: Use `get_class()`
         if isinstance(stmt, ast.ClassDef) and stmt.name == "HasExtensions":
             sub_patches, error = patch_class_has_extension_for_namespace(
                 cls=stmt
@@ -86,7 +88,7 @@ def patch_types_to_use_namespace_sets(module: ast.Module) -> Tuple[Optional[List
                 assert sub_patches is not None
                 patches.extend(sub_patches)
 
-        # Qualifiable.qualifiers
+        # Todo: Use `get_class()`
         if isinstance(stmt, ast.ClassDef) and stmt.name == "Qualifiable":
             sub_patches, error = patch_class_qualifiable_for_namespace(
                 cls=stmt
@@ -242,6 +244,44 @@ def patch_class_qualifiable_for_namespace(
     return patches, None
 
 
+@ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))
+def patch_types_to_use_ordered_namespace_sets(module: ast.Module) -> Tuple[Optional[List[Patch]], Optional[Error]]:
+    """
+    Todo: `OrderedNamespaceSet` is currently only used in `SubmodelElementList.value`. It might be sensible to change
+    """
+    patches: List[Patch] = []
+    errors: List[Error] = []
+
+    return patches, None
+
+
+@ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))
+def patch_types_to_use_unique_id_short_namespace(
+        module: ast.Module) -> Tuple[Optional[List[Patch]], Optional[Error]]:
+    patches: List[Patch] = []
+    errors: List[Error] = []
+    # We need to add `parent: Optional[UniqueIdShortNamespace]` attribute to `Referable` and set it to `None' by default
+    referable_node: Optional[ast.ClassDef] = get_class(module, class_name="Referable")
+    if referable_node is None or not isinstance(referable_node, ast.ClassDef):
+        return None, Error(f"Could not find class Referable in module {ast.dump(module)}")
+
+    sub_patches, error = add_attribute_to_class_body(
+        referable_node,
+        attribute_def="parent: Optional[UniqueIdShortNamespace] = None"
+    )
+    if error is not None:
+        errors.append(error)
+    else:
+        assert sub_patches is not None
+        patches.extend(sub_patches)
+
+    # (2024-02-01, s-heppner)
+    # We decided not to include the parent parameter in the __init__ function, since it is actually not needed,
+    # as it is only managed by Namespace
+
+    return patches, None
+
+
 def adapt_types(paths: AASBaSyxPaths) -> Optional[Error]:
     types_path = paths.aas_core_path / "types.py"
     atok, sub_error = parse_file(types_path)
@@ -280,8 +320,21 @@ def adapt_types(paths: AASBaSyxPaths) -> Optional[Error]:
         patches.extend(sub_patches)
 
     # Patch aas-core to use OrderedNamespaceSets
-    # Todo SubmodelElementList._value
-    # Patch aas-core to use UniqueIdShortNamespaceSets
+    sub_patches, error = patch_types_to_use_ordered_namespace_sets(module=atok.tree)
+    if error is not None:
+        errors.append(error)
+    else:
+        assert sub_patches is not None
+        patches.extend(sub_patches)
+
+    # Patch aas-core to use UniqueIdShortNamespace
+    sub_patches, error = patch_types_to_use_unique_id_short_namespace(module=atok.tree)
+    if error is not None:
+        errors.append(error)
+    else:
+        assert sub_patches is not None
+        patches.extend(sub_patches)
+
     # Todo Referable.parent
     # Patch aas-core to use UniqueSemanticIdNamespaceSets
     # Todo
