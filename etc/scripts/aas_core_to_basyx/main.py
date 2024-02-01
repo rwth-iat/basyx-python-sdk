@@ -23,7 +23,8 @@ from ast_building_blocks import (
     VisitorReplaceListWith,
     add_inheritance_to_class,
     find_class_def,
-    add_attribute_to_class_body
+    add_attribute_to_class_body,
+    add_function_to_class
 )
 
 

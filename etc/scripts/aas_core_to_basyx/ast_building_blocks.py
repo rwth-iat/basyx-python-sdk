@@ -1,3 +1,4 @@
+import textwrap
 from typing import Optional, Tuple, List, Union
 import ast
 
@@ -115,3 +116,19 @@ def add_inheritance_to_class(cls: ast.ClassDef, inherit_from: str) -> Tuple[Opti
                 suffix=f", {inherit_from}"
             )
     ], None
+
+
+@ensure(lambda result: (result[0] is not None) ^ (result[1] is not None))
+def add_function_to_class(cls: ast.ClassDef, function_def: str) -> Tuple[Optional[List[Patch]], Optional[Error]]:
+    """
+    Add a given function to a given class
+    This takes the function def without indents:
+
+    def foo():
+        return bar
+    """
+    # We simply append the function at the end of the ClassDef's body
+    return [Patch(
+        node=cls.body[-1],
+        suffix=textwrap.indent(f"\n{function_def}", prefix="    ")
+    )], None
