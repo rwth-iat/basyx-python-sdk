@@ -94,22 +94,24 @@ example_submodel1.update()
 # Fetch recent updates from the server only from the source defined in the attribute specific source
 example_submodel1.update(only_attribute_specific=True)
 
+# Update is needed before commit (Mechanism due to CouchDB revision handling)
+example_submodel1.update()
 # Make some changes within the example submodel
 example_submodel1.id_short = "Commit_Test_1"
 example_submodel1.description['en-us'] = "Commit Test 1"
-# Update is needed before commit (Mechanism due to CouchDB revision handling)
-example_submodel1.update()
 # Commit (upload) these changes to all avaible data sources
 # We can simply call commit() on the Property object. It will check the `source` attribute of the object itself as well
 # as the source attribute of all ancestors in the object hierarchy (including the Submodel) and commit the changes to
 # all of these external data sources.
 example_submodel1.commit()
 
+# Update is needed before commit (Mechanism due to CouchDB revision handling)
+example_submodel1.update()
+# example_submodel1.update(only_attribute_specific=True)
 # Make some changes within the example submodel (both in default and attribute specific source)
 example_submodel1.id_short = "Commit_Test_2"
 example_submodel1.description['en-us'] = "Commit Test 2"
 
-example_submodel1.update(only_attribute_specific=True)
 # Only commit changes to the attribute specific source
 example_submodel1.commit(only_attribute_specific=True)
 
@@ -119,9 +121,6 @@ assert isinstance(prop, basyx.aas.model.Property)
 
 prop.update()
 prop.update(only_attribute_specific=True)
-
-
-
 
 
 prop.update()
