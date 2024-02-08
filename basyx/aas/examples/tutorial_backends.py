@@ -119,7 +119,9 @@ example_submodel1.commit(only_attribute_specific=True)
 prop = example_submodel1.get_referable('ManufacturerName')
 assert isinstance(prop, basyx.aas.model.Property)
 
+# Fetch recent updates from the server from all available sources
 prop.update()
+# Fetch recent updates from the server only from the source defined in the attribute specific source
 prop.update(only_attribute_specific=True)
 
 
