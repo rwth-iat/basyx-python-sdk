@@ -25,6 +25,7 @@ import werkzeug.utils
 from werkzeug.exceptions import BadRequest, Conflict, NotFound, UnprocessableEntity
 from werkzeug.routing import MapAdapter, Rule, Submount
 from werkzeug.wrappers import Request, Response
+from werkzeug.datastructures import FileStorage
 
 from basyx.aas import model
 from ._generic import XML_NS_MAP
@@ -918,9 +919,12 @@ class WSGIApp:
     def delete_submodel_submodel_element_attachment(self, request: Request, url_args: Dict, **_kwargs) \
             -> Response:
         submodel_element = self._get_submodel_submodel_elements_id_short_path(url_args)
-        submodel_element.value = None
-        submodel_element.commit()
-        return Response("File content deleted successfully", status=200)
+        if isinstance(submodel_element, (model.File, model.Blob)):
+            submodel_element.value = None
+            submodel_element.commit()
+            return Response("File content deleted successfully", status=200)
+        else:
+            return Response("Not a file or blob type, cannot delete content", status=400)
 
     def get_submodel_submodel_element_qualifiers(self, request: Request, url_args: Dict, **_kwargs) \
             -> Response:
