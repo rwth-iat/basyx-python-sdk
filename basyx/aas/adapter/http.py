@@ -886,45 +886,33 @@ class WSGIApp:
 
     def get_submodel_submodel_element_attachment(self, request: Request, url_args: Dict, **_kwargs) \
             -> Response:
+        response_t = get_response_type(request)
         submodel_element = self._get_submodel_submodel_elements_id_short_path(url_args)
-        if isinstance(submodel_element, model.Blob):
-            return Response(submodel_element.value, content_type=submodel_element.content_type)
-        elif isinstance(submodel_element, model.File):
-            try:
-                with open(submodel_element.value, 'rb') as file:
-                    file_content = file.read()
-                return Response(file_content, content_type=submodel_element.content_type)
-            except FileNotFoundError:
-                return Response("File not found", status=404)
-            except Exception as e:
-                return Response("Internal server error", status=500)
-        return Response("Unsupported submodel element type", status=400)
+        if not isinstance(submodel_element, model.Blob):
+            raise BadRequest(f"{submodel_element!r} is not a blob, no file content to download!")
+        return Response(submodel_element.value, content_type=submodel_element.content_type)
 
     def put_submodel_submodel_element_attachment(self, request: Request, url_args: Dict, **_kwargs) -> Response:
+        response_t = get_response_type(request)
         submodel_element = self._get_submodel_submodel_elements_id_short_path(url_args)
-        if 'file' in request.files:
-            file_storage: FileStorage = request.files['file']
-            if isinstance(submodel_element, model.Blob):
-                submodel_element.value = file_storage.read()
-            submodel_element.commit()
-            return Response("File uploaded successfully", status=200)
-        elif 'path' in request.form:
-            if isinstance(submodel_element, model.File):
-                submodel_element.value = request.form['path']
-            submodel_element.commit()
-            return Response("Path uploaded successfully", status=200)
-        else:
-            return Response("No file or path provided", status=400)
+        if 'file' not in request.files:
+            raise BadRequest(f"Missing file to upload")
+        file_storage: FileStorage = request.files['file']
+        if not isinstance(submodel_element, model.Blob):
+            raise BadRequest(f"{submodel_element!r} is not a blob, no file content to update!")
+        submodel_element.value = file_storage.read()
+        submodel_element.commit()
+        return response_t()
 
     def delete_submodel_submodel_element_attachment(self, request: Request, url_args: Dict, **_kwargs) \
             -> Response:
+        response_t = get_response_type(request)
         submodel_element = self._get_submodel_submodel_elements_id_short_path(url_args)
-        if isinstance(submodel_element, (model.File, model.Blob)):
-            submodel_element.value = None
-            submodel_element.commit()
-            return Response("File content deleted successfully", status=200)
-        else:
-            return Response("Not a file or blob type, cannot delete content", status=400)
+        if not isinstance(submodel_element, (model.Blob)):
+            raise BadRequest(f"{submodel_element!r} is not a blob, no file content to delete!")
+        submodel_element.value = None
+        submodel_element.commit()
+        return response_t()
 
     def get_submodel_submodel_element_qualifiers(self, request: Request, url_args: Dict, **_kwargs) \
             -> Response:
