@@ -886,7 +886,6 @@ class WSGIApp:
 
     def get_submodel_submodel_element_attachment(self, request: Request, url_args: Dict, **_kwargs) \
             -> Response:
-        response_t = get_response_type(request)
         submodel_element = self._get_submodel_submodel_elements_id_short_path(url_args)
         if not isinstance(submodel_element, model.Blob):
             raise BadRequest(f"{submodel_element!r} is not a blob, no file content to download!")
@@ -895,9 +894,9 @@ class WSGIApp:
     def put_submodel_submodel_element_attachment(self, request: Request, url_args: Dict, **_kwargs) -> Response:
         response_t = get_response_type(request)
         submodel_element = self._get_submodel_submodel_elements_id_short_path(url_args)
-        if 'file' not in request.files:
+        file_storage: Optional[FileStorage] = request.files.get('file')
+        if file_storage is None:
             raise BadRequest(f"Missing file to upload")
-        file_storage: FileStorage = request.files['file']
         if not isinstance(submodel_element, model.Blob):
             raise BadRequest(f"{submodel_element!r} is not a blob, no file content to update!")
         submodel_element.value = file_storage.read()
@@ -908,7 +907,7 @@ class WSGIApp:
             -> Response:
         response_t = get_response_type(request)
         submodel_element = self._get_submodel_submodel_elements_id_short_path(url_args)
-        if not isinstance(submodel_element, (model.Blob)):
+        if not isinstance(submodel_element, model.Blob):
             raise BadRequest(f"{submodel_element!r} is not a blob, no file content to delete!")
         submodel_element.value = None
         submodel_element.commit()
