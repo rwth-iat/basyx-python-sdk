@@ -43,10 +43,8 @@ if sys.version_info >= (3, 8):
 else:
     from typing_extensions import Final
 
-from aas_core3 import (
-    constants as aas_constants,
-    types as aas_types,
-)
+from . import constants as aas_constants
+from . import types as aas_types
 
 
 class PropertySegment:
