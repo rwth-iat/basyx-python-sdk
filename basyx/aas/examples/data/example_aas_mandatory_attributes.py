@@ -194,7 +194,7 @@ def create_example_asset_administration_shell() -> \
 def create_example_empty_asset_administration_shell() -> model.AssetAdministrationShell:
     """
     Creates an example empty :class:`~basyx.aas.model.aas.AssetAdministrationShell` with just
-    an empty :class:`~basyx.aas.model.aas.AssetInformation` and an :class:`~basyx.aas.model.base.Identifier`
+    an empty :class:`~basyx.aas.model.aas.AssetInformation` and an identifier
 
     :return: example :class:`~basyx.aas.model.aas.AssetAdministrationShell`
     """

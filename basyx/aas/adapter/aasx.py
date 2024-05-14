@@ -115,7 +115,7 @@ class AASXReader:
 
     def read_into(self, object_store: model.AbstractObjectStore,
                   file_store: "AbstractSupplementaryFileContainer",
-                  override_existing: bool = False, **kwargs) -> Set[model.Identifier]:
+                  override_existing: bool = False, **kwargs) -> Set[str]:
         """
         Read the contents of the AASX package and add them into a given
         :class:`ObjectStore <basyx.aas.model.provider.AbstractObjectStore>`
@@ -133,9 +133,9 @@ class AASXReader:
         :param file_store: A :class:`SupplementaryFileContainer <.AbstractSupplementaryFileContainer>` to add the
                            embedded supplementary files to
         :param override_existing: If ``True``, existing objects in the object store are overridden with objects from the
-            AASX that have the same :class:`~basyx.aas.model.base.Identifier`. Default behavior is to skip those objects
+            AASX that have the same identifier. Default behavior is to skip those objects
             from the AASX.
-        :return: A set of the :class:`Identifiers <basyx.aas.model.base.Identifier>` of all
+        :return: A set of the identifiers of all
                  :class:`~basyx.aas.model.base.Identifiable` objects parsed from the AASX file
         """
         # Find AASX-Origin part
@@ -145,7 +145,7 @@ class AASXReader:
         except IndexError as e:
             raise ValueError("Not a valid AASX file: aasx-origin Relationship is missing.") from e
 
-        read_identifiables: Set[model.Identifier] = set()
+        read_identifiables: Set[str] = set()
 
         # Iterate AAS files
         for aas_part in self.reader.get_related_parts_by_type(aasx_origin_part)[
@@ -176,7 +176,7 @@ class AASXReader:
     def _read_aas_part_into(self, part_name: str,
                             object_store: model.AbstractObjectStore,
                             file_store: "AbstractSupplementaryFileContainer",
-                            read_identifiables: Set[model.Identifier],
+                            read_identifiables: Set[str],
                             override_existing: bool, **kwargs) -> None:
         """
         Helper function for :meth:`read_into()` to read and process the contents of an AAS-spec part of the AASX file.
@@ -319,7 +319,7 @@ class AASXWriter:
         p.close()
 
     def write_aas(self,
-                  aas_ids: Union[model.Identifier, Iterable[model.Identifier]],
+                  aas_ids: Union[str, Iterable[str]],
                   object_store: model.AbstractObjectStore,
                   file_store: "AbstractSupplementaryFileContainer",
                   write_json: bool = False) -> None:
@@ -328,7 +328,7 @@ class AASXWriter:
         :class:`AssetAdministrationShells <basyx.aas.model.aas.AssetAdministrationShell>` with all included
         and referenced objects to the AASX package according to the part name conventions from DotAAS.
 
-        This method takes the AASs' :class:`Identifiers <basyx.aas.model.base.Identifier>` (as ``aas_ids``) to retrieve
+        This method takes the AASs' identifiers (as ``aas_ids``) to retrieve
         the AASs from the given ``object_store``.
         :class:`References <basyx.aas.model.base.Reference>` to :class:`Submodels <basyx.aas.model.submodel.Submodel>`
         and :class:`ConceptDescriptions <basyx.aas.model.concept.ConceptDescription>` (via semanticId attributes) are
@@ -349,8 +349,8 @@ class AASXWriter:
             To write multiple Asset Administration Shells to a single AASX package file, call this method once, passing
             a list of AAS Identifiers to the ``aas_ids`` parameter.
 
-        :param aas_ids: :class:`~basyx.aas.model.base.Identifier` or Iterable of
-            :class:`Identifiers <basyx.aas.model.base.Identifier>` of the AAS(s) to be written to the AASX file
+        :param aas_ids: identifier or Iterable of
+            identifiers of the AAS(s) to be written to the AASX file
         :param object_store: :class:`ObjectStore <basyx.aas.model.provider.AbstractObjectStore>` to retrieve the
             :class:`~basyx.aas.model.base.Identifiable` AAS objects
             (:class:`~basyx.aas.model.aas.AssetAdministrationShell`,
@@ -367,7 +367,7 @@ class AASXWriter:
         :raises TypeError: If one of the given AAS ids does not resolve to an AAS (but another
             :class:`~basyx.aas.model.base.Identifiable` object)
         """
-        if isinstance(aas_ids, model.Identifier):
+        if isinstance(aas_ids, str):
             aas_ids = (aas_ids,)
 
         objects_to_be_written: model.DictObjectStore[model.Identifiable] = model.DictObjectStore()
@@ -422,7 +422,7 @@ class AASXWriter:
     #   Not actually required since you can always create a local dict
     def write_aas_objects(self,
                           part_name: str,
-                          object_ids: Iterable[model.Identifier],
+                          object_ids: Iterable[str],
                           object_store: model.AbstractObjectStore,
                           file_store: "AbstractSupplementaryFileContainer",
                           write_json: bool = False,
@@ -431,7 +431,7 @@ class AASXWriter:
         """
         A thin wrapper around :meth:`write_all_aas_objects` to ensure downwards compatibility
 
-        This method takes the AAS's :class:`~basyx.aas.model.base.Identifier` (as ``aas_id``) to retrieve it
+        This method takes the AAS's identifier (as ``aas_id``) to retrieve it
         from the given object_store. If the list of written objects includes :class:`~basyx.aas.model.submodel.Submodel`
         objects, Supplementary files which are referenced by :class:`~basyx.aas.model.submodel.File` objects within
         those submodels, are also added to the AASX package.
@@ -444,7 +444,7 @@ class AASXWriter:
         :param part_name: Name of the Part within the AASX package to write the files to. Must be a valid ECMA376-2
             part name and unique within the package. The extension of the part should match the data format (i.e.
             '.json' if ``write_json`` else '.xml').
-        :param object_ids: A list of :class:`Identifiers <basyx.aas.model.base.Identifier>` of the objects to be written
+        :param object_ids: A list of identifiers of the objects to be written
             to the AASX package. Only these :class:`~basyx.aas.model.base.Identifiable` objects (and included
             :class:`~basyx.aas.model.base.Referable` objects) are written to the package.
         :param object_store: The objects store to retrieve the :class:`~basyx.aas.model.base.Identifiable` objects from
@@ -673,7 +673,7 @@ class NameFriendlyfier:
     def __init__(self) -> None:
         self.issued_names: Set[str] = set()
 
-    def get_friendly_name(self, identifier: model.Identifier):
+    def get_friendly_name(self, identifier: str):
         """
         Generate a friendly name from an AAS identifier.
 

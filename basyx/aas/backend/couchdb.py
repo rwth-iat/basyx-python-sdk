@@ -255,7 +255,7 @@ class CouchDBObjectStore(model.AbstractObjectStore):
         # local replication of each object is kept in the application and retrieving an object from the store always
         # returns the **same** (not only equal) object. Still, objects are forgotten, when they are not referenced
         # anywhere else to save memory.
-        self._object_cache: weakref.WeakValueDictionary[model.Identifier, model.Identifiable]\
+        self._object_cache: weakref.WeakValueDictionary[str, model.Identifiable]\
             = weakref.WeakValueDictionary()
         self._object_cache_lock = threading.Lock()
 
@@ -324,9 +324,9 @@ class CouchDBObjectStore(model.AbstractObjectStore):
         self._object_cache[obj.id] = obj
         return obj
 
-    def get_identifiable(self, identifier: model.Identifier) -> model.Identifiable:
+    def get_identifiable(self, identifier: str) -> model.Identifiable:
         """
-        Retrieve an AAS object from the CouchDB by its :class:`~basyx.aas.model.base.Identifier`
+        Retrieve an AAS object from the CouchDB by its identifier
 
         :raises KeyError: If no such object is stored in the database
         :raises CouchDBError: If error occur during the request to the CouchDB server
@@ -424,16 +424,16 @@ class CouchDBObjectStore(model.AbstractObjectStore):
 
     def __contains__(self, x: object) -> bool:
         """
-        Check if an object with the given :class:`~basyx.aas.model.base.Identifier` or the same
-        :class:`~basyx.aas.model.base.Identifier` as the given object is contained in the CouchDB database
+        Check if an object with the given identifier or the same
+        identifier as the given object is contained in the CouchDB database
 
-        :param x: AAS object :class:`~basyx.aas.model.base.Identifier` or :class:`~basyx.aas.model.base.Identifiable`
+        :param x: AAS object identifier or :class:`~basyx.aas.model.base.Identifiable`
                   AAS object
         :return: ``True`` if such an object exists in the database, ``False`` otherwise
         :raises CouchDBError: If error occur during the request to the CouchDB server
                               (see ``_do_request()`` for details)
         """
-        if isinstance(x, model.Identifier):
+        if isinstance(x, str):
             identifier = x
         elif isinstance(x, model.Identifiable):
             identifier = x.id
@@ -488,7 +488,7 @@ class CouchDBObjectStore(model.AbstractObjectStore):
         return CouchDBIdentifiableIterator(self, (row['id'] for row in data['rows']))
 
     @staticmethod
-    def _transform_id(identifier: model.Identifier, url_quote=True) -> str:
+    def _transform_id(identifier: str, url_quote=True) -> str:
         """
         Helper method to represent an ASS Identifier as a string to be used as CouchDB document id
 

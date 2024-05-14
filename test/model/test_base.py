@@ -993,7 +993,7 @@ class ModelReferenceTest(unittest.TestCase):
                 self.id_short = id_short
 
         class DummyIdentifyableNamespace(model.Submodel, model.UniqueIdShortNamespace):
-            def __init__(self, id_: model.Identifier):
+            def __init__(self, id_: str):
                 super().__init__(id_)
                 self.things: model.NamespaceSet = model.NamespaceSet(self, [("id_short", True)])
 

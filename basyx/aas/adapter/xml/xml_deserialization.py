@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 def read_aas_xml_file_into(object_store: model.AbstractObjectStore[model.Identifiable],
-                           file: IO) -> Set[model.Identifier]:
+                           file: IO) -> Set[str]:
     """
     Read an Asset Administration Shell XML file according to 'Details of the Asset Administration Shell', chapter 5.4
     into a given :class:`ObjectStore <basyx.aas.model.provider.AbstractObjectStore>`.
@@ -35,13 +35,13 @@ def read_aas_xml_file_into(object_store: model.AbstractObjectStore[model.Identif
     :param object_store: The :class:`ObjectStore <basyx.aas.model.provider.AbstractObjectStore>` in which the
                          :class:`~basyx.aas.model.base.Identifiable` objects should be stored
     :param file: A filename or file-like object to read the XML-serialized data from
-    :return: A set of :class:`Identifiers <basyx.aas.model.base.Identifier>` that were added to object_store
+    :return: A set of identifiers that were added to object_store
     """
     environment = xmlization.environment_from_str(file.read())
     identifiables = environment.asset_administration_shells + environment.submodels + environment.concept_descriptions
     object_store.update(identifiables)
 
-    ret: Set[model.Identifier] = set()
+    ret: Set[str] = set()
     ret.update([i.id for i in identifiables])
 
     return ret
@@ -52,7 +52,7 @@ def read_aas_xml_file_into(object_store: model.AbstractObjectStore[model.Identif
     identifiables = environment.asset_administration_shells + environment.submodels + environment.concept_descriptions
     object_store.update(identifiables)
 
-    ret: Set[model.Identifier] = set()
+    ret: Set[str] = set()
     ret.update([i.id for i in identifiables])
 
     return ret

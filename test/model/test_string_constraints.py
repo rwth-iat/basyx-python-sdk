@@ -13,7 +13,7 @@ from basyx.aas.model import _string_constraints
 
 class StringConstraintsTest(unittest.TestCase):
     def test_identifier(self) -> None:
-        identifier: model.Identifier = ""
+        identifier: str = ""
         with self.assertRaises(ValueError) as cm:
             _string_constraints.check_identifier(identifier)
         self.assertEqual("Identifier has a minimum length of 1! (length: 0)", cm.exception.args[0])

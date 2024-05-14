@@ -26,20 +26,20 @@ from . import jsonization
 logger = logging.getLogger(__name__)
 
 
-def read_aas_json_file_into(object_store: model.AbstractObjectStore, file: IO) -> Set[model.Identifier]:
+def read_aas_json_file_into(object_store: model.AbstractObjectStore, file: IO) -> Set[str]:
     """
     Read an Asset Administration Shell JSON file into a given object store.
 
     :param object_store: The :class:`ObjectStore <basyx.aas.model.provider.AbstractObjectStore>` in which the
                          identifiable objects should be stored
     :param file: A file-like object to read the JSON-serialized data from
-    :return: A set of :class:`Identifiers <basyx.aas.model.base.Identifier>` that were added to object_store
+    :return: A set of identifiers that were added to object_store
     """
     environment = jsonization.environment_from_jsonable(file.read())
     identifiables = environment.asset_administration_shells + environment.submodels + environment.concept_descriptions
     object_store.update(identifiables)
 
-    ret: Set[model.Identifier] = set()
+    ret: Set[str] = set()
     ret.update([i.id for i in identifiables])
 
     return ret

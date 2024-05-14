@@ -74,7 +74,7 @@ class ExampleAASTest(unittest.TestCase):
         obj_store.discard(failed_cd)
 
         class DummyIdentifiable(model.Identifiable):
-            def __init__(self, id_: model.Identifier):
+            def __init__(self, id_: str):
                 super().__init__()
                 self.id = id_
         failed_identifiable = DummyIdentifiable(id_='test')

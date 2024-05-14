@@ -84,7 +84,7 @@ class LocalFileObjectStore(model.AbstractObjectStore):
         # local replication of each object is kept in the application and retrieving an object from the store always
         # returns the **same** (not only equal) object. Still, objects are forgotten, when they are not referenced
         # anywhere else to save memory.
-        self._object_cache: weakref.WeakValueDictionary[model.Identifier, model.Identifiable] \
+        self._object_cache: weakref.WeakValueDictionary[str, model.Identifiable] \
             = weakref.WeakValueDictionary()
         self._object_cache_lock = threading.Lock()
 
@@ -127,9 +127,9 @@ class LocalFileObjectStore(model.AbstractObjectStore):
         self._object_cache[obj.id] = obj
         return obj
 
-    def get_identifiable(self, identifier: model.Identifier) -> model.Identifiable:
+    def get_identifiable(self, identifier: str) -> model.Identifiable:
         """
-        Retrieve an AAS object from the local file by its :class:`~basyx.aas.model.base.Identifier`
+        Retrieve an AAS object from the local file by its identifier
 
         :raises KeyError: If the respective file could not be found
         """
@@ -171,14 +171,14 @@ class LocalFileObjectStore(model.AbstractObjectStore):
 
     def __contains__(self, x: object) -> bool:
         """
-        Check if an object with the given :class:`~basyx.aas.model.base.Identifier` or the same
-        :class:`~basyx.aas.model.base.Identifier` as the given object is contained in the local file database
+        Check if an object with the given identifier or the same
+        identifier as the given object is contained in the local file database
 
-        :param x: AAS object :class:`~basyx.aas.model.base.Identifier` or :class:`~basyx.aas.model.base.Identifiable`
+        :param x: AAS object identifier or :class:`~basyx.aas.model.base.Identifiable`
                   AAS object
         :return: ``True`` if such an object exists in the database, ``False`` otherwise
         """
-        if isinstance(x, model.Identifier):
+        if isinstance(x, str):
             identifier = x
         elif isinstance(x, model.Identifiable):
             identifier = x.id
@@ -208,7 +208,7 @@ class LocalFileObjectStore(model.AbstractObjectStore):
             yield self.get_identifiable_by_hash(name.rstrip(".json"))
 
     @staticmethod
-    def _transform_id(identifier: model.Identifier) -> str:
+    def _transform_id(identifier: str) -> str:
         """
         Helper method to represent an ASS Identifier as a string to be used as Local file document id
         """
