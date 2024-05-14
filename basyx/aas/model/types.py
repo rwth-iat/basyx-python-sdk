@@ -102,7 +102,7 @@ import itertools
 from typing import List, Type, Iterator, MutableSet, Generic, Union, Tuple, Iterable, Optional, Callable, Dict, \
     MutableSequence, overload, TypeVar
 
-ATTRIBUTE_TYPES = Union[NameType, Reference, QualifierType]
+ATTRIBUTE_TYPES = Union[str, "Reference"] #NameType = QualifierType = str
 
 ATTRIBUTES_CONSTRAINT_IDS = {
     "id_short": 22,  # Referable,
@@ -112,6 +112,21 @@ ATTRIBUTES_CONSTRAINT_IDS = {
 }
 
 _NSO = TypeVar('_NSO', bound=Union["Referable", "Qualifier", "HasSemantics", "Extension"])
+
+
+class AASConstraintViolation(Exception):
+    """
+    An Exception to be raised if an AASd-Constraint defined in the metamodel (Details of the Asset Administration Shell)
+    is violated
+
+    :ivar constraint_id: The ID of the constraint that is violated
+    :ivar message: The error message of the Exception
+    """
+    def __init__(self, constraint_id: int, message: str):
+        self.constraint_id: int = constraint_id
+        self.message: str = message + " (Constraint AASd-" + str(constraint_id).zfill(3) + ")"
+        super().__init__(self.message)
+
 
 class Namespace(metaclass=abc.ABCMeta):
     """
@@ -186,7 +201,7 @@ class UniqueIdShortNamespace(Namespace, metaclass=abc.ABCMeta):
         super().__init__()
         self.namespace_element_sets: List[NamespaceSet] = []
 
-    def get_referable(self, id_short: NameType) -> Referable:
+    def get_referable(self, id_short: str) -> "Referable":
         """
         Find a :class:`~.Referable` in this Namespace by its id_short
 
@@ -196,7 +211,7 @@ class UniqueIdShortNamespace(Namespace, metaclass=abc.ABCMeta):
         """
         return super()._get_object(Referable, "id_short", id_short)  # type: ignore
 
-    def add_referable(self, referable: Referable) -> None:
+    def add_referable(self, referable: "Referable") -> None:
         """
         Add a :class:`~.Referable` to this Namespace
 
@@ -206,7 +221,7 @@ class UniqueIdShortNamespace(Namespace, metaclass=abc.ABCMeta):
         """
         return super()._add_object("id_short", referable)
 
-    def remove_referable(self, id_short: NameType) -> None:
+    def remove_referable(self, id_short: str) -> None:
         """
         Remove a :class:`~.Referable` from this Namespace by its ``id_short``
 
@@ -215,7 +230,7 @@ class UniqueIdShortNamespace(Namespace, metaclass=abc.ABCMeta):
         """
         return super()._remove_object(Referable, "id_short", id_short)
 
-    def __iter__(self) -> Iterator[Referable]:
+    def __iter__(self) -> Iterator["Referable"]:
         namespace_set_list: List[NamespaceSet] = []
         for namespace_set in self.namespace_element_sets:
             if len(namespace_set) == 0:
@@ -241,7 +256,7 @@ class UniqueSemanticIdNamespace(Namespace, metaclass=abc.ABCMeta):
         super().__init__()
         self.namespace_element_sets: List[NamespaceSet] = []
 
-    def get_object_by_semantic_id(self, semantic_id: Reference) -> HasSemantics:
+    def get_object_by_semantic_id(self, semantic_id: "Reference") -> "HasSemantics":
         """
         Find an HasSemantics in this Namespaces by its semantic_id
 
@@ -249,7 +264,7 @@ class UniqueSemanticIdNamespace(Namespace, metaclass=abc.ABCMeta):
         """
         return super()._get_object(HasSemantics, "semantic_id", semantic_id)  # type: ignore
 
-    def remove_object_by_semantic_id(self, semantic_id: Reference) -> None:
+    def remove_object_by_semantic_id(self, semantic_id: "Reference") -> None:
         """
         Remove an HasSemantics from this Namespace by its semantic_id
 
@@ -284,7 +299,7 @@ class NamespaceSet(MutableSet[_NSO], Generic[_NSO]):
 
     :raises KeyError: When ``items`` contains multiple objects with same unique attribute
     """
-    def __init__(self, parent: Union[UniqueIdShortNamespace, UniqueSemanticIdNamespace, Qualifiable, HasExtension],
+    def __init__(self, parent: Union[UniqueIdShortNamespace, UniqueSemanticIdNamespace, "Qualifiable", "HasExtension"],
                  attribute_names: List[Tuple[str, bool]], items: Iterable[_NSO] = (),
                  item_add_hook: Optional[Callable[[_NSO, Iterable[_NSO]], None]] = None,
                  item_id_set_hook: Optional[Callable[[_NSO], None]] = None,
@@ -528,7 +543,7 @@ class OrderedNamespaceSet(NamespaceSet[_NSO], MutableSequence[_NSO], Generic[_NS
     (actually it is derived from MutableSequence). However, we don't permit duplicate entries in the ordered list of
     objects.
     """
-    def __init__(self, parent: Union[UniqueIdShortNamespace, UniqueSemanticIdNamespace, Qualifiable, HasExtension],
+    def __init__(self, parent: Union[UniqueIdShortNamespace, UniqueSemanticIdNamespace, "Qualifiable", "HasExtension"],
                  attribute_names: List[Tuple[str, bool]], items: Iterable[_NSO] = (),
                  item_add_hook: Optional[Callable[[_NSO, Iterable[_NSO]], None]] = None,
                  item_id_set_hook: Optional[Callable[[_NSO], None]] = None,
