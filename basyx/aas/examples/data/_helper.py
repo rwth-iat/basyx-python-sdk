@@ -135,7 +135,7 @@ class AASDataChecker(DataChecker):
             else:
                 raise AttributeError('Submodel Element class not implemented')
 
-    def _check_has_extension_equal(self, object_: model.HasExtension, expected_object: model.HasExtension):
+    def _check_has_extension_equal(self, object_: model.HasExtensions, expected_object: model.HasExtensions):
         """
         Checks if the HasExtension object_ has the same HasExtension attributes as the expected_value object and
         adds / stores the check result for later analysis.
@@ -146,13 +146,13 @@ class AASDataChecker(DataChecker):
         """
         if not self.check_extensions:
             return
-        self.check_contained_element_length(object_, 'extension', model.Extension, len(expected_object.extension))
-        for expected_extension in expected_object.extension:
-            extension = object_.extension.get('name', expected_extension.name)
+        self.check_contained_element_length(object_, 'extensions', model.Extension, len(expected_object.extensions))
+        for expected_extension in expected_object.extensions:
+            extension = object_.extensions.get('name', expected_extension.name)
             if self.check(extension is not None, f'{expected_extension!r} must exist'):
                 self._check_extension_equal(extension, expected_extension)  # type: ignore
 
-        found_extensions = self._find_extra_namespace_set_elements_by_name(object_.extension, expected_object.extension)
+        found_extensions = self._find_extra_namespace_set_elements_by_name(object_.extensions, expected_object.extensions)
         self.check(found_extensions == set(), f'{object_!r} must not have extra extensions', value=found_extensions)
 
     def _check_extension_equal(self, object_: model.Extension, expected_object: model.Extension):
