@@ -8,9 +8,7 @@ specialized Concept Descriptions) are imported into this top-level package, for 
     from basyx.aas.model import AssetAdministrationShell, Submodel, Property
 """
 
-from .aas import *
-from .base import *
-from .submodel import *
+from .constants import *
 from .provider import *
-from .concept import ConceptDescription
-from . import datatypes
+from .types import *
+from .verification import *

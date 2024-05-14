@@ -97,8 +97,6 @@ import abc
 import enum
 from typing import Generic, Iterator, Optional, TypeVar, List
 
-from . import provider
-
 import abc
 import itertools
 from typing import List, Type, Iterator, MutableSet, Generic, Union, Tuple, Iterable, Optional, Callable, Dict, \

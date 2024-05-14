@@ -5,7 +5,7 @@
 
 from typing import Set
 
-import aas_core3.types as aas_types
+from . import types as aas_types
 
 #: Categories for :py:class:`.types.DataElement` as defined in :ref:`Constraint AASd-090 <constraint_AASd-090>`
 VALID_CATEGORIES_FOR_DATA_ELEMENT: Set[str] = {"CONSTANT", "PARAMETER", "VARIABLE"}
