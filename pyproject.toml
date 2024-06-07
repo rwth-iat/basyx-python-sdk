@@ -6,7 +6,11 @@ build-backend = "setuptools.build_meta"
 name = "basyx-python-sdk"
 version = "0.1.0"
 description = "Python SDK for BaSyx"
+<<<<<<< HEAD
 authors = ["IAT <IAT@RWTH>"]
+=======
+authors = ["Author Name <author@example.com>"]
+>>>>>>> 2d67daff31336921d431bccfcae0bd4ad26b3f7a
 dependencies = [
     "lxml",
     "python-dateutil",
