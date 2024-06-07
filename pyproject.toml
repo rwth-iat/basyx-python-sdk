@@ -2,18 +2,11 @@
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.black]
-line-length = 88
-target-version = ['py37', 'py38', 'py39']
-
-[tool.isort]
-profile = "black"
-
 [tool.poetry]
 name = "basyx-python-sdk"
 version = "0.1.0"
 description = "Python SDK for BaSyx"
-authors = ["IAT <IAT>"]
+authors = ["Author Name <author@example.com>"]
 dependencies = [
     "lxml",
     "python-dateutil",
@@ -24,3 +17,9 @@ dev-dependencies = [
     "pytest"
 ]
 
+[tool.black]
+line-length = 88
+target-version = ['py37', 'py38', 'py39']
+
+[tool.isort]
+profile = "black"
