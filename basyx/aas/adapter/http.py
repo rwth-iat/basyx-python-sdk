@@ -32,6 +32,7 @@ from basyx.aas import model
 from ._generic import XML_NS_MAP
 from .xml import XMLConstructables, read_aas_xml_element, xml_serialization, object_to_xml_element
 from .json import AASToJsonEncoder, StrictAASFromJsonDecoder, StrictStrippedAASFromJsonDecoder
+from . import aasx
 
 from typing import Callable, Dict, Iterable, Iterator, List, Optional, Type, TypeVar, Union, Tuple, Any
 
@@ -398,10 +399,11 @@ class IdShortPathConverter(werkzeug.routing.UnicodeConverter):
 
 
 class WSGIApp:
-    def __init__(self, object_store: model.AbstractObjectStore):
+    def __init__(self, object_store: model.AbstractObjectStore, file_store: aasx.AbstractSupplementaryFileContainer):
         self.object_store: model.AbstractObjectStore = object_store
+        self.file_store: aasx.AbstractSupplementaryFileContainer = file_store
         self.url_map = werkzeug.routing.Map([
-            Submount("/api/v3.0", [
+            Submount("/", [
                 Submount("/serialization", [
                     Rule("/", methods=["GET"], endpoint=self.not_implemented)
                 ]),
@@ -548,6 +550,7 @@ class WSGIApp:
     # TODO: the parameters can be typed via builtin wsgiref with Python 3.11+
     def __call__(self, environ, start_response) -> Iterable[bytes]:
         response: Response = self.handle_request(Request(environ))
+        response.headers['Access-Control-Allow-Origin'] = '*'
         return response(environ, start_response)
 
     def _get_obj_ts(self, identifier: model.Identifier, type_: Type[model.provider._IT]) -> model.provider._IT:
@@ -989,9 +992,19 @@ class WSGIApp:
     def get_submodel_submodel_element_attachment(self, request: Request, url_args: Dict, **_kwargs) \
             -> Response:
         submodel_element = self._get_submodel_submodel_elements_id_short_path(url_args)
-        if not isinstance(submodel_element, model.Blob):
-            raise BadRequest(f"{submodel_element!r} is not a blob, no file content to download!")
-        return Response(submodel_element.value, content_type=submodel_element.content_type)
+        value: bytes
+        if isinstance(submodel_element, model.File):
+            bytes_io = io.BytesIO()
+            try:
+                self.file_store.write_file(submodel_element.value, bytes_io)
+            except KeyError:
+                raise BadRequest(f"No such file: {submodel_element.value}")
+            value = bytes_io.getvalue()
+        elif isinstance(submodel_element, model.Blob):
+            value = submodel_element.value
+        else:
+            raise BadRequest(f"{submodel_element!r} is not a blob or file, no file content to download!")
+        return Response(value, content_type=submodel_element.content_type)
 
     def put_submodel_submodel_element_attachment(self, request: Request, url_args: Dict, **_kwargs) -> Response:
         response_t = get_response_type(request)
