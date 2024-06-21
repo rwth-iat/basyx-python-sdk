@@ -66,7 +66,7 @@ jobs:
         poetry install
     - name: Check typing with MyPy
       run: |
-        poetry run mypy basyx test
+        poetry run mypy --config-file mypy.ini basyx test
     - name: Check code style with PyCodestyle
       run: |
         poetry run pycodestyle --count --max-line-length 120 basyx test
