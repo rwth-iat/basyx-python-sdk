@@ -64,6 +64,8 @@ jobs:
       run: |
         pip install poetry
         poetry install
+    - name: Clear MyPy cache
+      run: rm -rf .mypy_cache
     - name: Check typing with MyPy
       run: |
         poetry run mypy --config-file mypy.ini basyx test
