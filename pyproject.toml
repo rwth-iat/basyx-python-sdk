@@ -33,6 +33,7 @@ lxml-stubs = "~0.5.1"
 
 [tool.poetry.dev-dependencies]
 types-python-dateutil = "*"
+coverage = "^5.5"
 
 [tool.poetry.scripts]
 aas-compliance-check = "basyx.aas.compliance_tool.cli:main"
