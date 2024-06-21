@@ -1,29 +1,38 @@
 [build-system]
-requires = ["setuptools", "wheel", "setuptools-scm", "poetry-core", "setuptools-build-meta", "setuptools-git"]
-build-backend = "setuptools.build_meta"
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "basyx-python-sdk"
-version = "0.1.0"
-description = "Python SDK for BaSyx"
-<<<<<<< HEAD
-authors = ["IAT <IAT@RWTH>"]
-=======
-authors = ["Author Name <author@example.com>"]
->>>>>>> 2d67daff31336921d431bccfcae0bd4ad26b3f7a
-dependencies = [
-    "lxml",
-    "python-dateutil",
-    "pyecma376-2",
-    "urllib3"
+version = "0.1.0"  # This should match the current version in your __version__ variable
+description = "The Eclipse BaSyx Python SDK, an implementation of the Asset Administration Shell for Industry 4.0 systems"
+authors = ["The Eclipse BaSyx Authors <your-email@example.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/eclipse-basyx/basyx-python-sdk"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Development Status :: 5 - Production/Stable",
 ]
-dev-dependencies = [
-    "pytest"
+packages = [
+    { include = "basyx" }
 ]
+exclude = ["tests", "tests.*"]
+include = ["basyx/py.typed", "basyx.aas.examples.data/TestFile.pdf"]
 
-[tool.black]
-line-length = 88
-target-version = ['py37', 'py38', 'py39']
+[tool.poetry.dependencies]
+python = "^3.8"
+jsonschema = "~4.7"
+lxml = ">=4.2,<5"
+python-dateutil = ">=2.8,<3.0"
+pyecma376-2 = ">=0.2.4"
+urllib3 = ">=1.26,<2.0"
+lxml-stubs = "~0.5.1"
 
-[tool.isort]
-profile = "black"
+[tool.poetry.dev-dependencies]
+types-python-dateutil = "*"
+
+[tool.poetry.scripts]
+aas-compliance-check = "basyx.aas.compliance_tool.cli:main"
