@@ -4,9 +4,9 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "basyx-python-sdk"
-version = "0.1.0"  # This should match the current version in your __version__ variable
+version = "0.1.0"
 description = "The Eclipse BaSyx Python SDK, an implementation of the Asset Administration Shell for Industry 4.0 systems"
-authors = ["The Eclipse BaSyx Authors <your-email@example.com>"]
+authors = ["The Eclipse BaSyx Authors IAT, RWTH Aachen University"]
 license = "MIT"
 readme = "README.md"
 homepage = "https://github.com/eclipse-basyx/basyx-python-sdk"
