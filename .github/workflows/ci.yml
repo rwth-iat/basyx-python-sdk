@@ -29,26 +29,27 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
+    - name: Install Poetry
+      run: |
+        pip install poetry
+    - name: Install dependencies with Poetry
+      run: |
+        poetry install
     - name: Collect schema files from aas-specs
       run: |
         mkdir -p ./test/adapter/schema
         curl -sSL -o ./test/adapter/schema/aasJSONSchema.json https://raw.githubusercontent.com/admin-shell-io/aas-specs/${{ env.AAS_SPECS_RELEASE_TAG }}/schemas/json/aas.json
         curl -sSL -o ./test/adapter/schema/aasXMLSchema.xsd https://raw.githubusercontent.com/admin-shell-io/aas-specs/${{ env.AAS_SPECS_RELEASE_TAG }}/schemas/xml/AAS.xsd
-    - name: Install Python dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install coverage
-        pip install -r requirements.txt
     - name: Setup test config and CouchDB database server
       run: |
         python test/_helper/setup_testdb.py -u "admin" -p "$COUCHDB_ADMIN_PASSWORD"
     - name: Test with coverage + unittest
       run: |
-        coverage run --source=basyx -m unittest
+        poetry run coverage run --source=basyx -m unittest
     - name: Report test coverage
-      if: ${{ always() }}
+      if: always()
       run: |
-        coverage report -m
+        poetry run coverage report -m
 
   static-analysis:
     runs-on: ubuntu-latest
@@ -59,17 +60,16 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: ${{ env.X_PYTHON_VERSION }}
-    - name: Install Python dependencies
+    - name: Install Poetry and dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install pycodestyle mypy
-        pip install -r requirements.txt
+        pip install poetry
+        poetry install
     - name: Check typing with MyPy
       run: |
-        mypy basyx test
+        poetry run mypy basyx test
     - name: Check code style with PyCodestyle
       run: |
-        pycodestyle --count --max-line-length 120 basyx test
+        poetry run pycodestyle --count --max-line-length 120 basyx test
 
   readme-codeblocks:
     runs-on: ubuntu-latest
@@ -80,20 +80,17 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: ${{ env.X_PYTHON_VERSION }}
-    - name: Install Python dependencies
+    - name: Install Poetry and dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install pycodestyle mypy codeblocks
-        pip install -r requirements.txt
-    - name: Check typing with MyPy
+        pip install poetry
+        poetry install
+    - name: Check typing with MyPy and code style with PyCodestyle
       run: |
-        mypy <(codeblocks python README.md)
-    - name: Check code style with PyCodestyle
-      run: |
-        codeblocks --wrap python README.md | pycodestyle --count --max-line-length 120 -
+        poetry run mypy <(codeblocks python README.md)
+        poetry run codeblocks --wrap python README.md | pycodestyle --count --max-line-length 120 -
     - name: Run readme codeblocks with Python
       run: |
-        codeblocks python README.md | python
+        poetry run codeblocks python README.md | python
 
   docs:
     runs-on: ubuntu-latest
@@ -104,14 +101,14 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: ${{ env.X_PYTHON_VERSION }}
-    - name: Install Python dependencies
+    - name: Install Poetry and documentation dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install -r docs/add-requirements.txt
-    - name: Check documentation for errors
+        pip install poetry
+        poetry install
+        poetry run pip install -r docs/add-requirements.txt
+    - name: Build and check documentation
       run: |
-        SPHINXOPTS="-a -E -n -W --keep-going" make -C docs html
+        SPHINXOPTS="-a -E -n -W --keep-going" poetry run make -C docs html
 
   package:
     runs-on: ubuntu-latest
@@ -122,10 +119,11 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: ${{ env.X_PYTHON_VERSION }}
-    - name: Install dependencies
+    - name: Install dependencies and build package
       run: |
-        python -m pip install --upgrade pip
-        pip install setuptools wheel
-    - name: Create source and wheel dist
+       ```yaml
+        pip install poetry
+        poetry install
+    - name: Build source and wheel distribution
       run: |
-        python setup.py sdist bdist_wheel
+        poetry build
