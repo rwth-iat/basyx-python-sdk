@@ -41,8 +41,9 @@ class Backend(metaclass=abc.ABCMeta):
     updating/committing) objects with a type of external data source,
     identified by one or more source URI schemas. Custom backends for
     custom source URI schemas should inherit from this class and be
-    registered via :meth:`~basyx.aas.backend.backends
-    .register_backend`. to be used by DictObjectStore object's
+    registered via
+    :meth:`~basyx.aas.backend.backends.register_backend`. to be used by
+    DictObjectStore object's
     :meth:`~basyx.aas.model.provider.DictObjectStore.update` and
     :meth:`~basyx.aas.model.provider.DictObjectStore.commit` methods
     when required.
