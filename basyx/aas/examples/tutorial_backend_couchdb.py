@@ -112,7 +112,7 @@ object_store.add(example_submodel2)
 # application, so the CouchDB backend is loaded.
 
 # Fetch recent updates from the server
-obj_store: DictObjectStore = model.DictObjectStore()
+obj_store: model.DictObjectStore = model.DictObjectStore()
 obj_store.update(example_submodel1)
 
 # Make some changes to a Property within the submodel

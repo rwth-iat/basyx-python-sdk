@@ -57,7 +57,7 @@ class CouchDBBackend(backends.Backend):
 
         updated_store_object = data['data']
         set_couchdb_revision(url, data["_rev"])
-        obj_store: DictObjectStore = model.DictObjectStore()
+        obj_store: model.DictObjectStore = model.DictObjectStore()
         obj_store.update_from(store_object, updated_store_object)
 
     @classmethod
