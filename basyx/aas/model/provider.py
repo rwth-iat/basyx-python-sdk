@@ -121,7 +121,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         :param identifier: :class:`~basyx.aas.model.base.Identifier`
         of the object to update
         :param max_age: Maximum age of the local data in seconds. This method may return early, if the previous update
-                        of the object has been performed less than ``max_age`` seconds ago.
+        of the object has been performed less than ``max_age`` seconds ago.
         :param recursive: Also call update on all children of this object. Default is True
         :param _indirect_source: Internal parameter to avoid duplicate updating.
         :raises backends.BackendError: If no appropriate backend or the data source is not available

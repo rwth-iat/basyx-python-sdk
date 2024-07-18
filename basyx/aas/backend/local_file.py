@@ -48,7 +48,8 @@ class LocalFileBackend(backends.Backend):
         with open(file_name, "r") as file:
             data = json.load(file, cls=json_deserialization.AASFromJsonDecoder)
             updated_store_object = data["data"]
-            store_object.update_from(updated_store_object)
+            obj_store: model.DictObjectStore = model.DictObjectStore()
+            obj_store.update_from(store_object, updated_store_object)
 
     @classmethod
     def commit_object(cls,
@@ -123,7 +124,8 @@ class LocalFileObjectStore(model.AbstractObjectStore):
                 # If the source does not match the correct source for this CouchDB backend, the object seems to belong
                 # to another backend now, so we return a fresh copy
                 if old_obj.source == obj.source:
-                    old_obj.update_from(obj)
+                    obj_store: model.DictObjectStore = model.DictObjectStore()
+                    obj_store.update_from(old_obj, obj)
                     return old_obj
         self._object_cache[obj.id] = obj
         return obj
