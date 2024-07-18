@@ -318,7 +318,7 @@ class CouchDBObjectStore(model.AbstractObjectStore):
                 # If the source does not match the correct source for this CouchDB backend, the object seems to belong
                 # to another backend now, so we return a fresh copy
                 if old_obj.source == obj.source:
-                    obj_store: DictObjectStore = model.DictObjectStore()
+                    obj_store: model.DictObjectStore = model.DictObjectStore()
                     obj_store.update_from(old_obj, obj)
                     return old_obj
 
