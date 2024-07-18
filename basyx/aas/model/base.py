@@ -18,6 +18,7 @@ from typing import List, Optional, Set, TypeVar, MutableSet, Generic, Iterable, 
 import re
 
 from . import datatypes, _string_constraints
+from basyx.aas import model
 
 if TYPE_CHECKING:
     from . import provider
@@ -1917,49 +1918,6 @@ class NamespaceSet(MutableSet[_NSO], Generic[_NSO]):
         """
         backend, case_sensitive = self._backend[attribute_name]
         return backend.get(attribute_value if case_sensitive else attribute_value.upper(), default)
-
-    # Todo: Implement function including tests
-    def update_nss_from(self, other: "NamespaceSet"):
-        """
-        Update a NamespaceSet from a given NamespaceSet.
-
-        WARNING: By updating, the "other" NamespaceSet gets destroyed.
-
-        :param other: The NamespaceSet to update from
-        """
-        objects_to_add: List[_NSO] = []  # objects from the other nss to add to self
-        objects_to_remove: List[_NSO] = []  # objects to remove from self
-        for other_object in other:
-            try:
-                if isinstance(other_object, Referable):
-                    backend, case_sensitive = self._backend["id_short"]
-                    referable = backend[other_object.id_short if case_sensitive else other_object.id_short.upper()]
-                    referable.update_from(other_object, update_source=True)  # type: ignore
-                elif isinstance(other_object, Qualifier):
-                    backend, case_sensitive = self._backend["type"]
-                    qualifier = backend[other_object.type if case_sensitive else other_object.type.upper()]
-                    # qualifier.update_from(other_object, update_source=True) # TODO: What should happend here?
-                elif isinstance(other_object, Extension):
-                    backend, case_sensitive = self._backend["name"]
-                    extension = backend[other_object.name if case_sensitive else other_object.name.upper()]
-                    # extension.update_from(other_object, update_source=True) # TODO: What should happend here?
-                else:
-                    raise TypeError("Type not implemented")
-            except KeyError:
-                # other object is not in NamespaceSet
-                objects_to_add.append(other_object)
-        for attr_name, (backend, case_sensitive) in self._backend.items():
-            for attr_name_other, (backend_other, case_sensitive_other) in other._backend.items():
-                if attr_name is attr_name_other:
-                    for item in backend.values():
-                        if not backend_other.get(self._get_attribute(item, attr_name, case_sensitive)):
-                            # referable does not exist in the other NamespaceSet
-                            objects_to_remove.append(item)
-        for object_to_add in objects_to_add:
-            other.remove(object_to_add)
-            self.add(object_to_add)  # type: ignore
-        for object_to_remove in objects_to_remove:
-            self.remove(object_to_remove)  # type: ignore
 
 
 class OrderedNamespaceSet(NamespaceSet[_NSO], MutableSequence[_NSO], Generic[_NSO]):
