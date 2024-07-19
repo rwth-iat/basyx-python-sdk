@@ -6,18 +6,23 @@
 # SPDX-License-Identifier: MIT
 """
 This module contains everything needed to model Submodels and define Events according to the AAS metamodel.
+
+.. data:: Duration
+
+   An alias for :class:`dateutil.relativedelta.relativedelta`, used to represent time durations.
 """
 
 import abc
 import uuid
-from typing import Optional, Set, Iterable, TYPE_CHECKING, List, Type, TypeVar, Generic, Union
+from typing import Optional, Set, Iterable, TYPE_CHECKING, List, Type, TypeVar, Generic, Union, NewType
 
 from . import base, datatypes, _string_constraints
 if TYPE_CHECKING:
     from . import aas
 
 from dateutil.relativedelta import relativedelta
-Duration = relativedelta
+Duration = NewType('Duration', relativedelta)
+
 
 
 class SubmodelElement(base.Referable, base.Qualifiable, base.HasSemantics,
@@ -1258,11 +1263,11 @@ class BasicEventElement(EventElement):
     :ivar min_interval: For input direction, reports on the maximum frequency, the software entity behind the respective
                         Referable can handle input events. For output events, specifies the maximum frequency of
                         outputting this event to an outer infrastructure.
-    :type min_interval: Optional[dateutil.relativedelta.relativedelta]
+    :type min_interval: Optional[Duration]
     :ivar max_interval: For input direction: not applicable.
                         For output direction: maximum interval in time, the respective Referable shall send an update of
                         the status of the event, even if no other trigger condition for the event was not met.
-    :type max_interval: Optional[dateutil.relativedelta.relativedelta]
+    :type max_interval: Optional[Duration]
     :ivar display_name: Can be provided in several languages. (inherited from :class:`~basyx.aas.model.base.Referable`)
     :ivar category: The category is a value that gives further meta information w.r.t. to the class of the element.
                      It affects the expected existence of attributes and the applicability of constraints.

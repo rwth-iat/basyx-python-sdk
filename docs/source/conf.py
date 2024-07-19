@@ -13,9 +13,23 @@ import os
 import sys
 import datetime
 from typing import Dict, Any
+from unittest.mock import MagicMock
 
 sys.path.insert(0, os.path.abspath('../..'))
 from basyx.aas import __version__
+
+
+class Mock(MagicMock):
+    @classmethod
+    def __getattr__(cls, name):
+        return MagicMock()
+
+
+MOCK_MODULES = ['dateutil', 'dateutil.relativedelta']
+sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
+
+autodoc_mock_imports = ['dateutil']
+
 
 # -- Project information -----------------------------------------------------
 
@@ -68,6 +82,7 @@ autodoc_type_aliases: Dict[str, str] = {
     'Duration': 'dateutil.relativedelta.relativedelta',
 }
 
+
 def on_missing_reference(app, env, node, contnode):
     path = node["reftarget"].split(".")
     # TODO: pyecma376_2 doesn't have a documentation we can link to, so suppress missing reference warnings.
@@ -76,8 +91,10 @@ def on_missing_reference(app, env, node, contnode):
         return contnode
     return None
 
+
 def setup(app):
     app.connect("missing-reference", on_missing_reference)
+
 
 # -- Options for HTML output -------------------------------------------------
 
