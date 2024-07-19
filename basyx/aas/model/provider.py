@@ -45,8 +45,7 @@ class AbstractObjectProvider(metaclass=abc.ABCMeta):
         pass
 
     def get(self, identifier: Identifier,
-            default: Optional[Identifiable] = None) -> Optional[
-        Identifiable]:
+            default: Optional[Identifiable] = None) -> Optional[Identifiable]:
         """
         Find an object in this set by its :class:`id <basyx.aas.model.base.Identifier>`, with fallback parameter
 
@@ -169,8 +168,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
                                                    recursive=True,
                                                    _indirect_source=False)
 
-    def find_source(self, obj) -> Tuple[
-        Optional["Referable"], Optional[List[str]]]:  # type: ignore
+    def find_source(self, obj) -> Tuple[Optional["Referable"], Optional[List[str]]]:  # type: ignore
         """
         Finds the closest source in this objects ancestors. If there is no source, returns None
 
@@ -283,8 +281,7 @@ class ObjectProviderMultiplexer(AbstractObjectProvider):
                       object
     """
 
-    def __init__(self, registries: Optional[
-        List[AbstractObjectProvider]] = None):
+    def __init__(self, registries: Optional[List[AbstractObjectProvider]] = None):
         self.providers: List[
             AbstractObjectProvider] = registries if registries is not None else []
 

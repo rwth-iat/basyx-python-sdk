@@ -1964,6 +1964,7 @@ class NamespaceSet(MutableSet[_NSO], Generic[_NSO]):
         for object_to_remove in objects_to_remove:
             self.remove(object_to_remove)  # type: ignore
 
+
 class OrderedNamespaceSet(NamespaceSet[_NSO], MutableSequence[_NSO], Generic[_NSO]):
     """
     A specialized version of :class:`~.NamespaceSet`, that keeps track of the order of the stored
