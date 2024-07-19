@@ -1290,8 +1290,8 @@ class BasicEventElement(EventElement):
                  message_broker: Optional[base.ModelReference[Union[Submodel, SubmodelElementList,
                                                                     SubmodelElementCollection, Entity]]] = None,
                  last_update: Optional[datatypes.DateTime] = None,
-                 min_interval: Optional['dateutil.relativedelta.relativedelta'] = None,
-                 max_interval: Optional['dateutil.relativedelta.relativedelta'] = None,
+                 min_interval: Optional['Duration'] = None,
+                 max_interval: Optional['Duration'] = None,
                  display_name: Optional[base.MultiLanguageNameType] = None,
                  category: Optional[base.NameType] = None,
                  description: Optional[base.MultiLanguageTextType] = None,
@@ -1340,11 +1340,11 @@ class BasicEventElement(EventElement):
         self._last_update: Optional[datatypes.DateTime] = last_update
 
     @property
-    def max_interval(self) -> Optional['dateutil.relativedelta.relativedelta']:
+    def max_interval(self) -> Optional['Duration']:
         return self._max_interval
 
     @max_interval.setter
-    def max_interval(self, max_interval: Optional['dateutil.relativedelta.relativedelta']) -> None:
+    def max_interval(self, max_interval: Optional['Duration']) -> None:
         if max_interval is not None and self.direction is base.Direction.INPUT:
             raise ValueError("max_interval is not applicable if direction = input!")
         self._max_interval: Optional['Duration'] = max_interval
