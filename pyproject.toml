@@ -27,6 +27,24 @@ dependencies = [
     "lxml-stubs~=0.5.1",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pycodestyle",
+    "mypy",
+    "coverage",
+    "codeblocks",
+]
+
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme",
+]
+
+test = [
+    "pytest",
+    "pytest-cov",
+]
+
 [project.urls]
 Homepage = "https://github.com/eclipse-basyx/basyx-python-sdk"
 
