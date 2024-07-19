@@ -9,15 +9,13 @@
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-#
 import os
 import sys
 import datetime
-
+from typing import Dict, Any
 
 sys.path.insert(0, os.path.abspath('../..'))
 from basyx.aas import __version__
-
 
 # -- Project information -----------------------------------------------------
 
@@ -28,13 +26,11 @@ author = 'The Eclipse BaSyx Authors'
 # The full version, including alpha/beta/rc tags
 release = __version__
 
-
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.coverage',
@@ -61,12 +57,16 @@ autodoc_default_options = {
 }
 
 # Mapping for correctly linking other module documentations.
-intersphinx_mapping = {
+intersphinx_mapping: Dict[str, Any] = {
     'python': ('https://docs.python.org/3', None),
     'dateutil': ('https://dateutil.readthedocs.io/en/stable/', None),
     'lxml': ('https://lxml.de/apidoc/', None)
 }
 
+# Add a new configuration for type aliases
+autodoc_type_aliases: Dict[str, str] = {
+    'Duration': 'dateutil.relativedelta.relativedelta',
+}
 
 def on_missing_reference(app, env, node, contnode):
     path = node["reftarget"].split(".")
@@ -76,16 +76,13 @@ def on_missing_reference(app, env, node, contnode):
         return contnode
     return None
 
-
 def setup(app):
     app.connect("missing-reference", on_missing_reference)
-
 
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-#
 html_theme = 'sphinx_rtd_theme'
 
 # Add any paths that contain custom static files (such as style sheets) here,

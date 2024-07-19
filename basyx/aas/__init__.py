@@ -8,3 +8,12 @@ and in 'util', some helpful functionality to actually use the AAS meta-model you
 """
 
 __version__ = "1.0.0"
+
+from dateutil.relativedelta import relativedelta as Duration
+
+# If you're using TYPE_CHECKING elsewhere, you might want to do this instead:
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from dateutil.relativedelta import relativedelta as Duration
+else:
+    from dateutil.relativedelta import relativedelta as Duration
