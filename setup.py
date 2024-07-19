@@ -8,5 +8,4 @@ setup(
         "basyx": ["py.typed"],
         "basyx.aas.examples.data": ["TestFile.pdf"],
     },
-
 )
