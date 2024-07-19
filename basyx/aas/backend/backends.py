@@ -4,7 +4,8 @@
 # the LICENSE file of this project.
 #
 # SPDX-License-Identifier: MIT
-"""This module provides a registry and abstract base class for
+"""
+This module provides a registry and abstract base class for
 Backends. A :class:`~.Backend` is a class that allows to synchronize
 Referable AAS objects or their included data with external data
 sources such as a remote API or a local source for real time data.
@@ -24,7 +25,8 @@ class methods. These are used internally by the objects'
 methods when the backend is applicable for the relevant source URI.
 Then, the Backend class needs to be registered to handle update/commit
 requests for a specific URI schema, using
-:meth:`~basyx.aas.backend.backends.register_backend`."""
+:meth:`~basyx.aas.backend.backends.register_backend`.
+"""
 import abc
 import re
 from typing import List, Dict, Type, TYPE_CHECKING
@@ -87,18 +89,19 @@ class Backend(metaclass=abc.ABCMeta):
         committed object's address within the data source's interface.
 
         :param committed_object: The object which shall be synced to
-        the external data source :param store_object: The object
-        which originates from the relevant data source (i.e. has the
-        relevant source attribute). It may be the
-        ``committed_object`` or one of its ancestors in the AAS
-        object hierarchy. :param relative_path: List of idShort
-        strings to resolve the ``committed_object`` starting at the
-        ``store_object``, such that `obj = store_object; for i in
-        relative_path: obj = obj.get_referable(i)` resolves to the
-        ``committed_object``. In case that ``store_object is
-        committed_object``, it is an empty list. :raises
-        BackendNotAvailableException: when the external data source
-        cannot be reached
+            the external data source
+        :param store_object: The object which originates from the
+            relevant data source (i.e. has the relevant source
+            attribute). It may be the ``committed_object`` or one of its
+            ancestors in the AAS object hierarchy.
+        :param relative_path: List of idShort strings to resolve the
+            ``committed_object`` starting at the ``store_object``,
+            such that `obj = store_object; for i in relative_path: obj =
+            obj.get_referable(i)` resolves to the ``committed_object``.
+            In case that ``store_object is committed_object``, it is an
+            empty list.
+        :raises BackendNotAvailableException: when the external data
+            source cannot be reached
         """
         pass
 
@@ -140,18 +143,19 @@ class Backend(metaclass=abc.ABCMeta):
         object's address within the data source's interface.
 
         :param updated_object: The object which shall be synced from
-        the external data source :param store_object: The object
-        which originates from the relevant data source (i.e. has the
-        relevant source attribute). It may be the
-        ``committed_object`` or one of its ancestors in the AAS
-        object hierarchy. :param relative_path: List of idShort
-        strings to resolve the ``updated_object`` starting at the
-        ``store_object``, such that `obj = store_object; for i in
-        relative_path: obj = obj.get_referable(i)` resolves to the
-        ``updated_object``. In case that ``store_object is
-        updated_object``, it is an empty list. :raises
-        BackendNotAvailableException: when the external data source
-        cannot be reached
+            the external data source
+        :param store_object: The object which originates from the
+            relevant data source (i.e. has the relevant source
+            attribute). It may be the ``committed_object`` or one of its
+            ancestors in the AAS object hierarchy.
+        :param relative_path: List of idShort strings to resolve the
+            ``updated_object`` starting at the ``store_object``,
+            such that `obj = store_object; for i in relative_path: obj =
+            obj.get_referable(i)` resolves to the ``updated_object``. In
+            case that ``store_object is updated_object``, it is an empty
+            list.
+        :raises BackendNotAvailableException: when the external data
+            source cannot be reached
         """
         pass
 
@@ -173,9 +177,10 @@ def register_backend(scheme: str, backend_class: Type[Backend]) -> None:
     'http://' and 'https://' sources).
 
     :param scheme: The URI schema of source URIs to be handled with
-    Backend class, without trailing colon and slashes. E.g. 'http',
-    'https', 'couchdb', etc. :param backend_class: The Backend
-    implementation class. Should inherit from :class:`Backend`.
+        Backend class, without trailing colon and slashes. E.g. 'http',
+        'https', 'couchdb', etc.
+    :param backend_class: The Backend implementation class. Should
+        inherit from :class:`Backend`.
     """
     # TODO handle multiple backends per scheme
     _backends_map[scheme] = backend_class
@@ -191,9 +196,10 @@ def get_backend(url: str) -> Type[Backend]:
     url's schema.
 
     :param url: External data source URI to find an appropriate
-    Backend implementation for :return: A Backend class, capable of
-    updating/committing from/to the external data source :raises
-    UnknownBackendException: When no backend is available for that url
+        Backend implementation for
+    :return: A Backend class, capable of updating/committing from/to
+        the external data source
+    :raises UnknownBackendException: When no backend is available for that url
     """
     # TODO handle multiple backends per scheme
     scheme_match = RE_URI_SCHEME.match(url)
