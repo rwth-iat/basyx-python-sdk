@@ -29,9 +29,12 @@ import decimal
 import re
 from typing import Type, Union, Dict, Optional
 
-import dateutil.relativedelta
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from dateutil.relativedelta import relativedelta as Duration
+else:
+    from dateutil.relativedelta import relativedelta as Duration
 
-Duration = dateutil.relativedelta.relativedelta
 DateTime = datetime.datetime
 Time = datetime.time
 Boolean = bool
@@ -354,13 +357,13 @@ class NormalizedString(str):
 
 
 AnyXSDType = Union[
-    Duration, DateTime, Date, Time, GYearMonth, GYear, GMonthDay, GMonth, GDay, Boolean, Base64Binary,
+    'Duration', DateTime, Date, Time, GYearMonth, GYear, GMonthDay, GMonth, GDay, Boolean, Base64Binary,
     HexBinary, Float, Double, Decimal, Integer, Long, Int, Short, Byte, NonPositiveInteger, NegativeInteger,
     NonNegativeInteger, PositiveInteger, UnsignedLong, UnsignedInt, UnsignedShort, UnsignedByte, AnyURI, String,
     NormalizedString]
 
 
-XSD_TYPE_NAMES: Dict[Type[AnyXSDType], str] = {k: "xs:" + v for k, v in {
+XSD_TYPE_NAMES: Dict[Union[Type[AnyXSDType], Type['Duration']], str] = {k: "xs:" + v for k, v in {
     Duration: "duration",
     DateTime: "dateTime",
     Date: "date",
@@ -478,7 +481,7 @@ def _serialize_date_tzinfo(date: Union[Date, GYear, GMonth, GDay, GYearMonth, GM
     return ""
 
 
-def _serialize_duration(value: Duration) -> str:
+def _serialize_duration(value: 'Duration') -> str:
     value = value.normalized()
     signs = set(val < 0
                 for val in (value.years, value.months, value.days, value.hours, value.minutes, value.seconds,
@@ -563,7 +566,7 @@ TIME_RE = re.compile(r'^(\d\d):(\d\d):(\d\d)(\.\d+)?([+\-](\d\d):(\d\d)|Z)?$')
 DATE_RE = re.compile(r'^(-?)(\d\d\d\d)-(\d\d)-(\d\d)([+\-](\d\d):(\d\d)|Z)?$')
 
 
-def _parse_xsd_duration(value: str) -> Duration:
+def _parse_xsd_duration(value: str) -> 'Duration':
     match = DURATION_RE.match(value)
     if not match:
         raise ValueError("Value is not a valid XSD duration string")

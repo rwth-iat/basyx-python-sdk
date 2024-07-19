@@ -64,7 +64,7 @@ jobs:
         pip install .[dev]
     - name: Check typing with MyPy
       run: |
-        mypy basyx test
+        mypy --install-types --non-interactive basyx test
     - name: Check code style with PyCodestyle
       run: |
         pycodestyle --count --max-line-length 120 basyx test

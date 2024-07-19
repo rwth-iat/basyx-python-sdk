@@ -33,11 +33,13 @@ dev = [
     "mypy",
     "coverage",
     "codeblocks",
+    "types-python-dateutil",
 ]
 
 docs = [
     "sphinx",
     "sphinx-rtd-theme",
+    "sphinx-argparse",
 ]
 
 test = [
