@@ -57,7 +57,8 @@ class CouchDBBackend(backends.Backend):
 
         updated_store_object = data['data']
         set_couchdb_revision(url, data["_rev"])
-        store_object.update_from(updated_store_object)
+        obj_store: model.DictObjectStore = model.DictObjectStore()
+        obj_store.update_from(store_object, updated_store_object)
 
     @classmethod
     def commit_object(cls,
@@ -70,7 +71,7 @@ class CouchDBBackend(backends.Backend):
         url = CouchDBBackend._parse_source(store_object.source)
         # We need to get the revision of the object, if it already exists, otherwise we cannot write to the Couchdb
         if get_couchdb_revision(url) is None:
-            raise CouchDBConflictError("No revision found for the given object. Try calling `update` on it.")
+            raise CouchDBConflictError("No revision found for the given object. Try calling `update_referable` on it.")
 
         data = json.dumps({'data': store_object, "_rev": get_couchdb_revision(url)},
                           cls=json_serialization.AASToJsonEncoder)
@@ -182,7 +183,8 @@ def register_credentials(url: str, username: str, password: str):
     .. Warning::
 
         Do not use this function, while other threads may be accessing the credentials via the
-        :class:`~.CouchDBObjectStore` or update or commit functions of :class:`~.basyx.aas.model.base.Referable`
+        :class:`~.CouchDBObjectStore` or update_referable or commit_referable functions
+        of :class:`~.basyx.aas.model.provider.DictObjectStore`
         objects!
 
     :param url: Toplevel URL
@@ -317,7 +319,8 @@ class CouchDBObjectStore(model.AbstractObjectStore):
                 # If the source does not match the correct source for this CouchDB backend, the object seems to belong
                 # to another backend now, so we return a fresh copy
                 if old_obj.source == obj.source:
-                    old_obj.update_from(obj)
+                    obj_store: model.DictObjectStore = model.DictObjectStore()
+                    obj_store.update_from(old_obj, obj)
                     return old_obj
 
         self._object_cache[obj.id] = obj

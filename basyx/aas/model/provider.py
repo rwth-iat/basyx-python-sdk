@@ -11,9 +11,13 @@ This module implements Registries for the AAS, in order to enable resolving glob
 """
 
 import abc
-from typing import MutableSet, Iterator, Generic, TypeVar, Dict, List, Optional, Iterable
+from typing import List, Optional, TypeVar, MutableSet, Generic, \
+    Iterable, Dict, Iterator, Tuple
 
-from .base import Identifier, Identifiable
+from .base import Referable, Identifiable, Identifier, \
+    UniqueIdShortNamespace, NameType, NamespaceSet, Qualifier, Extension
+from ..backend import backends
+from basyx.aas import model
 
 
 class AbstractObjectProvider(metaclass=abc.ABCMeta):
@@ -24,6 +28,7 @@ class AbstractObjectProvider(metaclass=abc.ABCMeta):
 
     This includes local object stores, database clients and AAS API clients.
     """
+
     @abc.abstractmethod
     def get_identifiable(self, identifier: Identifier) -> Identifiable:
         """
@@ -39,7 +44,8 @@ class AbstractObjectProvider(metaclass=abc.ABCMeta):
         """
         pass
 
-    def get(self, identifier: Identifier, default: Optional[Identifiable] = None) -> Optional[Identifiable]:
+    def get(self, identifier: Identifier,
+            default: Optional[Identifiable] = None) -> Optional[Identifiable]:
         """
         Find an object in this set by its :class:`id <basyx.aas.model.base.Identifier>`, with fallback parameter
 
@@ -59,7 +65,8 @@ class AbstractObjectProvider(metaclass=abc.ABCMeta):
 _IT = TypeVar('_IT', bound=Identifiable)
 
 
-class AbstractObjectStore(AbstractObjectProvider, MutableSet[_IT], Generic[_IT], metaclass=abc.ABCMeta):
+class AbstractObjectStore(AbstractObjectProvider, MutableSet[_IT],
+                          Generic[_IT], metaclass=abc.ABCMeta):
     """
     Abstract baseclass of for container-like objects for storage of :class:`~basyx.aas.model.base.Identifiable` objects.
 
@@ -71,11 +78,12 @@ class AbstractObjectStore(AbstractObjectProvider, MutableSet[_IT], Generic[_IT],
     The AbstractObjectStore inherits from the :class:`~collections.abc.MutableSet` abstract collections class and
     therefore implements all the functions of this class.
     """
+
     @abc.abstractmethod
     def __init__(self):
         pass
 
-    def update(self, other: Iterable[_IT]) -> None:
+    def add_from(self, other: Iterable[_IT]) -> None:
         for x in other:
             self.add(x)
 
@@ -85,6 +93,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
     A local in-memory object store for :class:`~basyx.aas.model.base.Identifiable` objects, backed by a dict, mapping
     :class:`~basyx.aas.model.base.Identifier` → :class:`~basyx.aas.model.base.Identifiable`
     """
+
     def __init__(self, objects: Iterable[_IT] = ()) -> None:
         self._backend: Dict[Identifier, _IT] = {}
         for x in objects:
@@ -95,13 +104,156 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
 
     def add(self, x: _IT) -> None:
         if x.id in self._backend and self._backend.get(x.id) is not x:
-            raise KeyError("Identifiable object with same id {} is already stored in this store"
-                           .format(x.id))
+            raise KeyError(
+                "Identifiable object with same id {} is already stored in this store"
+                .format(x.id))
         self._backend[x.id] = x
 
     def discard(self, x: _IT) -> None:
         if self._backend.get(x.id) is x:
             del self._backend[x.id]
+
+    def update_referable(self,
+                         referable: Referable,
+                         max_age: float = 0,
+                         recursive: bool = True,
+                         _indirect_source: bool = True) -> None:
+        """
+        Update the local Referable object from any underlying external data source, using an appropriate backend
+
+        If there is no source given, it will find its next ancestor with a source and update from this source.
+        If there is no source in any ancestor, this function will do nothing
+
+        :param referable: The object to update
+        :param max_age: Maximum age of the local data in seconds. This method may return early, if the previous update
+            of the object has been performed less than ``max_age`` seconds ago.
+        :param recursive: Also call update on all children of this object. Default is True
+        :param _indirect_source: Internal parameter to avoid duplicate updating.
+        :raises backends.BackendError: If no appropriate backend or the data source is not available
+        """
+        if not _indirect_source:
+            # Update was already called on an ancestor of this Referable. Only update it, if it has its own source
+            if referable.source != "":
+                backends.get_backend(referable.source).update_object(
+                    updated_object=referable,
+                    store_object=referable,
+                    relative_path=[])
+
+        else:
+            # Try to find a valid source for this Referable
+            if referable.source != "":
+                backends.get_backend(referable.source).update_object(
+                    updated_object=referable,
+                    store_object=referable,
+                    relative_path=[])
+            else:
+                store_object, relative_path = self.find_source(
+                    referable)
+                if store_object and relative_path is not None:
+                    backends.get_backend(
+                        store_object.source).update_object(
+                        updated_object=referable,
+                        store_object=store_object,
+                        relative_path=list(relative_path))
+
+        if recursive:
+            # update all the children who have their own source
+            if isinstance(referable, UniqueIdShortNamespace):
+                for namespace_set in referable.namespace_element_sets:
+                    if "id_short" not in namespace_set.get_attribute_name_list():
+                        continue
+                    for referable in namespace_set:
+                        obj_store: model.DictObjectStore = model.DictObjectStore()
+                        obj_store.update_referable(referable, max_age,
+                                                   recursive=True,
+                                                   _indirect_source=False)
+
+    def find_source(self, obj) -> Tuple[Optional["Referable"], Optional[List[str]]]:  # type: ignore
+        """
+        Finds the closest source in this objects ancestors. If there is no source, returns None
+
+        :return: Tuple with the closest ancestor with a defined source and the relative path of id_shorts to that
+                 ancestor
+        """
+        referable: Referable = obj
+        relative_path: List[NameType] = [obj.id_short]
+        while referable is not None:
+            if referable.source != "":
+                relative_path.reverse()
+                return referable, relative_path
+            if referable.parent:
+                assert isinstance(referable.parent, Referable)
+                referable = referable.parent
+                relative_path.append(referable.id_short)
+                continue
+            break
+        return None, None
+
+    def update_from(self, obj, other: "Referable",
+                    update_source: bool = False):  # type: ignore
+        """
+        Internal function to updates the object's attributes from another object of a similar type.
+
+        This function should not be used directly. It is typically used by backend implementations (database adapters,
+        protocol clients, etc.) to update the object's data,
+        after ``update()_referable`` has been called.
+
+        :param obj: The object to update
+        :param other: The object to update from
+        :param update_source: Update the source attribute with the other's source attribute. This is not propagated
+                              recursively
+        """
+        for name, var in vars(other).items():
+            # do not update the parent, namespace_element_sets or source (depending on update_source parameter)
+            if name in ("parent",
+                        "namespace_element_sets") or name == "source" and not update_source:
+                continue
+            if isinstance(var, NamespaceSet):
+                # update the elements of the NameSpaceSet
+                vars(obj)[name].update_nss_from(var)
+            else:
+                vars(obj)[
+                    name] = var  # that variable is not a NameSpaceSet, so it isn't Referable
+
+    def commit_referable(self, referable: "Referable") -> None:
+        """
+        Transfer local changes on this object to all underlying external data sources.
+
+        This function commits the current state of this object to its own and each external data source of its
+        ancestors. If there is no source, this function will do nothing.
+        """
+        current_ancestor = referable.parent
+        relative_path: List[NameType] = [referable.id_short]
+        # Commit to all ancestors with sources
+        while current_ancestor:
+            assert isinstance(current_ancestor, Referable)
+            if current_ancestor.source != "":
+                backends.get_backend(
+                    current_ancestor.source).commit_object(
+                    committed_object=referable,
+                    store_object=current_ancestor,
+                    relative_path=list(relative_path))
+            relative_path.insert(0, current_ancestor.id_short)
+            current_ancestor = current_ancestor.parent
+        # Commit to own source and check if there are children with sources to commit to
+        self._direct_source_commit(referable)
+
+    def _direct_source_commit(self, referable: "Referable"):
+        """
+        Commits children of an ancestor recursively, if they have a specific source given
+        """
+        if referable.source != "":
+            backends.get_backend(referable.source).commit_object(
+                committed_object=referable,
+                store_object=referable,
+                relative_path=[])
+
+        if isinstance(referable, UniqueIdShortNamespace):
+            for namespace_set in referable.namespace_element_sets:
+                if "id_short" not in namespace_set.get_attribute_name_list():
+                    continue
+                for referable in namespace_set:
+                    self._direct_source_commit(referable)
 
     def __contains__(self, x: object) -> bool:
         if isinstance(x, Identifier):
@@ -128,8 +280,10 @@ class ObjectProviderMultiplexer(AbstractObjectProvider):
     :ivar registries: A list of :class:`AbstractObjectProviders <.AbstractObjectProvider>` to query when looking up an
                       object
     """
+
     def __init__(self, registries: Optional[List[AbstractObjectProvider]] = None):
-        self.providers: List[AbstractObjectProvider] = registries if registries is not None else []
+        self.providers: List[
+            AbstractObjectProvider] = registries if registries is not None else []
 
     def get_identifiable(self, identifier: Identifier) -> Identifiable:
         for provider in self.providers:
@@ -137,5 +291,6 @@ class ObjectProviderMultiplexer(AbstractObjectProvider):
                 return provider.get_identifiable(identifier)
             except KeyError:
                 pass
-        raise KeyError("Identifier could not be found in any of the {} consulted registries."
-                       .format(len(self.providers)))
+        raise KeyError(
+            "Identifier could not be found in any of the {} consulted registries."
+            .format(len(self.providers)))
