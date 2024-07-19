@@ -23,9 +23,6 @@ from ..backend import backends
 if TYPE_CHECKING:
     from . import provider
 
-if TYPE_CHECKING:
-    from dateutil.relativedelta import relativedelta as Duration
-
 DataTypeDefXsd = Type[datatypes.AnyXSDType]
 ValueDataType = datatypes.AnyXSDType  # any xsd atomic type (from .datatypes)
 ValueList = Set["ValueReferencePair"]
