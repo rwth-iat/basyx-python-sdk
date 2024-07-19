@@ -15,7 +15,8 @@ import unittest
 from contextlib import contextmanager
 
 from basyx.aas import model
-from .._helper.test_helpers import COUCHDB_OKAY, TEST_CONFIG, COUCHDB_ERROR
+from test._helper.test_helpers import (COUCHDB_OKAY, TEST_CONFIG,
+                                    COUCHDB_ERROR)
 
 
 class TutorialTest(unittest.TestCase):

@@ -414,7 +414,7 @@ class AASXWriter:
                                  str(semantic_id), e.value)
                     continue
                 concept_descriptions.append(cd)
-        objects_to_be_written.update(concept_descriptions)
+        objects_to_be_written.add_from(concept_descriptions)
 
         # Write AAS data part
         self.write_all_aas_objects("/aasx/data.{}".format("json" if write_json else "xml"),

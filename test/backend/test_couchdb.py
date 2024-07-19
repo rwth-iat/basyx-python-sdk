@@ -85,7 +85,7 @@ class CouchDBBackendTest(unittest.TestCase):
     def test_example_submodel_storing(self) -> None:
         example_submodel = create_example_submodel()
 
-        # Add exmaple submodel
+        # Add example submodel
         self.object_store.add(example_submodel)
         self.assertEqual(1, len(self.object_store))
         self.assertIn(example_submodel, self.object_store)
@@ -148,12 +148,13 @@ class CouchDBBackendTest(unittest.TestCase):
         # Simulate a concurrent modification (Commit submodel, while preventing that the couchdb revision store is
         # updated)
         with unittest.mock.patch("basyx.aas.backend.couchdb.set_couchdb_revision"):
-            retrieved_submodel.commit()
+            obj_store: model.DictObjectStore = model.DictObjectStore()
+            obj_store.commit_referable(retrieved_submodel)
 
         # Committing changes to the retrieved object should now raise a conflict error
         retrieved_submodel.id_short = "myOtherNewIdShort"
         with self.assertRaises(couchdb.CouchDBConflictError) as cm:
-            retrieved_submodel.commit()
+            obj_store.commit_referable(retrieved_submodel)
         self.assertEqual("Could not commit changes to id https://acplt.org/Test_Submodel due to a "
                          "concurrent modification in the database.", str(cm.exception))
 
@@ -167,7 +168,7 @@ class CouchDBBackendTest(unittest.TestCase):
         self.assertEqual(0, len(self.object_store))
 
         # Committing after deletion should not raise a conflict error due to removal of the source attribute
-        retrieved_submodel.commit()
+        obj_store.commit_referable(retrieved_submodel)
 
     def test_editing(self):
         test_object = create_example_submodel()
@@ -175,9 +176,10 @@ class CouchDBBackendTest(unittest.TestCase):
 
         # Test if commit uploads changes
         test_object.id_short = "SomeNewIdShort"
-        test_object.commit()
+        obj_store: model.DictObjectStore = model.DictObjectStore()
+        obj_store.commit_referable(test_object)
 
         # Test if update restores changes
         test_object.id_short = "AnotherIdShort"
-        test_object.update()
+        obj_store.update_referable(test_object)
         self.assertEqual("SomeNewIdShort", test_object.id_short)

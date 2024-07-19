@@ -34,9 +34,9 @@ def create_example() -> model.DictObjectStore:
     :return: object store
     """
     obj_store: model.DictObjectStore[model.Identifiable] = model.DictObjectStore()
-    obj_store.update(example_aas.create_full_example())
-    obj_store.update(example_aas_mandatory_attributes.create_full_example())
-    obj_store.update(example_aas_missing_attributes.create_full_example())
+    obj_store.add_from(example_aas.create_full_example())
+    obj_store.add_from(example_aas_mandatory_attributes.create_full_example())
+    obj_store.add_from(example_aas_missing_attributes.create_full_example())
     obj_store.add(example_submodel_template.create_example_submodel_template())
     return obj_store
 
@@ -50,9 +50,9 @@ def create_example_aas_binding() -> model.DictObjectStore:
     :return: object store
     """
     obj_store: model.DictObjectStore[model.Identifiable] = model.DictObjectStore()
-    obj_store.update(example_aas.create_full_example())
-    obj_store.update(example_aas_mandatory_attributes.create_full_example())
-    obj_store.update(example_aas_missing_attributes.create_full_example())
+    obj_store.add_from(example_aas.create_full_example())
+    obj_store.add_from(example_aas_mandatory_attributes.create_full_example())
+    obj_store.add_from(example_aas_missing_attributes.create_full_example())
     obj_store.add(example_submodel_template.create_example_submodel_template())
 
     aas = obj_store.get_identifiable('https://acplt.org/Test_AssetAdministrationShell')

@@ -51,7 +51,7 @@ class ProvidersTest(unittest.TestCase):
         object_store1.add(self.aas1)
         object_store2: model.DictObjectStore[model.AssetAdministrationShell] = model.DictObjectStore()
         object_store2.add(self.aas2)
-        object_store1.update(object_store2)
+        object_store1.add_from(object_store2)
         self.assertIsInstance(object_store1, model.DictObjectStore)
         self.assertIn(self.aas2, object_store1)
 

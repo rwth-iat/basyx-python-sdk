@@ -164,7 +164,8 @@ class ReferableTest(unittest.TestCase):
         example_grandchild = example_referable.get_referable("exampleChild").get_referable("exampleGrandchild")
 
         # Test update with parameter "recursive=False"
-        example_referable.update(recursive=False)
+        obj_store: model.DictObjectStore = model.DictObjectStore()
+        obj_store.update_referable(example_referable, recursive=False)
         MockBackend.update_object.assert_called_once_with(
             updated_object=example_referable,
             store_object=example_grandparent,
@@ -173,7 +174,7 @@ class ReferableTest(unittest.TestCase):
         MockBackend.update_object.reset_mock()
 
         # Test update with parameter "recursive=True"
-        example_referable.update()
+        obj_store.update_referable(example_referable)
         self.assertEqual(MockBackend.update_object.call_count, 2)
         MockBackend.update_object.assert_has_calls([
             mock.call(updated_object=example_referable,
@@ -187,7 +188,7 @@ class ReferableTest(unittest.TestCase):
 
         # Test update with source != "" in example_referable
         example_referable.source = "mockScheme:exampleReferable"
-        example_referable.update(recursive=False)
+        obj_store.update_referable(example_referable, recursive=False)
         MockBackend.update_object.assert_called_once_with(
             updated_object=example_referable,
             store_object=example_referable,
@@ -198,7 +199,7 @@ class ReferableTest(unittest.TestCase):
         # Test update with no source available
         example_grandparent.source = ""
         example_referable.source = ""
-        example_referable.update(recursive=False)
+        obj_store.update_referable(example_referable, recursive=False)
         MockBackend.update_object.assert_not_called()
 
     def test_commit(self):
@@ -208,7 +209,8 @@ class ReferableTest(unittest.TestCase):
         example_grandchild = example_referable.get_referable("exampleChild").get_referable("exampleGrandchild")
 
         # Test commit starting from example_referable
-        example_referable.commit()
+        obj_store: model.DictObjectStore = model.DictObjectStore()
+        obj_store.commit_referable(example_referable)
         self.assertEqual(MockBackend.commit_object.call_count, 2)
         MockBackend.commit_object.assert_has_calls([
             mock.call(committed_object=example_referable,
@@ -221,7 +223,7 @@ class ReferableTest(unittest.TestCase):
         MockBackend.commit_object.reset_mock()
 
         # Test commit starting from example_grandchild
-        example_grandchild.commit()
+        obj_store.commit_referable(example_grandchild)
         self.assertEqual(MockBackend.commit_object.call_count, 2)
         MockBackend.commit_object.assert_has_calls([
             mock.call(committed_object=example_grandchild,
@@ -235,7 +237,7 @@ class ReferableTest(unittest.TestCase):
 
         # Test commit starting from example_grandchild after adding a source to example_referable
         example_referable.source = "mockScheme:exampleReferable"
-        example_grandchild.commit()
+        obj_store.commit_referable(example_grandchild)
         self.assertEqual(MockBackend.commit_object.call_count, 3)
         MockBackend.commit_object.assert_has_calls([
             mock.call(committed_object=example_grandchild,
@@ -260,7 +262,8 @@ class ReferableTest(unittest.TestCase):
         other_relel.category = "NewRelElCat"
 
         # Test basic functionality
-        example_submodel.update_from(other_submodel)
+        obj_store: model.DictObjectStore = model.DictObjectStore()
+        obj_store.update_from(example_submodel, other_submodel)
         self.assertEqual("NewCat", example_submodel.category)
         self.assertEqual("NewRelElCat", example_relel.category)
         # References to Referable objects shall remain stable
@@ -275,7 +278,7 @@ class ReferableTest(unittest.TestCase):
         other_submodel.source = "scheme:NewSource"
         other_relel.source = "scheme:NewRelElSource"
 
-        example_submodel.update_from(other_submodel)
+        obj_store.update_from(example_submodel, other_submodel)
         # Sources of the object itself should not be updated by default
         self.assertEqual("", example_submodel.source)
         # Sources of embedded objects should always be updated
@@ -283,7 +286,8 @@ class ReferableTest(unittest.TestCase):
 
     def test_update_commit_qualifier_extension_semantic_id(self):
         submodel = model.Submodel("https://acplt.org/Test_Submodel")
-        submodel.update()
+        obj_store: model.DictObjectStore = model.DictObjectStore()
+        obj_store.update_referable(submodel)
         qualifier = model.Qualifier("test", model.datatypes.String)
         extension = model.Extension("test")
         collection = model.SubmodelElementCollection("test")
@@ -293,7 +297,7 @@ class ReferableTest(unittest.TestCase):
         submodel.add_qualifier(qualifier)
         submodel.add_extension(extension)
         submodel.add_referable(collection)
-        submodel.commit()
+        obj_store.commit_referable(submodel)
 
         self.assertEqual(next(iter(submodel.qualifier)), qualifier)
         self.assertEqual(next(iter(submodel.extension)), extension)
@@ -320,7 +324,7 @@ class ReferableTest(unittest.TestCase):
             next(iter(submodel.submodel_element))
         with self.assertRaises(StopIteration):
             next(iter(collection.value))
-        submodel.commit()
+        obj_store.commit_referable(submodel)
 
 
 class ExampleNamespaceReferable(model.UniqueIdShortNamespace, model.UniqueSemanticIdNamespace, model.Identifiable):
