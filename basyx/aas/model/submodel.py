@@ -16,7 +16,8 @@ from . import base, datatypes, _string_constraints
 if TYPE_CHECKING:
     from . import aas
 
-from dateutil.relativedelta import relativedelta as Duration
+from dateutil.relativedelta import relativedelta
+Duration = relativedelta
 
 
 class SubmodelElement(base.Referable, base.Qualifiable, base.HasSemantics,
@@ -1257,9 +1258,11 @@ class BasicEventElement(EventElement):
     :ivar min_interval: For input direction, reports on the maximum frequency, the software entity behind the respective
                         Referable can handle input events. For output events, specifies the maximum frequency of
                         outputting this event to an outer infrastructure.
+    :type min_interval: Optional[dateutil.relativedelta.relativedelta]
     :ivar max_interval: For input direction: not applicable.
                         For output direction: maximum interval in time, the respective Referable shall send an update of
                         the status of the event, even if no other trigger condition for the event was not met.
+    :type max_interval: Optional[dateutil.relativedelta.relativedelta]
     :ivar display_name: Can be provided in several languages. (inherited from :class:`~basyx.aas.model.base.Referable`)
     :ivar category: The category is a value that gives further meta information w.r.t. to the class of the element.
                      It affects the expected existence of attributes and the applicability of constraints.
@@ -1339,11 +1342,11 @@ class BasicEventElement(EventElement):
         self._last_update: Optional[datatypes.DateTime] = last_update
 
     @property
-    def max_interval(self) -> Optional['Duration']:
+    def max_interval(self) -> Optional[Duration]:
         return self._max_interval
 
     @max_interval.setter
-    def max_interval(self, max_interval: Optional['Duration']) -> None:
+    def max_interval(self, max_interval: Optional[Duration]) -> None:
         if max_interval is not None and self.direction is base.Direction.INPUT:
             raise ValueError("max_interval is not applicable if direction = input!")
         self._max_interval: Optional['Duration'] = max_interval
