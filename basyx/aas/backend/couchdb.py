@@ -71,7 +71,7 @@ class CouchDBBackend(backends.Backend):
         url = CouchDBBackend._parse_source(store_object.source)
         # We need to get the revision of the object, if it already exists, otherwise we cannot write to the Couchdb
         if get_couchdb_revision(url) is None:
-            raise CouchDBConflictError("No revision found for the given object. Try calling `update` on it.")
+            raise CouchDBConflictError("No revision found for the given object. Try calling `update_referable` on it.")
 
         data = json.dumps({'data': store_object, "_rev": get_couchdb_revision(url)},
                           cls=json_serialization.AASToJsonEncoder)
@@ -183,7 +183,8 @@ def register_credentials(url: str, username: str, password: str):
     .. Warning::
 
         Do not use this function, while other threads may be accessing the credentials via the
-        :class:`~.CouchDBObjectStore` or update or commit functions of :class:`~.basyx.aas.model.provider.DictObjectStore`
+        :class:`~.CouchDBObjectStore` or update_referable or commit_referable functions
+        of :class:`~.basyx.aas.model.provider.DictObjectStore`
         objects!
 
     :param url: Toplevel URL

@@ -119,7 +119,6 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
                          max_age: float = 0,
                          recursive: bool = True,
                          _indirect_source: bool = True) -> None:
-        # TODO: discuss the method name and signature used here
         """
         Update the local Referable object from any underlying external data source, using an appropriate backend
 
@@ -149,7 +148,8 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
                     store_object=referable,
                     relative_path=[])
             else:
-                store_object, relative_path = self.find_source(referable)
+                store_object, relative_path = self.find_source(
+                    referable)
                 if store_object and relative_path is not None:
                     backends.get_backend(
                         store_object.source).update_object(
@@ -165,7 +165,8 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
                         continue
                     for referable in namespace_set:
                         obj_store: model.DictObjectStore = model.DictObjectStore()
-                        obj_store.update_referable(referable, max_age, recursive=True,
+                        obj_store.update_referable(referable, max_age,
+                                                   recursive=True,
                                                    _indirect_source=False)
 
     def find_source(self, obj) -> Tuple[
@@ -190,14 +191,16 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
             break
         return None, None
 
-    def update_from(self, referable: "Referable", other: "Referable",
-                    update_source: bool = False):
+    def update_from(self, obj, other: "Referable",
+                    update_source: bool = False):  # type: ignore
         """
         Internal function to updates the object's attributes from another object of a similar type.
 
         This function should not be used directly. It is typically used by backend implementations (database adapters,
-        protocol clients, etc.) to update the object's data, after ``update()`` has been called.
+        protocol clients, etc.) to update the object's data,
+        after ``update()_referable`` has been called.
 
+        :param obj: The object to update
         :param other: The object to update from
         :param update_source: Update the source attribute with the other's source attribute. This is not propagated
                               recursively
@@ -209,9 +212,9 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
                 continue
             if isinstance(var, NamespaceSet):
                 # update the elements of the NameSpaceSet
-                vars(referable)[name].update_nss_from(var)
+                vars(obj)[name].update_nss_from(var)
             else:
-                vars(referable)[
+                vars(obj)[
                     name] = var  # that variable is not a NameSpaceSet, so it isn't Referable
 
     def commit_referable(self, referable: "Referable") -> None:

@@ -98,9 +98,8 @@ submodel_and_aas = json.loads(json_string, cls=basyx.aas.adapter.json.AASFromJso
 # Step 4: Writing Multiple Identifiable Objects to a (Standard-compliant) JSON/XML File #
 #########################################################################################
 
-# step 4.1: creating an ObjectStore containing the objects to be serialized
+# step 4.1: add the objects to be serialized using the ObjectStore
 # For more information, take a look into `tutorial_storage.py`
-obj_store: model.DictObjectStore[model.Identifiable] = model.DictObjectStore()
 obj_store.add(submodel)
 obj_store.add(aashell)
 
