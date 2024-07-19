@@ -57,7 +57,7 @@ autodoc_default_options = {
 }
 
 # Mapping for correctly linking other module documentations.
-intersphinx_mapping: Dict[str, Any] = {
+intersphinx_mapping = {
     'python': ('https://docs.python.org/3', None),
     'dateutil': ('https://dateutil.readthedocs.io/en/stable/', None),
     'lxml': ('https://lxml.de/apidoc/', None)

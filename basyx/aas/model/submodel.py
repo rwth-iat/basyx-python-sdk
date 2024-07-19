@@ -16,8 +16,7 @@ from . import base, datatypes, _string_constraints
 if TYPE_CHECKING:
     from . import aas
 
-if TYPE_CHECKING:
-    from dateutil.relativedelta import relativedelta as Duration
+from dateutil.relativedelta import relativedelta as Duration
 
 
 class SubmodelElement(base.Referable, base.Qualifiable, base.HasSemantics,
@@ -1290,8 +1289,8 @@ class BasicEventElement(EventElement):
                  message_broker: Optional[base.ModelReference[Union[Submodel, SubmodelElementList,
                                                                     SubmodelElementCollection, Entity]]] = None,
                  last_update: Optional[datatypes.DateTime] = None,
-                 min_interval: Optional['Duration'] = None,
-                 max_interval: Optional['Duration'] = None,
+                 min_interval: Optional[Duration] = None,
+                 max_interval: Optional[Duration] = None,
                  display_name: Optional[base.MultiLanguageNameType] = None,
                  category: Optional[base.NameType] = None,
                  description: Optional[base.MultiLanguageTextType] = None,
@@ -1316,8 +1315,8 @@ class BasicEventElement(EventElement):
         self.message_broker: Optional[base.ModelReference[Union[Submodel, SubmodelElementList,
                                                                 SubmodelElementCollection, Entity]]] = message_broker
         self.last_update: Optional[datatypes.DateTime] = last_update
-        self.min_interval: Optional[datatypes.Duration] = min_interval
-        self.max_interval: Optional[datatypes.Duration] = max_interval
+        self.min_interval: Optional[Duration] = min_interval
+        self.max_interval: Optional[Duration] = max_interval
 
     @property
     def direction(self) -> base.Direction:
