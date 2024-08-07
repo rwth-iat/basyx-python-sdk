@@ -11,13 +11,23 @@ This module implements Registries for the AAS, in order to enable resolving glob
 """
 
 import abc
+import hashlib
 from typing import List, Optional, TypeVar, MutableSet, Generic, \
-    Iterable, Dict, Iterator, Tuple
+    Iterable, Dict, Iterator, Tuple, Union
 
 from .base import Referable, Identifiable, Identifier, \
     UniqueIdShortNamespace, NameType, NamespaceSet, Qualifier, Extension
 from ..backend import backends
 from basyx.aas import model
+
+from enum import Enum
+
+
+class Protocol(Enum):
+    HTTP = "HTTP"
+    MQTT = "MQTT"
+    MODBUS = "MODBUS"
+    COUCHDB = "COUCHDB"
 
 
 class AbstractObjectProvider(metaclass=abc.ABCMeta):
@@ -92,12 +102,14 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
     """
     A local in-memory object store for :class:`~basyx.aas.model.base.Identifiable` objects, backed by a dict, mapping
     :class:`~basyx.aas.model.base.Identifier` → :class:`~basyx.aas.model.base.Identifiable`
+    TODO: Add annotation
     """
 
     def __init__(self, objects: Iterable[_IT] = ()) -> None:
         self._backend: Dict[Identifier, _IT] = {}
         for x in objects:
             self.add(x)
+        self._mapping: Dict[str, Dict[Protocol, str]] = {}
 
     def get_identifiable(self, identifier: Identifier) -> _IT:
         return self._backend[identifier]
@@ -112,6 +124,48 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
     def discard(self, x: _IT) -> None:
         if self._backend.get(x.id) is x:
             del self._backend[x.id]
+
+    def generate_model_reference_hash(self, model_ref: model.ModelReference) -> str:
+        """
+        Generate a hash value for the ModelReference using SHA-256.
+        Convert the key to a string and use it as input for the hash function.
+
+        :param model_ref: ModelReference
+        :return: generated hash value of the ModelReference
+        """
+        key_str = "|".join(f"{k.type},{k.value}" for k in model_ref.key)
+        print(key_str)
+
+        return hashlib.sha256(key_str.encode()).hexdigest()
+
+    def add_source(self, model_ref: model.ModelReference, protocol: Protocol, source: Union[str, dict]):
+        """
+        Add a corresponding source to the mapping table. The input is extracted either from the AID or custom input.
+        TODO: adapt the function to use the AID as input
+        TODO: adapt the source dict to a source class
+        """
+        hash_value = self.generate_model_reference_hash(model_ref)
+        if hash_value not in self._mapping:
+            self._mapping[hash_value] = {}
+
+        self._mapping[hash_value][protocol] = source
+
+    def get_source(self, referable: model.Referable, protocol: Protocol) -> Optional[Union[str, dict]]:
+        """
+        find the source for the given referable and protocol
+        TODO: adapt the source dict to a source class
+        """
+        model_ref = model.ModelReference.from_referable(referable)
+        hash_value = self.generate_model_reference_hash(model_ref)
+        if hash_value not in self._mapping:
+            print("Source is not available")
+            return None
+
+        source_dict = self._mapping[hash_value]
+        if protocol not in source_dict:
+            print(f"Source for protocol {protocol.value} is not available")
+            return None
+        return source_dict[protocol]
 
     def update_referable(self,
                          referable: Referable,
