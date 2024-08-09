@@ -15,7 +15,7 @@ from pathlib import Path
 import basyx.aas.examples.data.example_aas
 import basyx.aas.backend.couchdb
 from basyx.aas import model
-from basyx.aas.model.provider import Protocol
+from basyx.aas.model.protocols import Protocol
 
 # To execute this tutorial, you'll need a running CouchDB server,
 # including an empty database and a user account with access to that
@@ -84,7 +84,7 @@ object_store = basyx.aas.backend.couchdb.CouchDBObjectStore(couchdb_url, couchdb
 
 # Create some example objects
 example_submodel1 = basyx.aas.examples.data.example_aas.create_example_asset_identification_submodel()
-example_submodel2 = basyx.aas.examples.data.example_aas.create_example_bill_of_material_submodel()
+# example_submodel2 = basyx.aas.examples.data.example_aas.create_example_bill_of_material_submodel()
 
 # The CouchDBObjectStore behaves just like other ObjectStore
 # implementations (see `tutorial_storage.py`). The objects are
@@ -92,7 +92,7 @@ example_submodel2 = basyx.aas.examples.data.example_aas.create_example_bill_of_m
 # attribute is set automatically, so update() and commit() will work
 # automatically (see below).
 object_store.add(example_submodel1)
-object_store.add(example_submodel2)
+# object_store.add(example_submodel2)
 
 
 ####################################################################
@@ -114,11 +114,20 @@ object_store.add(example_submodel2)
 
 # Fetch recent updates from the server
 obj_store: model.DictObjectStore = model.DictObjectStore()
-obj_store.update_referable(example_submodel1)
+
+# Add source information of the example_submodel1 into the mapping table.
+source = 'couchdb://localhost:5984/backend/http%3A%2F%2Facplt.org%2FSubmodels%2FAssets%2FTestAsset%2FIdentification'
+obj_store.add_source(example_submodel1, Protocol.COUCHDB, source)
+obj_store.update_referable(example_submodel1, Protocol.COUCHDB)
+
+# Backup delete
+# object_store.discard(example_submodel1)
 
 # Make some changes to a Property within the submodel
 prop = example_submodel1.get_referable('ManufacturerName')
 assert isinstance(prop, basyx.aas.model.Property)
+
+obj_store.update_referable(prop, Protocol.COUCHDB)
 
 prop.value = "RWTH Aachen"
 example_submodel1.id_short = 'NewIdShort'
@@ -129,7 +138,7 @@ example_submodel1.id_short = 'NewIdShort'
 # source attribute of all ancestors in the object hierarchy (
 # including the Submodel) and commit the changes to all of these
 # external data sources.
-obj_store.commit_referable(example_submodel1)
+obj_store.commit_referable(example_submodel1, protocol=Protocol.COUCHDB)
 
 
 ############
@@ -139,4 +148,4 @@ obj_store.commit_referable(example_submodel1)
 # Let's delete the Submodels from the CouchDB to leave it in a clean
 # state
 object_store.discard(example_submodel1)
-object_store.discard(example_submodel2)
+# object_store.discard(example_submodel2)

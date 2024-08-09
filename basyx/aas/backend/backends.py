@@ -30,6 +30,7 @@ requests for a specific URI schema, using
 import abc
 import re
 from typing import List, Dict, Type, TYPE_CHECKING
+from basyx.aas.model.protocols import Protocol
 
 if TYPE_CHECKING:
     from ..model import Referable
@@ -56,7 +57,8 @@ class Backend(metaclass=abc.ABCMeta):
     def commit_object(cls,
                       committed_object: "Referable",
                       store_object: "Referable",
-                      relative_path: List[str]) -> None:
+                      relative_path: List[str],
+                      source: str) -> None:
         """
         Function (class method) to be called when an object shall be
         committed (local changes pushed to the external data source)
@@ -110,7 +112,8 @@ class Backend(metaclass=abc.ABCMeta):
     def update_object(cls,
                       updated_object: "Referable",
                       store_object: "Referable",
-                      relative_path: List[str]) -> None:
+                      relative_path: List[str],
+                      source: str) -> None:
         """
         Function (class method) to be called when an object shall be
         updated (local object updated with changes from the external
@@ -165,7 +168,7 @@ class Backend(metaclass=abc.ABCMeta):
 _backends_map: Dict[str, Type[Backend]] = {}
 
 
-def register_backend(scheme: str, backend_class: Type[Backend]) -> None:
+def register_backend(protocol: Protocol, backend_class: Type[Backend]) -> None:
     """
     Register a Backend implementation to handle update/commit
     operations for a specific type of external data sources,
@@ -183,13 +186,13 @@ def register_backend(scheme: str, backend_class: Type[Backend]) -> None:
         inherit from :class:`Backend`.
     """
     # TODO handle multiple backends per scheme
-    _backends_map[scheme] = backend_class
+    _backends_map[protocol] = backend_class
 
 
-RE_URI_SCHEME = re.compile(r"^([a-zA-Z][a-zA-Z+\-\.]*):")
+# RE_URI_SCHEME = re.compile(r"^([a-zA-Z][a-zA-Z+\-\.]*):")
 
 
-def get_backend(url: str) -> Type[Backend]:
+def get_backend(protocol: Protocol) -> Type[Backend]:
     """
     Internal function to retrieve the Backend implementation for the
     external data source identified by the given ``url`` via the
@@ -202,12 +205,12 @@ def get_backend(url: str) -> Type[Backend]:
     :raises UnknownBackendException: When no backend is available for that url
     """
     # TODO handle multiple backends per scheme
-    scheme_match = RE_URI_SCHEME.match(url)
-    if not scheme_match:
-        raise ValueError("{} is not a valid URL with URI scheme.".format(url))
-    scheme = scheme_match[1]
+    # scheme_match = RE_URI_SCHEME.match(url)
+    # if not scheme_match:
+    #     raise ValueError("{} is not a valid URL with URI scheme.".format(url))
+    # scheme = scheme_match[1]
     try:
-        return _backends_map[scheme]
+        return _backends_map[protocol]
     except KeyError as e:
         raise UnknownBackendException("Could not find Backend for source '{}'".format(url)) from e
 
