@@ -4,6 +4,33 @@
 # the LICENSE file of this project.
 #
 # SPDX-License-Identifier: MIT
+"""
+This server implementation has several routes and features that are not currently supported, as outlined below:
+
+1. Correlation ID: Not implemented because it was deemed unnecessary for this server.
+
+2. Extent Parameter (`withBlobValue/withoutBlobValue`): Not implemented due to the lack of support in JSON/XML serialization.
+
+3. Route `/shells/{aasIdentifier}/asset-information/thumbnail`: Not implemented because the specification lacks clarity.
+
+4. Serialization and Description Routes:
+   - `/serialization`
+   - `/description`
+   
+   These routes are not implemented at this time.
+
+5. Value, Path, and PATCH Routes:
+   - All `/…/value$`, `/…/path$`, and `PATCH` routes are currently not implemented.
+
+6. Operation Invocation Routes: The following routes are not implemented because operation invocation is not yet supported by the `basyx-python-sdk`:
+   - `POST /submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/invoke`
+   - `POST /submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/invoke/$value`
+   - `POST /submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/invoke-async`
+   - `POST /submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/invoke-async/$value`
+   - `GET /submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/operation-status/{handleId}`
+   - `GET /submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/operation-results/{handleId}`
+   - `GET /submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/operation-results/{handleId}/$value`
+"""
 
 import abc
 import base64
