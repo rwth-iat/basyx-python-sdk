@@ -9,7 +9,7 @@ This server implementation has several routes and features that are not currentl
 
 1. Correlation ID: Not implemented because it was deemed unnecessary for this server.
 
-2. Extent Parameter (`withBlobValue/withoutBlobValue`): 
+2. Extent Parameter (`withBlobValue/withoutBlobValue`):
    Not implemented due to the lack of support in JSON/XML serialization.
 
 3. Route `/shells/{aasIdentifier}/asset-information/thumbnail`: Not implemented because the specification lacks clarity.
@@ -22,7 +22,7 @@ This server implementation has several routes and features that are not currentl
 5. Value, Path, and PATCH Routes:
    - All `/…/value$`, `/…/path$`, and `PATCH` routes are currently not implemented.
 
-6. Operation Invocation Routes: The following routes are not implemented because operation invocation 
+6. Operation Invocation Routes: The following routes are not implemented because operation invocation
    is not yet supported by the `basyx-python-sdk`:
    - `POST /submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/invoke`
    - `POST /submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/invoke/$value`
