@@ -5,7 +5,8 @@
 #
 # SPDX-License-Identifier: MIT
 """
-This server implementation has several routes and features that are not currently supported, as outlined below:
+This module implements the "Specification of the Asset Administration Shell Part 2 Application Programming Interfaces".
+However, several features and routes are currently not supported:
 
 1. Correlation ID: Not implemented because it was deemed unnecessary for this server.
 
