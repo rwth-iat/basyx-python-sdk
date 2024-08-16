@@ -20,7 +20,7 @@ from .base import Referable, Identifiable, Identifier, \
 from ..backend import backends
 from basyx.aas import model
 
-from basyx.aas.model.protocols import Protocol
+from basyx.aas.model.protocols import Protocol, ProtocolExtractor
 
 
 class AbstractObjectProvider(metaclass=abc.ABCMeta):
@@ -102,7 +102,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         self._backend: Dict[Identifier, _IT] = {}
         for x in objects:
             self.add(x)
-        self._mapping: Dict[str, Dict[Protocol, str]] = {}
+        self._mapping: Dict[str, Dict[Protocol, Union[str, dict]]] = {}
 
     def get_identifiable(self, identifier: Identifier) -> _IT:
         return self._backend[identifier]
@@ -156,24 +156,15 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
             print("InterfaceReference not found or not of type ReferenceElement")
             return
 
-        protocol = self._extract_protocol_from_interface_reference(interface_reference.value)
-        if not protocol:
-            print(f"Unable to determine protocol for interface reference: {interface_reference.value}")
-            return
-
-        # Extract AID parameters
-        aid_parameters = self._extract_aid_parameters(interface_reference.value, protocol)
-
         mapping_relations = next((sme for sme in config.value if sme.id_short == "MappingSourceSinkRelations"), None)
         if mapping_relations and isinstance(mapping_relations, model.SubmodelElementList):
             for relation in mapping_relations.value:
                 if isinstance(relation, model.RelationshipElement):
-                    self._process_relationship_element(relation, protocol, aid_parameters)
+                    self._process_relationship_element(relation, interface_reference.value)
         else:
             print("MappingSourceSinkRelations not found or not of type SubmodelElementList")
 
-    def _process_relationship_element(self, relation: model.RelationshipElement, protocol: Protocol,
-                                      aid_parameters: Dict[str, Any]) -> None:
+    def _process_relationship_element(self, relation: model.RelationshipElement, interface_reference: model.ModelReference) -> None:
         """
         Process a single RelationshipElement and update _mapping.
         """
@@ -182,137 +173,38 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
             if second_hash not in self._mapping:
                 self._mapping[second_hash] = {}
 
-            # Combine AID parameters with the protocol
-            self._mapping[second_hash][protocol] = aid_parameters
+            # Extract AID parameters and determine protocol
+            aid_parameters = self.extract_aid_parameters(relation.first, interface_reference)
+            if aid_parameters:
+                protocol = aid_parameters.get('protocol')
+                if protocol:
+                    self._mapping[second_hash][protocol] = aid_parameters
+                else:
+                    print(f"Unable to determine protocol for relationship: {relation.id_short}")
+            else:
+                print(f"Failed to extract AID parameters for relationship: {relation.id_short}")
 
-    def _extract_aid_parameters(self, aid_reference: model.ModelReference, protocol: Protocol) -> Dict[str, Any]:
-        """
-        Extract parameters from the AID element referenced by aid_reference
-
-        :param aid_reference: ModelReference to the AID element
-        :param protocol: Protocol type
-        :return: Dictionary containing extracted parameters
-        """
+    def extract_aid_parameters(self, aid_reference: model.ModelReference, interface_reference: model.ModelReference) -> Dict[str, Any]:
         try:
             aid_element = aid_reference.resolve(self)
+            interface_element = interface_reference.resolve(self)
         except Exception as e:
-            print(f"Error resolving AID element for reference: {aid_reference}. Error: {e}")
+            print(f"Error resolving AID or interface element: {e}")
             return {}
 
-        if not isinstance(aid_element, model.SubmodelElementCollection):
-            print(f"AID element is not a SubmodelElementCollection: {type(aid_element)}")
+        if not isinstance(aid_element, model.SubmodelElement) or not isinstance(interface_element, model.SubmodelElementCollection):
+            print(f"Unexpected types: AID element: {type(aid_element)}, Interface element: {type(interface_element)}")
             return {}
 
-        if protocol == Protocol.HTTP:
-            return self._extract_http_parameters(aid_element)
-        elif protocol == Protocol.MQTT:
-            return self._extract_mqtt_parameters(aid_element)
-        elif protocol == Protocol.MODBUS:
-            return self._extract_modbus_parameters(aid_element)
-        else:
-            print(f"Unsupported protocol: {protocol}")
+        extractor = ProtocolExtractor()
+        protocol = extractor.determine_protocol(interface_element)
+        if not protocol:
+            print(f"Unable to determine protocol for interface: {interface_element.id_short}")
             return {}
 
-    def _extract_http_parameters(self, aid_element: model.SubmodelElementCollection) -> Dict[str, Any]:
-        parameters = {}
-        for element in aid_element.value:
-            if element.id_short == "EndpointMetadata":
-                for endpoint_element in element.value:
-                    if endpoint_element.id_short == "base":
-                        parameters["base"] = endpoint_element.value
-            elif element.id_short == "InterfaceMetadata":
-                for interface_element in element.value:
-                    if interface_element.id_short == "Properties":
-                        for property_element in interface_element.value:
-                            if isinstance(property_element, model.SubmodelElementCollection):
-                                property_params = self._extract_property_parameters(property_element)
-                                parameters[property_element.id_short] = property_params
+        parameters = extractor.extract_parameters(aid_element, protocol)
+        parameters['protocol'] = protocol  # Add protocol to the parameters
         return parameters
-
-    def _extract_mqtt_parameters(self, aid_element: model.SubmodelElementCollection) -> Dict[str, Any]:
-        parameters = {}
-        for element in aid_element.value:
-            if element.id_short == "EndpointMetadata":
-                for endpoint_element in element.value:
-                    if endpoint_element.id_short == "base":
-                        parameters["base"] = endpoint_element.value
-            elif element.id_short == "InterfaceMetadata":
-                for interface_element in element.value:
-                    if interface_element.id_short == "Properties":
-                        for property_element in interface_element.value:
-                            if isinstance(property_element, model.SubmodelElementCollection):
-                                property_params = self._extract_property_parameters(property_element)
-                                parameters[property_element.id_short] = property_params
-        return parameters
-
-    def _extract_modbus_parameters(self, aid_element: model.SubmodelElementCollection) -> Dict[str, Any]:
-        parameters = {}
-        for element in aid_element.value:
-            if element.id_short == "EndpointMetadata":
-                for endpoint_element in element.value:
-                    if endpoint_element.id_short == "base":
-                        parameters["base"] = endpoint_element.value
-            elif element.id_short == "InterfaceMetadata":
-                for interface_element in element.value:
-                    if interface_element.id_short == "Properties":
-                        for property_element in interface_element.value:
-                            if isinstance(property_element, model.SubmodelElementCollection):
-                                property_params = self._extract_property_parameters(property_element)
-                                parameters[property_element.id_short] = property_params
-        return parameters
-
-    def _extract_property_parameters(self, property_element: model.SubmodelElementCollection) -> Dict[str, Any]:
-        property_params = {}
-        for element in property_element.value:
-            if element.id_short in ["type", "valueType", "unit"]:
-                property_params[element.id_short] = element.value
-            elif element.id_short == "forms":
-                for form_element in element.value:
-                    if form_element.id_short == "href":
-                        property_params["href"] = form_element.value
-                    elif form_element.id_short.startswith("modv_") or form_element.id_short.startswith(
-                            "htv_") or form_element.id_short.startswith("mqv_"):
-                        property_params[form_element.id_short] = form_element.value
-        return property_params
-
-    def _extract_protocol_from_interface_reference(self, interface_ref: model.ModelReference) -> Optional[Protocol]:
-        """
-        Extract Protocol information from InterfaceReference.
-        """
-        try:
-            interface_element = interface_ref.resolve(self)
-        except Exception as e:
-            print(f"Error resolving InterfaceReference: {e}")
-            return None
-
-        if not isinstance(interface_element, model.SubmodelElementCollection):
-            print(f"Unexpected type for interface element: {type(interface_element)}")
-            return None
-
-        # Check idShort
-        id_short = interface_element.id_short.lower()
-        if "http" in id_short:
-            return Protocol.HTTP
-        elif "mqtt" in id_short:
-            return Protocol.MQTT
-        elif "modbus" in id_short:
-            return Protocol.MODBUS
-
-        # Check Supplemental Semantic IDs
-        if interface_element._supplemental_semantic_ids:
-            for semantic_id in interface_element._supplemental_semantic_ids:
-                if isinstance(semantic_id, model.ExternalReference):
-                    for key in semantic_id.key:
-                        key_value = key.value.lower()
-                        if "http" in key_value:
-                            return Protocol.HTTP
-                        elif "mqtt" in key_value:
-                            return Protocol.MQTT
-                        elif "modbus" in key_value:
-                            return Protocol.MODBUS
-
-        print(f"Unable to determine protocol for interface: {interface_element.id_short}")
-        return None
 
     def discard(self, x: _IT) -> None:
         if self._backend.get(x.id) is x:
