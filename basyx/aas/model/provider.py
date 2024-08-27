@@ -209,6 +209,31 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
     def discard(self, x: _IT) -> None:
         if self._backend.get(x.id) is x:
             del self._backend[x.id]
+            
+            # If the discarded object is an AIMC Submodel, clean up related mappings
+            if isinstance(x, model.Submodel) and self._is_aimc(x):
+                self._remove_mapping_for_aimc(x)
+
+    def _remove_mapping_for_aimc(self, aimc: model.Submodel) -> None:
+        """
+        Remove all mappings related to the AIMC.
+        """
+        mapping_configurations = next((sme for sme in aimc.submodel_element if sme.id_short == "MappingConfigurations"), None)
+        if mapping_configurations and isinstance(mapping_configurations, model.SubmodelElementList):
+            for config in mapping_configurations.value:
+                self._remove_mapping_for_configuration(config)
+
+    def _remove_mapping_for_configuration(self, config: model.SubmodelElementCollection) -> None:
+        """
+        Remove mappings for a single MappingConfiguration.
+        """
+        mapping_relations = next((sme for sme in config.value if sme.id_short == "MappingSourceSinkRelations"), None)
+        if mapping_relations and isinstance(mapping_relations, model.SubmodelElementList):
+            for relation in mapping_relations.value:
+                if isinstance(relation, model.RelationshipElement) and relation.second:
+                    second_hash = self.generate_model_reference_hash(relation.second)
+                    if second_hash in self._mapping:
+                        del self._mapping[second_hash]
 
     def generate_model_reference_hash(self, model_ref: model.ModelReference) -> str:
         """
