@@ -8,3 +8,4 @@ lxml-stubs~=0.5.1
 
 requests~=2.32.3
 setuptools~=68.2.0
+paho-mqtt~=2.1.0
