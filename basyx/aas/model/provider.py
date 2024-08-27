@@ -202,7 +202,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
             print(f"Unable to determine protocol for interface: {interface_element.id_short}")
             return {}
 
-        parameters = extractor.extract_parameters(aid_element, protocol)
+        parameters = extractor.extract_protocol_parameters(aid_element, protocol)
         parameters['protocol'] = protocol  # Add protocol to the parameters
         return parameters
 
@@ -374,7 +374,8 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
                 backends.get_backend(protocol).commit_object(
                     committed_object=referable,
                     store_object=current_ancestor,
-                    relative_path=list(relative_path))
+                    relative_path=list(relative_path),
+                    source=source)
             relative_path.insert(0, current_ancestor.id_short)
             current_ancestor = current_ancestor.parent
         # Commit to own source and check if there are children with sources to commit to
