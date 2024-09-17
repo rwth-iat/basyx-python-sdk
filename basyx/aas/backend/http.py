@@ -5,24 +5,47 @@
 #
 # SPDX-License-Identifier: MIT
 import requests
+from requests.auth import HTTPBasicAuth
 from typing import List, Dict, Any
 import json
 from . import backends
 from basyx.aas import model
-from basyx.aas.model.protocols import Protocol
+from basyx.aas.model.protocols import ProtocolExtractor, Protocol
 
 
 class HTTPBackend(backends.Backend):
     @classmethod
-    def _parse_source(cls, source: Dict[str, Any]) -> str:
+    def _parse_source(cls, source: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Parses the source dictionary to extract the URL for HTTP requests.
+        Parses the source dictionary to extract all parameters needed for HTTP requests.
         """
-        base = source.get('base')
-        href = source.get('href')
-        if not base or not href:
-            raise ValueError("Invalid source format. 'base' and 'href' must be provided.")
-        return f"{base}{href}"
+        if not isinstance(source.get('protocol'), Protocol) or source['protocol'] != Protocol.HTTP:
+            raise ValueError("Invalid protocol. Must be HTTP protocol.")
+        
+        return source
+
+    @classmethod
+    def _prepare_request_params(cls, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Prepares request parameters including security settings.
+        """
+        request_params = {}
+        headers = {'Content-Type': params.get('contentType', 'application/json')}
+        
+        security = params.get('security', {})
+        if 'nosec_sc' in security:
+            # No security required
+            pass
+        elif 'basic_sc' in security:
+            # Basic authentication
+            auth = HTTPBasicAuth(params.get('username'), params.get('password'))
+            request_params['auth'] = auth
+        elif 'bearer_sc' in security:
+            # Bearer token authentication
+            headers['Authorization'] = f"Bearer {params.get('token')}"
+        
+        request_params['headers'] = headers
+        return request_params
 
     @classmethod
     def update_object(cls,
@@ -33,14 +56,16 @@ class HTTPBackend(backends.Backend):
         """
         Updates an object by fetching the latest state from the HTTP server.
         """
-        url = cls._parse_source(source)
-        method = source.get('method', 'GET')
+        params = cls._parse_source(source)
+        url = f"{params['base']}{params['href']}"
+        method = params.get('method', 'GET')
+        request_params = cls._prepare_request_params(params)
 
         if method != 'GET':
             print(f"Warning: HTTP method '{method}' may not be appropriate for fetching data. GET is recommended.")
 
         try:
-            response = requests.request(method, url)
+            response = requests.request(method, url, **request_params)
             response.raise_for_status()
         except requests.RequestException as e:
             print(f"Failed to fetch the current object state from server: {e}")
@@ -65,18 +90,19 @@ class HTTPBackend(backends.Backend):
         """
         Commits an object to the HTTP server.
         """
-        url = cls._parse_source(source)
-        method = source.get('method', 'POST')
+        params = cls._parse_source(source)
+        url = f"{params['base']}{params['href']}"
+        method = params.get('method', 'POST')
+        request_params = cls._prepare_request_params(params)
 
         if method not in ['POST', 'PUT']:
             print(f"Warning: HTTP method '{method}' may not be appropriate for committing data")
 
-        headers = {'Content-Type': 'application/json'}
-
         data = {"value": committed_object.value}
+        request_params['json'] = data
 
         try:
-            response = requests.request(method, url, headers=headers, json=data)
+            response = requests.request(method, url, **request_params)
             response.raise_for_status()
         except requests.RequestException as e:
             print(f"Failed to commit the object to the server: {e}")

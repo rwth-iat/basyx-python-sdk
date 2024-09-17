@@ -15,8 +15,7 @@ import hashlib
 from typing import List, Optional, TypeVar, MutableSet, Generic, \
     Iterable, Dict, Iterator, Tuple, Union, Any
 
-from .base import Referable, Identifiable, Identifier, \
-    UniqueIdShortNamespace, NameType, NamespaceSet, Qualifier, Extension
+from .base import Referable, Identifiable, Identifier, UniqueIdShortNamespace, NameType, NamespaceSet
 from ..backend import backends
 from basyx.aas import model
 
@@ -287,6 +286,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         If there is no source in any ancestor, this function will do nothing
 
         :param referable: The object to update
+        :param protocol: The protocol to use for updating
         :param max_age: Maximum age of the local data in seconds. This method may return early, if the previous update
             of the object has been performed less than ``max_age`` seconds ago.
         :param recursive: Also call update on all children of this object. Default is True
