@@ -80,6 +80,7 @@ class ProtocolExtractor:
             return aid_element.parent.parent.parent.get_referable('EndpointMetadata')
         except AttributeError:
             return self._find_parent_by_id_short(aid_element, 'EndpointMetadata')
+            # TODO: Adapt the function to search for the EndpointMetadata element from the "InterfaceProtocol" element
 
     def _extract_common_parameters(self, endpoint_metadata: model.SubmodelElementCollection) -> Dict[str, Any]:
         params = {}
@@ -173,7 +174,8 @@ class ProtocolExtractor:
 
         return params
 
-    def _find_parent_by_id_short(self, element: model.SubmodelElement, id_short: str) -> Optional[model.SubmodelElementCollection]:
+    def _find_parent_by_id_short(self, element: model.SubmodelElement, id_short: str) \
+            -> Optional[model.SubmodelElementCollection]:
         current = element
         while current.parent:
             if current.parent.id_short == id_short:

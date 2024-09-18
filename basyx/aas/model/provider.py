@@ -150,6 +150,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         """
         Process a single MappingConfiguration.
         """
+        # TODO: Adapt the function to work without InterfaceReference
         interface_reference = next((sme for sme in config.value if sme.id_short == "InterfaceReference"), None)
         if not interface_reference or not isinstance(interface_reference, model.ReferenceElement):
             print("InterfaceReference not found or not of type ReferenceElement")
@@ -167,6 +168,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         """
         Process a single RelationshipElement and update _mapping.
         """
+        # TODO: adapt the function to work without interface_reference
         if relation.second:
             second_hash = self.generate_model_reference_hash(relation.second)
             if second_hash not in self._mapping:
@@ -184,6 +186,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
                 print(f"Failed to extract AID parameters for relationship: {relation.id_short}")
 
     def extract_aid_parameters(self, aid_reference: model.ModelReference, interface_reference: model.ModelReference) -> Dict[str, Any]:
+        # TODO: adapt the function to work without interface_reference
         try:
             aid_element = aid_reference.resolve(self)
             interface_element = interface_reference.resolve(self)
@@ -226,6 +229,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         """
         Remove mappings for a single MappingConfiguration.
         """
+        # TODO: check if only should remove the configuration of related protocols
         mapping_relations = next((sme for sme in config.value if sme.id_short == "MappingSourceSinkRelations"), None)
         if mapping_relations and isinstance(mapping_relations, model.SubmodelElementList):
             for relation in mapping_relations.value:
