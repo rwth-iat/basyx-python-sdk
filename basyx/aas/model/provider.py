@@ -121,6 +121,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         """
         Check if the submodel is an AssetInterfacesMappingConfiguration.
         """
+        # TODO: Test using _check_identifier from protocols.py
         # Check by idShort
         if submodel.id_short == "AssetInterfacesMappingConfiguration":
             return True
@@ -139,7 +140,8 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         """
         Process AssetInterfacesMappingConfiguration and update _mapping.
         """
-        # TODO: Add checking with semanticID
+        # TODO: Test using _check_identifier from protocols.py
+        # TODO: Discuss if it should be public
         mapping_configurations = next((sme for sme in aimc.submodel_element if sme.id_short == "MappingConfigurations"),
                                       None)
         if mapping_configurations and isinstance(mapping_configurations, model.SubmodelElementList):

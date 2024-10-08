@@ -9,14 +9,17 @@ from typing import Dict, Any, Optional
 from urllib.parse import parse_qs
 from basyx.aas import model
 
+
 class Protocol(Enum):
     HTTP = "HTTP"
     MQTT = "MQTT"
     MODBUS = "MODBUS"
     COUCHDB = "COUCHDB"
 
+
 class ProtocolExtractorError(Exception):
     pass
+
 
 class ProtocolExtractor:
     def extract_protocol_parameters(self, aid_element: model.SubmodelElement, protocol: Protocol) -> Dict[str, Any]:
@@ -55,6 +58,7 @@ class ProtocolExtractor:
 
     @staticmethod
     def _check_identifier(element: model.SubmodelElementCollection, identifier: str) -> bool:
+        # TODO: test if change element to Referable could be better
         # Check idShort
         if identifier in element.id_short.lower():
             return True
@@ -66,6 +70,7 @@ class ProtocolExtractor:
                     return True
 
         # Check supplemental_semantic_ids
+        # TODO: only use this for identification
         if element.supplemental_semantic_id:
             for semantic_id in element.supplemental_semantic_id:
                 if isinstance(semantic_id, model.ExternalReference):
@@ -80,7 +85,6 @@ class ProtocolExtractor:
             return aid_element.parent.parent.parent.get_referable('EndpointMetadata')
         except AttributeError:
             return self._find_parent_by_id_short(aid_element, 'EndpointMetadata')
-            # TODO: Adapt the function to search for the EndpointMetadata element from the "InterfaceProtocol" element
 
     def _extract_common_parameters(self, endpoint_metadata: model.SubmodelElementCollection) -> Dict[str, Any]:
         params = {}
@@ -174,8 +178,8 @@ class ProtocolExtractor:
 
         return params
 
-    def _find_parent_by_id_short(self, element: model.SubmodelElement, id_short: str) \
-            -> Optional[model.SubmodelElementCollection]:
+    def _find_parent_by_id_short(self, element: model.SubmodelElement, id_short: str) -> Optional[
+        model.SubmodelElementCollection]:
         current = element
         while current.parent:
             if current.parent.id_short == id_short:

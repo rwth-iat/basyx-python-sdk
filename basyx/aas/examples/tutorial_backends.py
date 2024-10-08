@@ -128,6 +128,8 @@ prop = example_submodel1.get_referable('ManufacturerName')
 assert isinstance(prop, basyx.aas.model.Property)
 
 obj_store.update_referable(prop, Protocol.COUCHDB)
+# TODO: obj_store.update_identifiable(prop, Protocol.COUCHDB)
+
 
 prop.value = "RWTH Aachen"
 example_submodel1.id_short = 'NewIdShort'
@@ -139,7 +141,7 @@ example_submodel1.id_short = 'NewIdShort'
 # including the Submodel) and commit the changes to all of these
 # external data sources.
 obj_store.commit_referable(example_submodel1, protocol=Protocol.COUCHDB)
-
+# TODO: obj_store.commit_identifiable(prop, Protocol.COUCHDB)
 
 ############
 # Clean up #
