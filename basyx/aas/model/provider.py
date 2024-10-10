@@ -13,13 +13,15 @@ This module implements Registries for the AAS, in order to enable resolving glob
 import abc
 import hashlib
 from typing import List, Optional, TypeVar, MutableSet, Generic, \
-    Iterable, Dict, Iterator, Tuple, Union, Any
+    Iterable, Dict, Iterator, Tuple, Union, Any, TYPE_CHECKING
 
 from basyx.aas.model.base import Referable, Identifiable, Identifier, UniqueIdShortNamespace, NameType, NamespaceSet
+from basyx.aas.model import Submodel, ModelReference
 from basyx.aas.backend import backends
-from basyx.aas import model
-
 from basyx.aas.model.protocols import Protocol, ProtocolExtractor
+
+if TYPE_CHECKING:
+    from basyx.aas import model
 
 
 class AbstractObjectProvider(metaclass=abc.ABCMeta):
@@ -114,40 +116,39 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         self._backend[x.id] = x
 
         # Check if the added object is AssetInterfacesMappingConfiguration
-        if is_aimc or (isinstance(x, model.Submodel) and self._is_aimc(x)):
+        if is_aimc or (isinstance(x, Submodel) and self._is_aimc(x)):
             self.add_source_from_AIMC(x)
 
     @staticmethod
-    def _is_aimc(submodel: model.Submodel) -> bool:
+    def _is_aimc(submodel: "model.Submodel") -> bool:
         """
         Check if the submodel is an AssetInterfacesMappingConfiguration.
         """
         return ProtocolExtractor().check_identifier(submodel, "AssetInterfacesMappingConfiguration")
 
-    def add_source_from_AIMC(self, aimc: model.Submodel) -> None:
+    def add_source_from_AIMC(self, aimc: "model.Submodel") -> None:
         """
         Process AssetInterfacesMappingConfiguration and update _mapping.
         """
         mapping_configurations = next((sme for sme in aimc.submodel_element if ProtocolExtractor().check_identifier(
             sme, "MappingConfigurations")), None)
-        if mapping_configurations and isinstance(mapping_configurations, model.SubmodelElementList):
+        if mapping_configurations:
             for config in mapping_configurations.value:
                 self._process_mapping_configuration(config)
 
-    def _process_mapping_configuration(self, config: model.SubmodelElementCollection) -> None:
+    def _process_mapping_configuration(self, config: "model.SubmodelElementCollection") -> None:
         """
         Process a single MappingConfiguration.
         """
 
         mapping_relations = next((sme for sme in config.value if sme.id_short == "MappingSourceSinkRelations"), None)
-        if mapping_relations and isinstance(mapping_relations, model.SubmodelElementList):
+        if mapping_relations:
             for relation in mapping_relations.value:
-                if isinstance(relation, model.RelationshipElement):
-                    self._process_relationship_element(relation)
+                self._process_relationship_element(relation)
         else:
             print("MappingSourceSinkRelations not found or not of type SubmodelElementList")
 
-    def _process_relationship_element(self, relation: model.RelationshipElement) -> None:
+    def _process_relationship_element(self, relation: "model.RelationshipElement") -> None:
         """
         Process a single RelationshipElement and update _mapping.
         """
@@ -162,10 +163,6 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
                 print(f"Error resolving AID element: {e}")
                 return
 
-            if not isinstance(aid_element, model.SubmodelElement):
-                print(f"Unexpected types: AID element: {type(aid_element)}")
-                return
-
             aid_parameters = self.extract_aid_parameters(aid_element)
             if aid_parameters:
                 protocol = aid_parameters.get('protocol')
@@ -177,7 +174,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
                 print(f"Failed to extract AID parameters for relationship: {relation.id_short}")
 
     @staticmethod
-    def extract_aid_parameters(aid_element: model.SubmodelElement) -> Dict[str, Any]:
+    def extract_aid_parameters(aid_element: "model.SubmodelElement") -> Dict[str, Any]:
         extractor = ProtocolExtractor()
 
         # Find the parent SubmodelElementCollection (interface_element)
@@ -197,20 +194,20 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
             del self._backend[x.id]
 
             # If the discarded object is an AIMC Submodel, clean up related mappings
-            if isinstance(x, model.Submodel) and self._is_aimc(x):
+            if isinstance(x, Submodel) and self._is_aimc(x):
                 self._remove_mapping_for_aimc(x)
 
-    def _remove_mapping_for_aimc(self, aimc: model.Submodel) -> None:
+    def _remove_mapping_for_aimc(self, aimc: "model.Submodel") -> None:
         """
         Remove all mappings related to the AIMC.
         """
         mapping_configurations = next((sme for sme in aimc.submodel_element if sme.id_short == "MappingConfigurations"),
                                       None)
-        if mapping_configurations and isinstance(mapping_configurations, model.SubmodelElementList):
+        if mapping_configurations:
             for config in mapping_configurations.value:
                 self._remove_mapping_for_configuration(config)
 
-    def _remove_mapping_for_configuration(self, config: model.SubmodelElementCollection) -> None:
+    def _remove_mapping_for_configuration(self, config: "model.SubmodelElementCollection") -> None:
         """
         Remove mappings for a single MappingConfiguration.
         """
@@ -218,13 +215,13 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         mapping_relations = next((sme for sme in config.value if sme.id_short == "MappingSourceSinkRelations"), None)
         if mapping_relations and isinstance(mapping_relations, model.SubmodelElementList):
             for relation in mapping_relations.value:
-                if isinstance(relation, model.RelationshipElement) and relation.second:
+                if relation.second:
                     second_hash = self.generate_model_reference_hash(relation.second)
                     if second_hash in self._mapping:
                         del self._mapping[second_hash]
 
     @staticmethod
-    def generate_model_reference_hash(model_ref: model.ModelReference) -> str:
+    def generate_model_reference_hash(model_ref: "model.ModelReference") -> str:
         """
         Generate a hash value for the ModelReference using SHA-256.
         Convert the key to a string and use it as input for the hash function.
@@ -236,23 +233,23 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
 
         return hashlib.sha256(key_str.encode()).hexdigest()
 
-    def add_source(self, referable: model.Referable, protocol: Protocol, source: Union[str, dict]):
+    def add_source(self, referable: "model.Referable", protocol: Protocol, source: Union[str, dict]):
         """
         Add a corresponding source to the mapping table. The input is extracted either from the AID or custom input.
         TODO: adapt the source dict to a source class
         """
-        model_ref = model.ModelReference.from_referable(referable)
+        model_ref = ModelReference.from_referable(referable)
         hash_value = self.generate_model_reference_hash(model_ref)
         if hash_value not in self._mapping:
             self._mapping[hash_value] = {}
 
         self._mapping[hash_value][protocol] = source
 
-    def get_source(self, referable: model.Referable, protocol: Protocol) -> Optional[Union[str, dict]]:
+    def get_source(self, referable: "model.Referable", protocol: Protocol) -> Optional[Union[str, dict]]:
         """
         find the source for the given referable and protocol
         """
-        model_ref = model.ModelReference.from_referable(referable)
+        model_ref = ModelReference.from_referable(referable)
         hash_value = self.generate_model_reference_hash(model_ref)
         if hash_value not in self._mapping:
             print("Source is not available")
@@ -264,7 +261,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         return self._mapping[hash_value][protocol]
 
     def update_identifiable(self,
-                            referable: Referable,
+                            referable: "model.Referable",
                             protocol: Protocol,
                             max_age: float = 0,
                             recursive: bool = True,
@@ -323,14 +320,14 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
                                                  recursive=True,
                                                  _indirect_source=False)
 
-    def find_source(self, obj, protocol) -> Tuple[Optional["Referable"], Optional[List[str]]]:  # type: ignore
+    def find_source(self, obj, protocol) -> Tuple[Optional["model.Referable"], Optional[List[str]]]:  # type: ignore
         """
         Finds the closest source in this object's ancestors. If there is no source, returns None
 
         :return: Tuple with the closest ancestor with a defined source and the relative path of id_shorts to that
                  ancestor
         """
-        referable: Referable = obj
+        referable: "model.Referable" = obj
         relative_path: List[NameType] = [obj.id_short]
         while referable is not None:
             source = self.get_source(referable, protocol)
@@ -346,7 +343,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         return None, None
 
     @staticmethod
-    def update_from(obj, other: "Referable",
+    def update_from(obj, other: "model.Referable",
                     update_source: bool = False):  # type: ignore
         """
         Internal function to updates the object's attributes from another object of a similar type.
@@ -371,7 +368,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
             else:
                 vars(obj)[name] = var  # that variable is not a NameSpaceSet, so it isn't Referable
 
-    def commit_identifiable(self, referable: "Referable", protocol) -> None:
+    def commit_identifiable(self, referable: "model.Referable", protocol) -> None:
         """
         Transfer local changes on this object to all underlying external data sources.
 
@@ -395,7 +392,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         # Commit to own source and check if there are children with sources to commit to
         self._direct_source_commit(referable, protocol)
 
-    def _direct_source_commit(self, referable: "Referable", protocol):
+    def _direct_source_commit(self, referable: "model.Referable", protocol):
         """
         Commits children of an ancestor recursively, if they have a specific source given
         """
@@ -415,7 +412,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
                     self._direct_source_commit(referable, protocol)
 
     def update_referable_value(self,
-                               referable: "Referable",
+                               referable: "model.Referable",
                                protocol: Protocol) -> None:
         """
         Update the value of a Referable object from the external data source,
@@ -434,7 +431,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
             print(f"No source found for referable {referable.id_short} with protocol {protocol}")
 
     def commit_referable_value(self,
-                               referable: "Referable",
+                               referable: "model.Referable",
                                protocol: Protocol) -> None:
         """
         Commit the value of a Referable object to the external data source,
@@ -453,7 +450,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
             print(f"No source found for referable {referable.id_short} with protocol {protocol}")
 
     def subscribe_referable_value(self,
-                                  referable: "Referable",
+                                  referable: "model.Referable",
                                   protocol: Protocol) -> None:
         """
         Subscribe the value of a Referable object from the external data source,
@@ -472,7 +469,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
             print(f"No source found for referable {referable.id_short} with protocol {protocol}")
 
     def publish_referable_value(self,
-                                referable: "Referable",
+                                referable: "model.Referable",
                                 protocol: Protocol) -> None:
         """
         Publish the value of a Referable object to the external data source,
