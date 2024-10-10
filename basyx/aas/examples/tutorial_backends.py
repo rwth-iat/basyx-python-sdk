@@ -14,7 +14,7 @@ from pathlib import Path
 
 import basyx.aas.examples.data.example_aas
 import basyx.aas.backend.couchdb
-from basyx.aas import model
+from basyx.aas.model import DictObjectStore
 from basyx.aas.model.protocols import Protocol
 
 # To execute this tutorial, you'll need a running CouchDB server,
@@ -113,7 +113,7 @@ object_store.add(example_submodel2)
 # application, so the CouchDB backend is loaded.
 
 # Fetch recent updates from the server
-obj_store: model.DictObjectStore = model.DictObjectStore()
+obj_store: DictObjectStore = DictObjectStore()
 
 # Add source information of the example_submodel1 into the mapping table.
 source = example_submodel1.source

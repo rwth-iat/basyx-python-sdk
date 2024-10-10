@@ -18,7 +18,6 @@ from typing import List, Optional, Set, TypeVar, MutableSet, Generic, Iterable, 
 import re
 
 from . import datatypes, _string_constraints
-from basyx.aas import model
 
 if TYPE_CHECKING:
     from . import provider
@@ -732,6 +731,27 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
                 set_.add(self)
         # Redundant to the line above. However this way, we make sure that we really update the _id_short
         self._id_short = id_short
+
+    def update_from(self, other: "Referable", update_source: bool = False):
+        """
+        Internal function to updates the object's attributes from another object of a similar type.
+
+        This function should not be used directly. It is typically used by backend implementations (database adapters,
+        protocol clients, etc.) to update the object's data, after ``update()`` has been called.
+
+        :param other: The object to update from
+        :param update_source: Update the source attribute with the other's source attribute. This is not propagated
+                              recursively
+        """
+        for name, var in vars(other).items():
+            # do not update the parent, namespace_element_sets or source (depending on update_source parameter)
+            if name in ("parent", "namespace_element_sets") or name == "source" and not update_source:
+                continue
+            if isinstance(var, NamespaceSet):
+                # update the elements of the NameSpaceSet
+                vars(self)[name].update_nss_from(var)
+            else:
+                vars(self)[name] = var  # that variable is not a NameSpaceSet, so it isn't Referable
 
     id_short = property(_get_id_short, _set_id_short)
 
@@ -1933,11 +1953,10 @@ class NamespaceSet(MutableSet[_NSO], Generic[_NSO]):
         for other_object in other:
             try:
                 if isinstance(other_object, Referable):
-                    backend, case_sensitive = self._backend["id_short"]
-                    referable = backend[other_object.id_short if case_sensitive else other_object.id_short.upper()]
-                    obj_store: model.DictObjectStore = model.DictObjectStore()
-                    obj_store.update_from(referable, other_object,
-                                          update_source=True)  # type: ignore
+                    if isinstance(other_object, Referable):
+                        backend, case_sensitive = self._backend["id_short"]
+                        referable = backend[other_object.id_short if case_sensitive else other_object.id_short.upper()]
+                        referable.update_from(other_object, update_source=True)  # type: ignore
                 elif isinstance(other_object, Qualifier):
                     backend, case_sensitive = self._backend["type"]
                     qualifier = backend[other_object.type if case_sensitive else other_object.type.upper()]

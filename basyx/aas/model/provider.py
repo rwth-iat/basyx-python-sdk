@@ -342,32 +342,6 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
             break
         return None, None
 
-    @staticmethod
-    def update_from(obj, other: "model.Referable",
-                    update_source: bool = False):  # type: ignore
-        """
-        Internal function to updates the object's attributes from another object of a similar type.
-
-        This function should not be used directly. It is typically used by backend implementations (database adapters,
-        protocol clients, etc.) to update the object's data,
-        after ``update()_referable`` has been called.
-
-        :param obj: The object to update
-        :param other: The object to update from
-        :param update_source: Update the source attribute with the other's source attribute. This is not propagated
-                              recursively
-        """
-        for name, var in vars(other).items():
-            # do not update the parent, namespace_element_sets or source (depending on update_source parameter)
-            if name in ("parent",
-                        "namespace_element_sets") or name == "source" and not update_source:
-                continue
-            if isinstance(var, NamespaceSet):
-                # update the elements of the NameSpaceSet
-                vars(obj)[name].update_nss_from(var)
-            else:
-                vars(obj)[name] = var  # that variable is not a NameSpaceSet, so it isn't Referable
-
     def commit_identifiable(self, referable: "model.Referable", protocol) -> None:
         """
         Transfer local changes on this object to all underlying external data sources.

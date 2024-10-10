@@ -59,8 +59,7 @@ class CouchDBBackend(backends.ObjectBackend):
 
         updated_store_object = data['data']
         set_couchdb_revision(url, data["_rev"])
-        obj_store: model.DictObjectStore = model.DictObjectStore()
-        obj_store.update_from(store_object, updated_store_object)
+        store_object.update_from(updated_store_object)
 
     @classmethod
     def commit_object(cls,
@@ -322,8 +321,7 @@ class CouchDBObjectStore(model.AbstractObjectStore):
                 # If the source does not match the correct source for this CouchDB backend, the object seems to belong
                 # to another backend now, so we return a fresh copy
                 if old_obj.source == obj.source:
-                    obj_store: model.DictObjectStore = model.DictObjectStore()
-                    obj_store.update_from(old_obj, obj)
+                    old_obj.update_from(obj)
                     return old_obj
 
         self._object_cache[obj.id] = obj
