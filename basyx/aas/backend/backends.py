@@ -20,8 +20,8 @@ Custom backends for additional types of data sources can be
 implemented by subclassing :class:`Backend` and implementing the
 :meth:`~.Backend.commit_object` and :meth:`~.Backend.update_object`
 class methods. These are used internally by the objects'
-:meth:`~basyx.aas.model.provider.DictObjectStore.update_referable` and
-:meth:`~basyx.aas.model.provider.DictObjectStore.commit_referable`
+:meth:`~basyx.aas.model.provider.DictObjectStore.update_identifiable` and
+:meth:`~basyx.aas.model.provider.DictObjectStore.commit_identifiable`
 methods when the backend is applicable for the relevant source URI.
 Then, the Backend class needs to be registered to handle update/commit
 requests for a specific URI schema, using
@@ -29,7 +29,7 @@ requests for a specific URI schema, using
 """
 import abc
 import re
-from typing import List, Dict, Type, TYPE_CHECKING
+from typing import List, Dict, Type, TYPE_CHECKING, Any
 from basyx.aas.model.protocols import Protocol
 
 if TYPE_CHECKING:
@@ -47,26 +47,27 @@ class Backend(metaclass=abc.ABCMeta):
     registered via
     :meth:`~basyx.aas.backend.backends.register_backend`. to be used by
     DictObjectStore object's
-    :meth:`~basyx.aas.model.provider.DictObjectStore.update_referable` and
-    :meth:`~basyx.aas.model.provider.DictObjectStore.commit_referable` methods
+    :meth:`~basyx.aas.model.provider.DictObjectStore.update_identifiable` and
+    :meth:`~basyx.aas.model.provider.DictObjectStore.commit_identifiable` methods
     when required.
     """
-    # TODO: 2 new abstract Backend classes
 
+
+class ObjectBackend(Backend):
     @classmethod
     @abc.abstractmethod
     def commit_object(cls,
                       committed_object: "Referable",
                       store_object: "Referable",
                       relative_path: List[str],
-                      source: str) -> None:
+                      source: [Any]) -> None:
         """
         Function (class method) to be called when an object shall be
         committed (local changes pushed to the external data source)
         via this backend implementation.
 
         It is automatically called by the
-        :meth:`~basyx.aas.model.provider.DictObjectStore.commit_referable`
+        :meth:`~basyx.aas.model.provider.DictObjectStore.commit_identifiable`
         implementation, when the source URI of the object or the
         source URI one of its ancestors in the AAS object containment
         hierarchy include a URI schema for which this backend has
@@ -103,6 +104,7 @@ class Backend(metaclass=abc.ABCMeta):
             obj.get_referable(i)` resolves to the ``committed_object``.
             In case that ``store_object is committed_object``, it is an
             empty list.
+        :param source: The source description of the ``store_object``.
         :raises BackendNotAvailableException: when the external data
             source cannot be reached
         """
@@ -114,17 +116,17 @@ class Backend(metaclass=abc.ABCMeta):
                       updated_object: "Referable",
                       store_object: "Referable",
                       relative_path: List[str],
-                      source: str) -> None:
+                      source: [Any]) -> None:
         """
         Function (class method) to be called when an object shall be
         updated (local object updated with changes from the external
         data source) via this backend implementation.
 
         It is automatically called by the
-        :meth:`~basyx.aas.model.provider.DictObjectStore.update_referable`
+        :meth:`~basyx.aas.model.provider.DictObjectStore.update_identifiable`
         implementation, when the source URI of the object or the
         source URI one of its ancestors in the AAS object containment
-        hierarchy include an URI schema for which this backend has
+        hierarchy include a URI schema for which this backend has
         been registered. Both of the objects are passed to this
         function: the one which shall be update (``updated_object``)
         and its ancestor with the relevant source URI (
@@ -158,15 +160,36 @@ class Backend(metaclass=abc.ABCMeta):
             obj.get_referable(i)` resolves to the ``updated_object``. In
             case that ``store_object is updated_object``, it is an empty
             list.
+        :param source: The source description of the ``store_object``.
         :raises BackendNotAvailableException: when the external data
             source cannot be reached
         """
         pass
 
 
+class ValueBackend(Backend):
+    @classmethod
+    @abc.abstractmethod
+    def commit_value(cls,
+                     committed_object: "Referable",
+                     source: [Any]) -> None:
+        """
+        Function (class method) to commit a Referable's value to the external data source.
+        """
+
+    @classmethod
+    @abc.abstractmethod
+    def update_value(cls,
+                     updated_object: "Referable",
+                     source: [Any]) -> None:
+        """
+        Function (class method) to update a Referable's value from the external data source.
+        """
+
+
 # Global registry for backends by URI scheme
 # TODO allow multiple backends per scheme with priority
-_backends_map: Dict[str, Type[Backend]] = {}
+_backends_map: Dict[Protocol, Type[Backend]] = {}
 
 
 def register_backend(protocol: Protocol, backend_class: Type[Backend]) -> None:
@@ -177,12 +200,8 @@ def register_backend(protocol: Protocol, backend_class: Type[Backend]) -> None:
 
     This method may be called multiple times for a single Backend
     class, to register that class as a backend implementation for
-    different source URI schemas (e.g. use the same backend for
-    'http://' and 'https://' sources).
-
-    :param scheme: The URI schema of source URIs to be handled with
-        Backend class, without trailing colon and slashes. E.g. 'http',
-        'https', 'couchdb', etc.
+    different source Protocol types.
+    :param protocol: The predefined Protocol type of the source to be handled with
     :param backend_class: The Backend implementation class. Should
         inherit from :class:`Backend`.
     """
@@ -199,8 +218,7 @@ def get_backend(protocol: Protocol) -> Type[Backend]:
     external data source identified by the given ``url`` via the
     url's schema.
 
-    :param url: External data source URI to find an appropriate
-        Backend implementation for
+    :param protocol: The predefined Protocol type of the source to be handled with
     :return: A Backend class, capable of updating/committing from/to
         the external data source
     :raises UnknownBackendException: When no backend is available for that url
@@ -213,7 +231,7 @@ def get_backend(protocol: Protocol) -> Type[Backend]:
     try:
         return _backends_map[protocol]
     except KeyError as e:
-        raise UnknownBackendException("Could not find Backend for source '{}'".format(url)) from e
+        raise UnknownBackendException("Could not find Backend for protocol type '{}'".format(protocol)) from e
 
 
 # #################################################################################################

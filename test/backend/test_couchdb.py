@@ -149,12 +149,12 @@ class CouchDBBackendTest(unittest.TestCase):
         # updated)
         with unittest.mock.patch("basyx.aas.backend.couchdb.set_couchdb_revision"):
             obj_store: model.DictObjectStore = model.DictObjectStore()
-            obj_store.commit_referable(retrieved_submodel)
+            obj_store.commit_identifiable(retrieved_submodel)
 
         # Committing changes to the retrieved object should now raise a conflict error
         retrieved_submodel.id_short = "myOtherNewIdShort"
         with self.assertRaises(couchdb.CouchDBConflictError) as cm:
-            obj_store.commit_referable(retrieved_submodel)
+            obj_store.commit_identifiable(retrieved_submodel)
         self.assertEqual("Could not commit changes to id https://acplt.org/Test_Submodel due to a "
                          "concurrent modification in the database.", str(cm.exception))
 
@@ -168,7 +168,7 @@ class CouchDBBackendTest(unittest.TestCase):
         self.assertEqual(0, len(self.object_store))
 
         # Committing after deletion should not raise a conflict error due to removal of the source attribute
-        obj_store.commit_referable(retrieved_submodel)
+        obj_store.commit_identifiable(retrieved_submodel)
 
     def test_editing(self):
         test_object = create_example_submodel()
@@ -177,9 +177,9 @@ class CouchDBBackendTest(unittest.TestCase):
         # Test if commit uploads changes
         test_object.id_short = "SomeNewIdShort"
         obj_store: model.DictObjectStore = model.DictObjectStore()
-        obj_store.commit_referable(test_object)
+        obj_store.commit_identifiable(test_object)
 
         # Test if update restores changes
         test_object.id_short = "AnotherIdShort"
-        obj_store.update_referable(test_object)
+        obj_store.update_identifiable(test_object)
         self.assertEqual("SomeNewIdShort", test_object.id_short)

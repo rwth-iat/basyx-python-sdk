@@ -114,7 +114,7 @@ object_store.add(example_submodel2)
 
 # Fetch recent updates from the server
 obj_store: model.DictObjectStore = model.DictObjectStore()
-obj_store.update_referable(example_submodel1)
+obj_store.update_identifiable(example_submodel1)
 
 # Make some changes to a Property within the submodel
 prop = example_submodel1.get_referable('ManufacturerName')
@@ -129,7 +129,7 @@ example_submodel1.id_short = 'NewIdShort'
 # source attribute of all ancestors in the object hierarchy (
 # including the Submodel) and commit the changes to all of these
 # external data sources.
-obj_store.commit_referable(example_submodel1)
+obj_store.commit_identifiable(example_submodel1)
 
 
 ############

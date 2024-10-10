@@ -13,7 +13,7 @@ from basyx.aas import model
 from basyx.aas.model.protocols import Protocol
 
 
-class MQTTBackend(backends.Backend):
+class MQTTBackend(backends.ValueBackend):
     @classmethod
     def _parse_source(cls, source: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -21,11 +21,11 @@ class MQTTBackend(backends.Backend):
         """
         if not isinstance(source.get('protocol'), Protocol) or source['protocol'] != Protocol.MQTT:
             raise ValueError("Invalid protocol. Must be MQTT protocol.")
-        
+
         required_keys = ['base', 'topic', 'controlPacket']
         if not all(key in source for key in required_keys):
             raise ValueError(f"Invalid source format. {', '.join(required_keys)} must be provided.")
-        
+
         parsed = {
             'broker': source['base'].split('://')[1],
             'topic': source['topic'],
@@ -50,16 +50,14 @@ class MQTTBackend(backends.Backend):
         return client
 
     @classmethod
-    def update_object(cls,
-                      updated_object: model.Referable,
-                      store_object: model.Referable,
-                      relative_path: List[str],
-                      source: Dict[str, Any]) -> None:
+    def update_value(cls,
+                     updated_object: model.Referable,
+                     source: Dict[str, Any]) -> None:
         """
         Updates an object by subscribing to the MQTT topic and receiving the latest state.
         """
         mqtt_info = cls._parse_source(source)
-        
+
         if mqtt_info['control_packet'].lower() != 'subscribe':
             print(f"Warning: MQTT control packet '{mqtt_info['control_packet']}' may not be appropriate for updating "
                   f"data. SUBSCRIBE is recommended.")
@@ -100,16 +98,14 @@ class MQTTBackend(backends.Backend):
         print(f"Started MQTT listener for {updated_object.id_short} on topic {mqtt_info['topic']}")
 
     @classmethod
-    def commit_object(cls,
-                      committed_object: model.Referable,
-                      store_object: model.Referable,
-                      relative_path: List[str],
-                      source: Dict[str, Any]) -> None:
+    def commit_value(cls,
+                     committed_object: model.Referable,
+                     source: Dict[str, Any]) -> None:
         """
         Commits an object by publishing to the MQTT topic.
         """
         mqtt_info = cls._parse_source(source)
-        
+
         if mqtt_info['control_packet'].lower() != 'publish':
             print(f"Warning: MQTT control packet '{mqtt_info['control_packet']}' "
                   f"may not be appropriate for committing data. PUBLISH is recommended.")
@@ -119,21 +115,22 @@ class MQTTBackend(backends.Backend):
         try:
             host, port = mqtt_info['broker'].split(':')
             client.connect(host, int(port))
-            
+
             if mqtt_info['content_type'] == 'application/json':
                 payload = json.dumps(committed_object.value)
             else:
                 payload = str(committed_object.value)
-            
+
             result = client.publish(mqtt_info['topic'], payload)
-            
+
             if result.rc == mqtt.MQTT_ERR_SUCCESS:
                 print(f"Successfully published update for {committed_object.id_short}")
             else:
                 print(f"Failed to publish update for {committed_object.id_short}: {mqtt.error_string(result.rc)}")
-            
+
             client.disconnect()
         except Exception as e:
             print(f"Failed to commit the object to the MQTT broker: {e}")
+
 
 backends.register_backend(Protocol.MQTT, MQTTBackend)

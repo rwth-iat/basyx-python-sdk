@@ -165,7 +165,7 @@ class ReferableTest(unittest.TestCase):
 
         # Test update with parameter "recursive=False"
         obj_store: model.DictObjectStore = model.DictObjectStore()
-        obj_store.update_referable(example_referable, recursive=False)
+        obj_store.update_identifiable(example_referable, recursive=False)
         MockBackend.update_object.assert_called_once_with(
             updated_object=example_referable,
             store_object=example_grandparent,
@@ -174,7 +174,7 @@ class ReferableTest(unittest.TestCase):
         MockBackend.update_object.reset_mock()
 
         # Test update with parameter "recursive=True"
-        obj_store.update_referable(example_referable)
+        obj_store.update_identifiable(example_referable)
         self.assertEqual(MockBackend.update_object.call_count, 2)
         MockBackend.update_object.assert_has_calls([
             mock.call(updated_object=example_referable,
@@ -188,7 +188,7 @@ class ReferableTest(unittest.TestCase):
 
         # Test update with source != "" in example_referable
         example_referable.source = "mockScheme:exampleReferable"
-        obj_store.update_referable(example_referable, recursive=False)
+        obj_store.update_identifiable(example_referable, recursive=False)
         MockBackend.update_object.assert_called_once_with(
             updated_object=example_referable,
             store_object=example_referable,
@@ -199,7 +199,7 @@ class ReferableTest(unittest.TestCase):
         # Test update with no source available
         example_grandparent.source = ""
         example_referable.source = ""
-        obj_store.update_referable(example_referable, recursive=False)
+        obj_store.update_identifiable(example_referable, recursive=False)
         MockBackend.update_object.assert_not_called()
 
     def test_commit(self):
@@ -210,7 +210,7 @@ class ReferableTest(unittest.TestCase):
 
         # Test commit starting from example_referable
         obj_store: model.DictObjectStore = model.DictObjectStore()
-        obj_store.commit_referable(example_referable)
+        obj_store.commit_identifiable(example_referable)
         self.assertEqual(MockBackend.commit_object.call_count, 2)
         MockBackend.commit_object.assert_has_calls([
             mock.call(committed_object=example_referable,
@@ -223,7 +223,7 @@ class ReferableTest(unittest.TestCase):
         MockBackend.commit_object.reset_mock()
 
         # Test commit starting from example_grandchild
-        obj_store.commit_referable(example_grandchild)
+        obj_store.commit_identifiable(example_grandchild)
         self.assertEqual(MockBackend.commit_object.call_count, 2)
         MockBackend.commit_object.assert_has_calls([
             mock.call(committed_object=example_grandchild,
@@ -237,7 +237,7 @@ class ReferableTest(unittest.TestCase):
 
         # Test commit starting from example_grandchild after adding a source to example_referable
         example_referable.source = "mockScheme:exampleReferable"
-        obj_store.commit_referable(example_grandchild)
+        obj_store.commit_identifiable(example_grandchild)
         self.assertEqual(MockBackend.commit_object.call_count, 3)
         MockBackend.commit_object.assert_has_calls([
             mock.call(committed_object=example_grandchild,
@@ -287,7 +287,7 @@ class ReferableTest(unittest.TestCase):
     def test_update_commit_qualifier_extension_semantic_id(self):
         submodel = model.Submodel("https://acplt.org/Test_Submodel")
         obj_store: model.DictObjectStore = model.DictObjectStore()
-        obj_store.update_referable(submodel)
+        obj_store.update_identifiable(submodel)
         qualifier = model.Qualifier("test", model.datatypes.String)
         extension = model.Extension("test")
         collection = model.SubmodelElementCollection("test")
@@ -297,7 +297,7 @@ class ReferableTest(unittest.TestCase):
         submodel.add_qualifier(qualifier)
         submodel.add_extension(extension)
         submodel.add_referable(collection)
-        obj_store.commit_referable(submodel)
+        obj_store.commit_identifiable(submodel)
 
         self.assertEqual(next(iter(submodel.qualifier)), qualifier)
         self.assertEqual(next(iter(submodel.extension)), extension)
@@ -324,7 +324,7 @@ class ReferableTest(unittest.TestCase):
             next(iter(submodel.submodel_element))
         with self.assertRaises(StopIteration):
             next(iter(collection.value))
-        obj_store.commit_referable(submodel)
+        obj_store.commit_identifiable(submodel)
 
 
 class ExampleNamespaceReferable(model.UniqueIdShortNamespace, model.UniqueSemanticIdNamespace, model.Identifiable):

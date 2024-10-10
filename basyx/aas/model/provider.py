@@ -15,8 +15,8 @@ import hashlib
 from typing import List, Optional, TypeVar, MutableSet, Generic, \
     Iterable, Dict, Iterator, Tuple, Union, Any
 
-from .base import Referable, Identifiable, Identifier, UniqueIdShortNamespace, NameType, NamespaceSet
-from ..backend import backends
+from basyx.aas.model.base import Referable, Identifiable, Identifier, UniqueIdShortNamespace, NameType, NamespaceSet
+from basyx.aas.backend import backends
 from basyx.aas import model
 
 from basyx.aas.model.protocols import Protocol, ProtocolExtractor
@@ -115,35 +115,21 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
 
         # Check if the added object is AssetInterfacesMappingConfiguration
         if is_aimc or (isinstance(x, model.Submodel) and self._is_aimc(x)):
-            self._add_source_from_AIMC(x)
+            self.add_source_from_AIMC(x)
 
-    def _is_aimc(self, submodel: model.Submodel) -> bool:
+    @staticmethod
+    def _is_aimc(submodel: model.Submodel) -> bool:
         """
         Check if the submodel is an AssetInterfacesMappingConfiguration.
         """
-        # TODO: Test using _check_identifier from protocols.py
-        # Check by idShort
-        if submodel.id_short == "AssetInterfacesMappingConfiguration":
-            return True
+        return ProtocolExtractor().check_identifier(submodel, "AssetInterfacesMappingConfiguration")
 
-        # Check by semanticId
-        if submodel.semantic_id:
-            if isinstance(submodel.semantic_id, model.ExternalReference):
-                # Check each key in the ExternalReference
-                for key in submodel.semantic_id.key:
-                    if "assetinterfacesmappingconfiguration" in key.value.lower():
-                        return True
-
-        return False
-
-    def _add_source_from_AIMC(self, aimc: model.Submodel) -> None:
+    def add_source_from_AIMC(self, aimc: model.Submodel) -> None:
         """
         Process AssetInterfacesMappingConfiguration and update _mapping.
         """
-        # TODO: Test using _check_identifier from protocols.py
-        # TODO: Discuss if it should be public
-        mapping_configurations = next((sme for sme in aimc.submodel_element if sme.id_short == "MappingConfigurations"),
-                                      None)
+        mapping_configurations = next((sme for sme in aimc.submodel_element if ProtocolExtractor().check_identifier(
+            sme, "MappingConfigurations")), None)
         if mapping_configurations and isinstance(mapping_configurations, model.SubmodelElementList):
             for config in mapping_configurations.value:
                 self._process_mapping_configuration(config)
@@ -152,32 +138,35 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         """
         Process a single MappingConfiguration.
         """
-        # TODO: Adapt the function to work without InterfaceReference
-        interface_reference = next((sme for sme in config.value if sme.id_short == "InterfaceReference"), None)
-        if not interface_reference or not isinstance(interface_reference, model.ReferenceElement):
-            print("InterfaceReference not found or not of type ReferenceElement")
-            return
 
         mapping_relations = next((sme for sme in config.value if sme.id_short == "MappingSourceSinkRelations"), None)
         if mapping_relations and isinstance(mapping_relations, model.SubmodelElementList):
             for relation in mapping_relations.value:
                 if isinstance(relation, model.RelationshipElement):
-                    self._process_relationship_element(relation, interface_reference.value)
+                    self._process_relationship_element(relation)
         else:
             print("MappingSourceSinkRelations not found or not of type SubmodelElementList")
 
-    def _process_relationship_element(self, relation: model.RelationshipElement, interface_reference: model.ModelReference) -> None:
+    def _process_relationship_element(self, relation: model.RelationshipElement) -> None:
         """
         Process a single RelationshipElement and update _mapping.
         """
-        # TODO: adapt the function to work without interface_reference
         if relation.second:
             second_hash = self.generate_model_reference_hash(relation.second)
             if second_hash not in self._mapping:
                 self._mapping[second_hash] = {}
 
-            # Extract AID parameters and determine protocol
-            aid_parameters = self.extract_aid_parameters(relation.first, interface_reference)
+            try:
+                aid_element = relation.first.resolve(self)
+            except Exception as e:
+                print(f"Error resolving AID element: {e}")
+                return
+
+            if not isinstance(aid_element, model.SubmodelElement):
+                print(f"Unexpected types: AID element: {type(aid_element)}")
+                return
+
+            aid_parameters = self.extract_aid_parameters(aid_element)
             if aid_parameters:
                 protocol = aid_parameters.get('protocol')
                 if protocol:
@@ -187,20 +176,13 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
             else:
                 print(f"Failed to extract AID parameters for relationship: {relation.id_short}")
 
-    def extract_aid_parameters(self, aid_reference: model.ModelReference, interface_reference: model.ModelReference) -> Dict[str, Any]:
-        # TODO: adapt the function to work without interface_reference
-        try:
-            aid_element = aid_reference.resolve(self)
-            interface_element = interface_reference.resolve(self)
-        except Exception as e:
-            print(f"Error resolving AID or interface element: {e}")
-            return {}
-
-        if not isinstance(aid_element, model.SubmodelElement) or not isinstance(interface_element, model.SubmodelElementCollection):
-            print(f"Unexpected types: AID element: {type(aid_element)}, Interface element: {type(interface_element)}")
-            return {}
-
+    @staticmethod
+    def extract_aid_parameters(aid_element: model.SubmodelElement) -> Dict[str, Any]:
         extractor = ProtocolExtractor()
+
+        # Find the parent SubmodelElementCollection (interface_element)
+        interface_element = aid_element.parent.parent.parent
+
         protocol = extractor.determine_protocol(interface_element)
         if not protocol:
             print(f"Unable to determine protocol for interface: {interface_element.id_short}")
@@ -213,7 +195,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
     def discard(self, x: _IT) -> None:
         if self._backend.get(x.id) is x:
             del self._backend[x.id]
-            
+
             # If the discarded object is an AIMC Submodel, clean up related mappings
             if isinstance(x, model.Submodel) and self._is_aimc(x):
                 self._remove_mapping_for_aimc(x)
@@ -222,7 +204,8 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         """
         Remove all mappings related to the AIMC.
         """
-        mapping_configurations = next((sme for sme in aimc.submodel_element if sme.id_short == "MappingConfigurations"), None)
+        mapping_configurations = next((sme for sme in aimc.submodel_element if sme.id_short == "MappingConfigurations"),
+                                      None)
         if mapping_configurations and isinstance(mapping_configurations, model.SubmodelElementList):
             for config in mapping_configurations.value:
                 self._remove_mapping_for_configuration(config)
@@ -240,7 +223,8 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
                     if second_hash in self._mapping:
                         del self._mapping[second_hash]
 
-    def generate_model_reference_hash(self, model_ref: model.ModelReference) -> str:
+    @staticmethod
+    def generate_model_reference_hash(model_ref: model.ModelReference) -> str:
         """
         Generate a hash value for the ModelReference using SHA-256.
         Convert the key to a string and use it as input for the hash function.
@@ -279,12 +263,12 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
             return None
         return self._mapping[hash_value][protocol]
 
-    def update_referable(self,
-                         referable: Referable,
-                         protocol: Protocol,
-                         max_age: float = 0,
-                         recursive: bool = True,
-                         _indirect_source: bool = True) -> None:
+    def update_identifiable(self,
+                            referable: Referable,
+                            protocol: Protocol,
+                            max_age: float = 0,
+                            recursive: bool = True,
+                            _indirect_source: bool = True) -> None:
         """
         Update the local Referable object from any underlying external data source, using an appropriate backend
 
@@ -335,18 +319,17 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
                     if "id_short" not in namespace_set.get_attribute_name_list():
                         continue
                     for referable in namespace_set:
-                        self.update_referable(referable, protocol, max_age,
-                                              recursive=True,
-                                              _indirect_source=False)
+                        self.update_identifiable(referable, protocol, max_age,
+                                                 recursive=True,
+                                                 _indirect_source=False)
 
     def find_source(self, obj, protocol) -> Tuple[Optional["Referable"], Optional[List[str]]]:  # type: ignore
         """
-        Finds the closest source in this objects ancestors. If there is no source, returns None
+        Finds the closest source in this object's ancestors. If there is no source, returns None
 
         :return: Tuple with the closest ancestor with a defined source and the relative path of id_shorts to that
                  ancestor
         """
-        # TODO: adapt the function to use get_source function
         referable: Referable = obj
         relative_path: List[NameType] = [obj.id_short]
         while referable is not None:
@@ -362,7 +345,8 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
             break
         return None, None
 
-    def update_from(self, obj, other: "Referable",
+    @staticmethod
+    def update_from(obj, other: "Referable",
                     update_source: bool = False):  # type: ignore
         """
         Internal function to updates the object's attributes from another object of a similar type.
@@ -385,10 +369,9 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
                 # update the elements of the NameSpaceSet
                 vars(obj)[name].update_nss_from(var)
             else:
-                vars(obj)[
-                    name] = var  # that variable is not a NameSpaceSet, so it isn't Referable
+                vars(obj)[name] = var  # that variable is not a NameSpaceSet, so it isn't Referable
 
-    def commit_referable(self, referable: "Referable", protocol) -> None:
+    def commit_identifiable(self, referable: "Referable", protocol) -> None:
         """
         Transfer local changes on this object to all underlying external data sources.
 
@@ -430,6 +413,82 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
                     continue
                 for referable in namespace_set:
                     self._direct_source_commit(referable, protocol)
+
+    def update_referable_value(self,
+                               referable: "Referable",
+                               protocol: Protocol) -> None:
+        """
+        Update the value of a Referable object from the external data source,
+        using an appropriate backend.
+
+        :param referable: The Referable object whose value to update
+        :param protocol: The protocol to use for updating
+        :raises backends.BackendError: If no appropriate backend or the data source is not available
+        """
+        source = self.get_source(referable, protocol)
+        if source:
+            backends.get_backend(protocol).update_value(
+                updated_object=referable,
+                source=source)
+        else:
+            print(f"No source found for referable {referable.id_short} with protocol {protocol}")
+
+    def commit_referable_value(self,
+                               referable: "Referable",
+                               protocol: Protocol) -> None:
+        """
+        Commit the value of a Referable object to the external data source,
+        using an appropriate backend.
+
+        :param referable: The Referable object whose value to commit
+        :param protocol: The protocol to use for committing
+        :raises backends.BackendError: If no appropriate backend or the data source is not available
+        """
+        source = self.get_source(referable, protocol)
+        if source:
+            backends.get_backend(protocol).commit_value(
+                committed_object=referable,
+                source=source)
+        else:
+            print(f"No source found for referable {referable.id_short} with protocol {protocol}")
+
+    def subscribe_referable_value(self,
+                                  referable: "Referable",
+                                  protocol: Protocol) -> None:
+        """
+        Subscribe the value of a Referable object from the external data source,
+        using an appropriate backend.
+
+        :param referable: The Referable object whose value to update
+        :param protocol: The protocol to use for updating
+        :raises backends.BackendError: If no appropriate backend or the data source is not available
+        """
+        source = self.get_source(referable, protocol)
+        if source:
+            backends.get_backend(protocol).update_value(
+                updated_object=referable,
+                source=source)
+        else:
+            print(f"No source found for referable {referable.id_short} with protocol {protocol}")
+
+    def publish_referable_value(self,
+                                referable: "Referable",
+                                protocol: Protocol) -> None:
+        """
+        Publish the value of a Referable object to the external data source,
+        using an appropriate backend.
+
+        :param referable: The Referable object whose value to commit
+        :param protocol: The protocol to use for committing
+        :raises backends.BackendError: If no appropriate backend or the data source is not available
+        """
+        source = self.get_source(referable, protocol)
+        if source:
+            backends.get_backend(protocol).commit_value(
+                committed_object=referable,
+                source=source)
+        else:
+            print(f"No source found for referable {referable.id_short} with protocol {protocol}")
 
     def __contains__(self, x: object) -> bool:
         if isinstance(x, Identifier):

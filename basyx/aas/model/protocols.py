@@ -21,6 +21,20 @@ class ProtocolExtractorError(Exception):
     pass
 
 
+def _parse_address(href: str, protocol: Protocol) -> Dict[str, Any]:
+    if protocol == Protocol.MODBUS:
+        parts = href.split('?')
+        address = int(parts[0])
+        params = {'address': address}
+        if len(parts) > 1:
+            query_params = parse_qs(parts[1])
+            if 'quantity' in query_params:
+                params['quantity'] = int(query_params['quantity'][0])
+        return params
+    else:
+        return {'href': href}
+
+
 class ProtocolExtractor:
     def extract_protocol_parameters(self, aid_element: model.SubmodelElement, protocol: Protocol) -> Dict[str, Any]:
         # Get EndpointMetadata
@@ -48,17 +62,17 @@ class ProtocolExtractor:
         return parameters
 
     def determine_protocol(self, interface_element: model.SubmodelElementCollection) -> Optional[Protocol]:
-        if self._check_identifier(interface_element, "http"):
+        if self.check_identifier(interface_element, "http"):
             return Protocol.HTTP
-        elif self._check_identifier(interface_element, "mqtt"):
+        elif self.check_identifier(interface_element, "mqtt"):
             return Protocol.MQTT
-        elif self._check_identifier(interface_element, "modbus"):
+        elif self.check_identifier(interface_element, "modbus"):
             return Protocol.MODBUS
         return None
 
     @staticmethod
-    def _check_identifier(element: model.SubmodelElementCollection, identifier: str) -> bool:
-        # TODO: test if change element to Referable could be better
+    def check_identifier(element: model.Referable, identifier: str) -> bool:
+        identifier = identifier.lower()
         # Check idShort
         if identifier in element.id_short.lower():
             return True
@@ -70,7 +84,7 @@ class ProtocolExtractor:
                     return True
 
         # Check supplemental_semantic_ids
-        # TODO: only use this for identification
+        # TODO: If required, only use semantic_id for identification
         if element.supplemental_semantic_id:
             for semantic_id in element.supplemental_semantic_id:
                 if isinstance(semantic_id, model.ExternalReference):
@@ -103,7 +117,8 @@ class ProtocolExtractor:
         params['security'] = self._extract_security_parameters(endpoint_metadata)
         return params
 
-    def _extract_security_parameters(self, endpoint_metadata: model.SubmodelElementCollection) -> Dict[str, Any]:
+    @staticmethod
+    def _extract_security_parameters(endpoint_metadata: model.SubmodelElementCollection) -> Dict[str, Any]:
         security_defs = endpoint_metadata.get_referable('securityDefinitions')
         if not security_defs or not isinstance(security_defs, model.SubmodelElementCollection):
             raise ProtocolExtractorError("Security Definitions not found in EndpointMetadata")
@@ -117,7 +132,8 @@ class ProtocolExtractor:
 
         return security_params
 
-    def _extract_http_parameters(self, forms_element: model.SubmodelElementCollection) -> Dict[str, Any]:
+    @staticmethod
+    def _extract_http_parameters(forms_element: model.SubmodelElementCollection) -> Dict[str, Any]:
         params = {}
         href = forms_element.get_referable('href')
         if href and isinstance(href, model.Property):
@@ -137,7 +153,8 @@ class ProtocolExtractor:
 
         return params
 
-    def _extract_mqtt_parameters(self, forms_element: model.SubmodelElementCollection) -> Dict[str, Any]:
+    @staticmethod
+    def _extract_mqtt_parameters(forms_element: model.SubmodelElementCollection) -> Dict[str, Any]:
         params = {}
         href = forms_element.get_referable('href')
         if href and isinstance(href, model.Property):
@@ -157,11 +174,12 @@ class ProtocolExtractor:
 
         return params
 
-    def _extract_modbus_parameters(self, forms_element: model.SubmodelElementCollection) -> Dict[str, Any]:
+    @staticmethod
+    def _extract_modbus_parameters(forms_element: model.SubmodelElementCollection) -> Dict[str, Any]:
         params = {}
         href = forms_element.get_referable('href')
         if href and isinstance(href, model.Property):
-            address_info = self._parse_address(href.value, Protocol.MODBUS)
+            address_info = _parse_address(href.value, Protocol.MODBUS)
             params.update(address_info)
         else:
             raise ProtocolExtractorError("Modbus address not found in forms")
@@ -178,24 +196,12 @@ class ProtocolExtractor:
 
         return params
 
-    def _find_parent_by_id_short(self, element: model.SubmodelElement, id_short: str) -> Optional[
-        model.SubmodelElementCollection]:
+    @staticmethod
+    def _find_parent_by_id_short(element: model.SubmodelElement, id_short: str) \
+            -> Optional[model.SubmodelElementCollection]:
         current = element
         while current.parent:
-            if current.parent.id_short == id_short:
+            if current.parent.id_short.lower() == id_short.lower():
                 return current.parent
             current = current.parent
         return None
-
-    def _parse_address(self, href: str, protocol: Protocol) -> Dict[str, Any]:
-        if protocol == Protocol.MODBUS:
-            parts = href.split('?')
-            address = int(parts[0])
-            params = {'address': address}
-            if len(parts) > 1:
-                query_params = parse_qs(parts[1])
-                if 'quantity' in query_params:
-                    params['quantity'] = int(query_params['quantity'][0])
-            return params
-        else:
-            return {'href': href}

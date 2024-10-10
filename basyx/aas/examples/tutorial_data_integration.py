@@ -54,6 +54,14 @@ obj_store.add(sm_AIMC)
 # For AIMC Submodels with custom naming rules, use the optional parameter
 # obj_store.add(sm_AIMC, is_aimc=True)
 
+# If you only want to use the AID Submodel to manage the configuration, you can add this into the mapping table manually
+# In the example AAS, the 'current' Property is not part of the AIMC Submodel
+aid_http_current = sm_AID.get_referable('InterfaceHTTP').get_referable('InterfaceMetadata').get_referable(
+    'Properties').get_referable('current')
+integration_source = obj_store.extract_aid_parameters(aid_http_current)
+http_current = sm_operation.get_referable('HTTP_Data').get_referable('current')
+obj_store.add_source(http_current, Protocol.HTTP, integration_source)
+
 # The mapping table is only shown for demonstration purposes
 mapping_table = obj_store._mapping
 
@@ -67,19 +75,20 @@ mapping_table = obj_store._mapping
 http_voltage = sm_operation.get_referable('HTTP_Data').get_referable('voltage')
 http_status = sm_operation.get_referable('HTTP_Data').get_referable('status')
 
-# Update 'voltage' data
-obj_store.update_referable(http_voltage, Protocol.HTTP)
+# Update 'voltage' data and 'current' data
+obj_store.update_referable_value(http_voltage, Protocol.HTTP)
+obj_store.update_referable_value(http_current, Protocol.HTTP)
 
 # Attempt to update 'status' (won't occur as it's set for commit operation)
-obj_store.update_referable(http_status, Protocol.HTTP)
+obj_store.update_referable_value(http_status, Protocol.HTTP)
 
 # Commit 'status' data
 http_status.value = 'commit_http'
-obj_store.commit_referable(http_status, Protocol.HTTP)
+obj_store.commit_referable_value(http_status, Protocol.HTTP)
 
-# Attempt to commit 'voltage' (won't occur as it's set for update operation)
+# Attempt to commit 'voltage' (value in server will not change, as it's set only for update operation)
 http_voltage.value = '3.5'
-obj_store.commit_referable(http_voltage, Protocol.HTTP)
+obj_store.commit_referable_value(http_voltage, Protocol.HTTP)
 
 #################################################
 # Step 3: Update and commit using MQTT protocol #
@@ -91,12 +100,12 @@ obj_store.commit_referable(http_voltage, Protocol.HTTP)
 mqtt_voltage = sm_operation.get_referable('MQTT_Data').get_referable('voltage')
 mqtt_status = sm_operation.get_referable('MQTT_Data').get_referable('status')
 
-# Continuously update 'voltage' data by listening to the MQTT topic
-obj_store.update_referable(mqtt_voltage, Protocol.MQTT)
+# Continuously listening to the MQTT topic after subscribing to it
+obj_store.subscribe_referable_value(mqtt_voltage, Protocol.MQTT)
 
 # Publish 'status' data to the MQTT broker (one-time action for demonstration)
 mqtt_status.value = 'commit_mqtt'
-obj_store.commit_referable(mqtt_status, Protocol.MQTT)
+obj_store.publish_referable_value(mqtt_status, Protocol.MQTT)
 
 #########################################################
 # Step 4: Remove AIMC Submodel and related data sources #

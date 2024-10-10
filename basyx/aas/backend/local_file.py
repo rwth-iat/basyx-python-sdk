@@ -27,7 +27,7 @@ from basyx.aas import model
 logger = logging.getLogger(__name__)
 
 
-class LocalFileBackend(backends.Backend):
+class LocalFileBackend(backends.ObjectBackend):
     """
     This Backend stores each Identifiable object as a single JSON document as a local file in a directory.
     Each document's id is build from the object's identifier using a SHA256 sum of its identifiable; the document's
@@ -39,7 +39,9 @@ class LocalFileBackend(backends.Backend):
     def update_object(cls,
                       updated_object: model.Referable,
                       store_object: model.Referable,
-                      relative_path: List[str]) -> None:
+                      relative_path: List[str],
+                      source: str) -> None:
+        # TODO: adapt the local file backend to the new update_object method
 
         if not isinstance(store_object, model.Identifiable):
             raise FileBackendSourceError("The given store_object is not Identifiable, therefore cannot be found "
@@ -55,7 +57,8 @@ class LocalFileBackend(backends.Backend):
     def commit_object(cls,
                       committed_object: model.Referable,
                       store_object: model.Referable,
-                      relative_path: List[str]) -> None:
+                      relative_path: List[str],
+                      source: str) -> None:
         if not isinstance(store_object, model.Identifiable):
             raise FileBackendSourceError("The given store_object is not Identifiable, therefore cannot be found "
                                          "in the FileBackend")

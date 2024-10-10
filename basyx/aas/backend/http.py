@@ -13,7 +13,7 @@ from basyx.aas import model
 from basyx.aas.model.protocols import ProtocolExtractor, Protocol
 
 
-class HTTPBackend(backends.Backend):
+class HTTPBackend(backends.ValueBackend):
     @classmethod
     def _parse_source(cls, source: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -21,7 +21,7 @@ class HTTPBackend(backends.Backend):
         """
         if not isinstance(source.get('protocol'), Protocol) or source['protocol'] != Protocol.HTTP:
             raise ValueError("Invalid protocol. Must be HTTP protocol.")
-        
+
         return source
 
     @classmethod
@@ -31,7 +31,7 @@ class HTTPBackend(backends.Backend):
         """
         request_params = {}
         headers = {'Content-Type': params.get('contentType', 'application/json')}
-        
+
         security = params.get('security', {})
         if 'nosec_sc' in security:
             # No security required
@@ -43,16 +43,14 @@ class HTTPBackend(backends.Backend):
         elif 'bearer_sc' in security:
             # Bearer token authentication
             headers['Authorization'] = f"Bearer {params.get('token')}"
-        
+
         request_params['headers'] = headers
         return request_params
 
     @classmethod
-    def update_object(cls,
-                      updated_object: model.Referable,
-                      store_object: model.Referable,
-                      relative_path: List[str],
-                      source: Dict[str, Any]) -> None:
+    def update_value(cls,
+                     updated_object: model.Referable,
+                     source: Dict[str, Any]) -> None:
         """
         Updates an object by fetching the latest state from the HTTP server.
         """
@@ -82,17 +80,15 @@ class HTTPBackend(backends.Backend):
             print("Failed to decode JSON response")
 
     @classmethod
-    def commit_object(cls,
-                      committed_object: model.Referable,
-                      store_object: model.Referable,
-                      relative_path: List[str],
-                      source: Dict[str, Any]) -> None:
+    def commit_value(cls,
+                     committed_object: model.Referable,
+                     source: Dict[str, Any]) -> None:
         """
         Commits an object to the HTTP server.
         """
         params = cls._parse_source(source)
         url = f"{params['base']}{params['href']}"
-        method = params.get('method', 'POST')
+        method = params.get('method', 'PUT')
         request_params = cls._prepare_request_params(params)
 
         if method not in ['POST', 'PUT']:

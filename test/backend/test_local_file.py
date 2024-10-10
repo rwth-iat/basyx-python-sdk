@@ -119,9 +119,9 @@ class LocalFileBackendTest(unittest.TestCase):
         # Test if commit uploads changes
         test_object.id_short = "SomeNewIdShort"
         obj_store: model.DictObjectStore = model.DictObjectStore()
-        obj_store.commit_referable(test_object)
+        obj_store.commit_identifiable(test_object)
 
         # Test if update restores changes
         test_object.id_short = "AnotherIdShort"
-        obj_store.update_referable(test_object)
+        obj_store.update_identifiable(test_object)
         self.assertEqual("SomeNewIdShort", test_object.id_short)
