@@ -103,7 +103,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         self._backend: Dict[Identifier, _IT] = {}
         for x in objects:
             self.add(x)
-        self._mapping: Dict[str, Dict[Protocol, Union[str, dict]]] = {}
+        self._mapping: Dict[str, Dict[Protocol, Any]] = {}
 
     def get_identifiable(self, identifier: Identifier) -> _IT:
         return self._backend[identifier]
@@ -262,7 +262,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
 
     def update_identifiable(self,
                             referable: "model.Referable",
-                            protocol: Protocol,
+                            protocol: Optional[Protocol] = None,
                             max_age: float = 0,
                             recursive: bool = True,
                             _indirect_source: bool = True) -> None:
@@ -273,13 +273,19 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         If there is no source in any ancestor, this function will do nothing
 
         :param referable: The object to update
-        :param protocol: The protocol to use for updating
+        :param protocol: The protocol to use for updating. If None, the first available protocol will be used.
         :param max_age: Maximum age of the local data in seconds. This method may return early, if the previous update
             of the object has been performed less than ``max_age`` seconds ago.
         :param recursive: Also call update on all children of this object. Default is True
         :param _indirect_source: Internal parameter to avoid duplicate updating.
         :raises backends.BackendError: If no appropriate backend or the data source is not available
         """
+        if protocol is None:
+            protocol = self._get_first_available_protocol(referable)
+            if protocol is None:
+                print(f"No available protocol found for referable {referable.id_short}")
+                return
+
         source = self.get_source(referable, protocol)
 
         if not _indirect_source:
@@ -320,6 +326,23 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
                                                  recursive=True,
                                                  _indirect_source=False)
 
+    def _get_first_available_protocol(self, referable: "model.Referable") -> Optional[Protocol]:
+        """
+        Extract the first available protocol for the given referable.
+
+        :param referable: The Referable object to check for available protocols
+        :return: The first available Protocol, or None if no protocols are available
+        """
+        model_ref = ModelReference.from_referable(referable)
+        hash_value = self.generate_model_reference_hash(model_ref)
+        
+        if hash_value in self._mapping:
+            available_protocols = list(self._mapping[hash_value].keys())
+            if available_protocols:
+                return available_protocols[0]
+        
+        return None
+
     def find_source(self, obj, protocol) -> Tuple[Optional["model.Referable"], Optional[List[str]]]:  # type: ignore
         """
         Finds the closest source in this object's ancestors. If there is no source, returns None
@@ -342,13 +365,22 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
             break
         return None, None
 
-    def commit_identifiable(self, referable: "model.Referable", protocol) -> None:
+    def commit_identifiable(self, referable: "model.Referable", protocol: Optional[Protocol] = None) -> None:
         """
         Transfer local changes on this object to all underlying external data sources.
 
         This function commits the current state of this object to its own and each external data source of its
         ancestors. If there is no source, this function will do nothing.
+
+        :param referable: The Referable object to commit
+        :param protocol: The protocol to use for committing. If None, the first available protocol will be used.
         """
+        if protocol is None:
+            protocol = self._get_first_available_protocol(referable)
+            if protocol is None:
+                print(f"No available protocol found for referable {referable.id_short}")
+                return
+
         current_ancestor = referable.parent
         relative_path: List[NameType] = [referable.id_short]
         # Commit to all ancestors with sources
@@ -387,15 +419,21 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
 
     def update_referable_value(self,
                                referable: "model.Referable",
-                               protocol: Protocol) -> None:
+                               protocol: Optional[Protocol] = None) -> None:
         """
         Update the value of a Referable object from the external data source,
         using an appropriate backend.
 
         :param referable: The Referable object whose value to update
-        :param protocol: The protocol to use for updating
+        :param protocol: The protocol to use for updating. If None, the first available protocol will be used.
         :raises backends.BackendError: If no appropriate backend or the data source is not available
         """
+        if protocol is None:
+            protocol = self._get_first_available_protocol(referable)
+            if protocol is None:
+                print(f"No available protocol found for referable {referable.id_short}")
+                return
+
         source = self.get_source(referable, protocol)
         if source:
             backends.get_backend(protocol).update_value(
@@ -405,16 +443,22 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
             print(f"No source found for referable {referable.id_short} with protocol {protocol}")
 
     def commit_referable_value(self,
-                               referable: "model.Referable",
-                               protocol: Protocol) -> None:
+                                referable: "model.Referable",
+                                protocol: Optional[Protocol] = None) -> None:
         """
         Commit the value of a Referable object to the external data source,
         using an appropriate backend.
 
         :param referable: The Referable object whose value to commit
-        :param protocol: The protocol to use for committing
+        :param protocol: The protocol to use for committing. If None, the first available protocol will be used.
         :raises backends.BackendError: If no appropriate backend or the data source is not available
         """
+        if protocol is None:
+            protocol = self._get_first_available_protocol(referable)
+            if protocol is None:
+                print(f"No available protocol found for referable {referable.id_short}")
+                return
+
         source = self.get_source(referable, protocol)
         if source:
             backends.get_backend(protocol).commit_value(
@@ -425,7 +469,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
 
     def subscribe_referable_value(self,
                                   referable: "model.Referable",
-                                  protocol: Protocol) -> None:
+                                  protocol: Optional[Protocol] = None) -> None:
         """
         Subscribe the value of a Referable object from the external data source,
         using an appropriate backend.
@@ -434,6 +478,12 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         :param protocol: The protocol to use for updating
         :raises backends.BackendError: If no appropriate backend or the data source is not available
         """
+        if protocol is None:
+            protocol = self._get_first_available_protocol(referable)
+            if protocol is None:
+                print(f"No available protocol found for referable {referable.id_short}")
+                return
+
         source = self.get_source(referable, protocol)
         if source:
             backends.get_backend(protocol).update_value(
@@ -444,7 +494,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
 
     def publish_referable_value(self,
                                 referable: "model.Referable",
-                                protocol: Protocol) -> None:
+                                protocol: Optional[Protocol] = None) -> None:
         """
         Publish the value of a Referable object to the external data source,
         using an appropriate backend.
@@ -453,6 +503,12 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         :param protocol: The protocol to use for committing
         :raises backends.BackendError: If no appropriate backend or the data source is not available
         """
+        if protocol is None:
+            protocol = self._get_first_available_protocol(referable)
+            if protocol is None:
+                print(f"No available protocol found for referable {referable.id_short}")
+                return
+
         source = self.get_source(referable, protocol)
         if source:
             backends.get_backend(protocol).commit_value(

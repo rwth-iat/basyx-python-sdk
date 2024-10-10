@@ -77,7 +77,11 @@ http_status = sm_operation.get_referable('HTTP_Data').get_referable('status')
 
 # Update 'voltage' data and 'current' data
 obj_store.update_referable_value(http_voltage, Protocol.HTTP)
-obj_store.update_referable_value(http_current, Protocol.HTTP)
+
+# Update 'current' data as well as 'voltage' data.
+# As described above, the 'current' Property is not part of the AIMC Submodel.
+# If no protocol type is provided, the ObjectStore will use the first available protocol (here HTTP) for the operation
+obj_store.update_referable_value(http_current)
 
 # Attempt to update 'status' (won't occur as it's set for commit operation)
 obj_store.update_referable_value(http_status, Protocol.HTTP)
