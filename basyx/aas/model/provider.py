@@ -13,11 +13,11 @@ This module implements Registries for the AAS, in order to enable resolving glob
 import abc
 import hashlib
 from typing import List, Optional, TypeVar, MutableSet, Generic, \
-    Iterable, Dict, Iterator, Tuple, Union, Any, TYPE_CHECKING
+    Iterable, Dict, Iterator, Tuple, Any, TYPE_CHECKING
 
-from basyx.aas.model.base import Referable, Identifiable, Identifier, UniqueIdShortNamespace, NameType, NamespaceSet
-from basyx.aas.model import Submodel, ModelReference
 from basyx.aas.backend import backends
+from basyx.aas.model import Submodel, ModelReference
+from basyx.aas.model.base import Referable, Identifiable, Identifier, UniqueIdShortNamespace, NameType
 from basyx.aas.model.protocols import Protocol, ProtocolExtractor
 
 if TYPE_CHECKING:
@@ -233,7 +233,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
 
         return hashlib.sha256(key_str.encode()).hexdigest()
 
-    def add_source(self, referable: "model.Referable", protocol: Protocol, source: Union[str, dict]):
+    def add_source(self, referable: "model.Referable", protocol: Protocol, source: Any) -> None:
         """
         Add a corresponding source to the mapping table. The input is extracted either from the AID or custom input.
         TODO: adapt the source dict to a source class
@@ -245,7 +245,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
 
         self._mapping[hash_value][protocol] = source
 
-    def get_source(self, referable: "model.Referable", protocol: Protocol) -> Optional[Union[str, dict]]:
+    def get_source(self, referable: "model.Referable", protocol: Protocol) -> Optional[Any]:
         """
         find the source for the given referable and protocol
         """

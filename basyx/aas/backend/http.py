@@ -15,7 +15,7 @@ from basyx.aas.model.protocols import ProtocolExtractor, Protocol
 
 class HTTPBackend(backends.ValueBackend):
     @classmethod
-    def _parse_source(cls, source: Dict[str, Any]) -> Dict[str, Any]:
+    def _parse_source(cls, source: Any) -> Dict[str, Any]:
         """
         Parses the source dictionary to extract all parameters needed for HTTP requests.
         """
@@ -50,7 +50,7 @@ class HTTPBackend(backends.ValueBackend):
     @classmethod
     def update_value(cls,
                      updated_object: model.Referable,
-                     source: Dict[str, Any]) -> None:
+                     source: Any) -> None:
         """
         Updates an object by fetching the latest state from the HTTP server.
         """
@@ -82,7 +82,7 @@ class HTTPBackend(backends.ValueBackend):
     @classmethod
     def commit_value(cls,
                      committed_object: model.Referable,
-                     source: Dict[str, Any]) -> None:
+                     source: Any) -> None:
         """
         Commits an object to the HTTP server.
         """

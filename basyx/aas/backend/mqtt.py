@@ -15,7 +15,7 @@ from basyx.aas.model.protocols import Protocol
 
 class MQTTBackend(backends.ValueBackend):
     @classmethod
-    def _parse_source(cls, source: Dict[str, Any]) -> Dict[str, Any]:
+    def _parse_source(cls, source: Any) -> Dict[str, Any]:
         """
         Parses the source dictionary to extract MQTT connection details.
         """
@@ -52,7 +52,7 @@ class MQTTBackend(backends.ValueBackend):
     @classmethod
     def update_value(cls,
                      updated_object: model.Referable,
-                     source: Dict[str, Any]) -> None:
+                     source: Any) -> None:
         """
         Updates an object by subscribing to the MQTT topic and receiving the latest state.
         """
@@ -100,7 +100,7 @@ class MQTTBackend(backends.ValueBackend):
     @classmethod
     def commit_value(cls,
                      committed_object: model.Referable,
-                     source: Dict[str, Any]) -> None:
+                     source: Any) -> None:
         """
         Commits an object by publishing to the MQTT topic.
         """

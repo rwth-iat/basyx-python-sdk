@@ -60,7 +60,7 @@ class ObjectBackend(Backend):
                       committed_object: "Referable",
                       store_object: "Referable",
                       relative_path: List[str],
-                      source: [Any]) -> None:
+                      source: Any) -> None:
         """
         Function (class method) to be called when an object shall be
         committed (local changes pushed to the external data source)
@@ -116,7 +116,7 @@ class ObjectBackend(Backend):
                       updated_object: "Referable",
                       store_object: "Referable",
                       relative_path: List[str],
-                      source: [Any]) -> None:
+                      source: Any) -> None:
         """
         Function (class method) to be called when an object shall be
         updated (local object updated with changes from the external
@@ -172,7 +172,7 @@ class ValueBackend(Backend):
     @abc.abstractmethod
     def commit_value(cls,
                      committed_object: "Referable",
-                     source: [Any]) -> None:
+                     source: Any) -> None:
         """
         Function (class method) to commit a Referable's value to the external data source.
         """
@@ -181,7 +181,7 @@ class ValueBackend(Backend):
     @abc.abstractmethod
     def update_value(cls,
                      updated_object: "Referable",
-                     source: [Any]) -> None:
+                     source: Any) -> None:
         """
         Function (class method) to update a Referable's value from the external data source.
         """
