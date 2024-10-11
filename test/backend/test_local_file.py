@@ -11,7 +11,7 @@ import unittest.mock
 
 from basyx.aas.backend import local_file
 from basyx.aas.examples.data.example_aas import *
-
+from basyx.aas.model import Protocol
 
 store_path: str = os.path.dirname(__file__) + "/local_file_test_folder"
 source_core: str = "file://localhost/{}/".format(store_path)
@@ -116,9 +116,13 @@ class LocalFileBackendTest(unittest.TestCase):
         test_object = create_example_submodel()
         self.object_store.add(test_object)
 
+        # Create an ObjectStore and add the source
+        obj_store: model.DictObjectStore = model.DictObjectStore()
+        source = test_object.source
+        obj_store.add_source(test_object, Protocol.FILE, source)
+
         # Test if commit uploads changes
         test_object.id_short = "SomeNewIdShort"
-        obj_store: model.DictObjectStore = model.DictObjectStore()
         obj_store.commit_identifiable(test_object)
 
         # Test if update restores changes

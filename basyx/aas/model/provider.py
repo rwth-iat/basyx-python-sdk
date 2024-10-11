@@ -252,7 +252,6 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         model_ref = ModelReference.from_referable(referable)
         hash_value = self.generate_model_reference_hash(model_ref)
         if hash_value not in self._mapping:
-            print("Source is not available")
             return None
 
         if protocol not in self._mapping[hash_value]:
