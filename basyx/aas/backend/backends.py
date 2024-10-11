@@ -28,8 +28,8 @@ requests for a specific URI schema, using
 :meth:`~basyx.aas.backend.backends.register_backend`.
 """
 import abc
-import re
 from typing import List, Dict, Type, TYPE_CHECKING, Any
+
 from basyx.aas.model.protocols import Protocol
 
 if TYPE_CHECKING:

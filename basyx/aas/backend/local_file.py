@@ -11,7 +11,7 @@ in local files.
 The :class:`~.LocalFileBackend` takes care of updating and committing objects from and to the files, while the
 :class:`~LocalFileObjectStore` handles adding, deleting and otherwise managing the AAS objects in a specific Directory.
 """
-from typing import List, Iterator, Iterable, Union
+from typing import List, Iterator, Optional
 import logging
 import json
 import os
@@ -22,7 +22,7 @@ import weakref
 from . import backends
 from ..adapter.json import json_serialization, json_deserialization
 from basyx.aas import model
-
+from basyx.aas.model.protocols import Protocol
 
 logger = logging.getLogger(__name__)
 
@@ -40,34 +40,33 @@ class LocalFileBackend(backends.ObjectBackend):
                       updated_object: model.Referable,
                       store_object: model.Referable,
                       relative_path: List[str],
-                      source: str) -> None:
+                      source: Optional[str] = None) -> None:
         # TODO: adapt the local file backend to the new update_object method
 
         if not isinstance(store_object, model.Identifiable):
             raise FileBackendSourceError("The given store_object is not Identifiable, therefore cannot be found "
                                          "in the FileBackend")
-        file_name: str = store_object.source.replace("file://localhost/", "")
+        file_name: str = source.replace("file://localhost/", "")
         with open(file_name, "r") as file:
             data = json.load(file, cls=json_deserialization.AASFromJsonDecoder)
             updated_store_object = data["data"]
-            obj_store: model.DictObjectStore = model.DictObjectStore()
-            obj_store.update_from(store_object, updated_store_object)
+            store_object.update_from(updated_store_object)
 
     @classmethod
     def commit_object(cls,
                       committed_object: model.Referable,
                       store_object: model.Referable,
                       relative_path: List[str],
-                      source: str) -> None:
+                      source: Optional[str] = None) -> None:
         if not isinstance(store_object, model.Identifiable):
             raise FileBackendSourceError("The given store_object is not Identifiable, therefore cannot be found "
                                          "in the FileBackend")
-        file_name: str = store_object.source.replace("file://localhost/", "")
+        file_name: str = source.replace("file://localhost/", "")
         with open(file_name, "w") as file:
             json.dump({'data': store_object}, file, cls=json_serialization.AASToJsonEncoder, indent=4)
 
 
-backends.register_backend("file", LocalFileBackend)
+backends.register_backend(Protocol.FILE, LocalFileBackend)
 
 
 class LocalFileObjectStore(model.AbstractObjectStore):
@@ -127,8 +126,7 @@ class LocalFileObjectStore(model.AbstractObjectStore):
                 # If the source does not match the correct source for this CouchDB backend, the object seems to belong
                 # to another backend now, so we return a fresh copy
                 if old_obj.source == obj.source:
-                    obj_store: model.DictObjectStore = model.DictObjectStore()
-                    obj_store.update_from(old_obj, obj)
+                    old_obj.update_from(obj)
                     return old_obj
         self._object_cache[obj.id] = obj
         return obj

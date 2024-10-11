@@ -262,8 +262,7 @@ class ReferableTest(unittest.TestCase):
         other_relel.category = "NewRelElCat"
 
         # Test basic functionality
-        obj_store: model.DictObjectStore = model.DictObjectStore()
-        obj_store.update_from(example_submodel, other_submodel)
+        example_submodel.update_from(other_submodel)
         self.assertEqual("NewCat", example_submodel.category)
         self.assertEqual("NewRelElCat", example_relel.category)
         # References to Referable objects shall remain stable

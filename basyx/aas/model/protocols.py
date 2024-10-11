@@ -15,6 +15,7 @@ class Protocol(Enum):
     MQTT = "MQTT"
     MODBUS = "MODBUS"
     COUCHDB = "COUCHDB"
+    FILE = "Local File"
 
 
 class ProtocolExtractorError(Exception):
