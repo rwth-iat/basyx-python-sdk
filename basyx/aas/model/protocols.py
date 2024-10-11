@@ -63,25 +63,30 @@ class ProtocolExtractor:
         return parameters
 
     def determine_protocol(self, interface_element: model.SubmodelElementCollection) -> Optional[Protocol]:
-        if self.check_identifier(interface_element, "http"):
+        if interface_element.id_short and self.check_identifier(interface_element, "http"):
             return Protocol.HTTP
-        elif self.check_identifier(interface_element, "mqtt"):
+        elif interface_element.id_short and self.check_identifier(interface_element, "mqtt"):
             return Protocol.MQTT
-        elif self.check_identifier(interface_element, "modbus"):
+        elif interface_element.id_short and self.check_identifier(interface_element, "modbus"):
             return Protocol.MODBUS
         return None
 
     @staticmethod
     def check_identifier(element: model.Referable, identifier: str) -> bool:
+        # Check if identifier is None or empty
+        if not identifier:
+            return False
+
         identifier = identifier.lower()
+
         # Check idShort
-        if identifier in element.id_short.lower():
+        if element.id_short and identifier in element.id_short.lower():
             return True
 
         # Check semanticId
         if element.semantic_id and isinstance(element.semantic_id, model.ExternalReference):
             for key in element.semantic_id.key:
-                if identifier in key.value.lower():
+                if key.value and identifier in key.value.lower():
                     return True
 
         # Check supplemental_semantic_ids
@@ -90,7 +95,7 @@ class ProtocolExtractor:
             for semantic_id in element.supplemental_semantic_id:
                 if isinstance(semantic_id, model.ExternalReference):
                     for key in semantic_id.key:
-                        if identifier in key.value.lower():
+                        if key.value and identifier in key.value.lower():
                             return True
 
         return False
