@@ -7,7 +7,7 @@
 
 import unittest
 from unittest import mock
-from typing import Callable, Dict, Iterable, List, Optional, Type, TypeVar
+from typing import Callable, Dict, Iterable, List, Optional, Type, TypeVar, Any
 from collections import OrderedDict
 
 from basyx.aas import model
@@ -57,18 +57,20 @@ class ExampleRefereableWithNamespace(model.Referable, model.UniqueIdShortNamespa
         super().__init__()
 
 
-class MockBackend(backends.Backend):
+class MockBackend(backends.ObjectBackend):
     @classmethod
     def update_object(cls,
-                      updated_object: "Referable",  # type: ignore
-                      store_object: "Referable",  # type: ignore
-                      relative_path: List[str]) -> None: ...
+                      updated_object: "Referable",
+                      store_object: "Referable",
+                      relative_path: List[str],
+                      source: Any) -> None: ...
 
     @classmethod
     def commit_object(cls,
-                      committed_object: "Referable",  # type: ignore
-                      store_object: "Referable",  # type: ignore
-                      relative_path: List[str]) -> None: ...
+                      committed_object: "Referable",
+                      store_object: "Referable",
+                      relative_path: List[str],
+                      source: Any) -> None: ...
 
     update_object = mock.Mock()
     commit_object = mock.Mock()
@@ -277,7 +279,7 @@ class ReferableTest(unittest.TestCase):
         other_submodel.source = "scheme:NewSource"
         other_relel.source = "scheme:NewRelElSource"
 
-        obj_store.update_from(example_submodel, other_submodel)
+        example_submodel.update_from(other_submodel)
         # Sources of the object itself should not be updated by default
         self.assertEqual("", example_submodel.source)
         # Sources of embedded objects should always be updated
