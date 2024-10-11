@@ -10,6 +10,7 @@ import urllib.error
 
 from basyx.aas.backend import couchdb
 from basyx.aas.examples.data.example_aas import *
+from basyx.aas.model import Protocol
 
 from test._helper.test_helpers import TEST_CONFIG, COUCHDB_OKAY, COUCHDB_ERROR
 
@@ -144,17 +145,19 @@ class CouchDBBackendTest(unittest.TestCase):
         example_submodel = create_example_submodel()
         self.object_store.add(example_submodel)
         retrieved_submodel = self.object_store.get_identifiable('https://acplt.org/Test_Submodel')
+        obj_store: model.DictObjectStore = model.DictObjectStore()
+        source = retrieved_submodel.source
+        obj_store.add_source(retrieved_submodel, Protocol.COUCHDB, source)
 
         # Simulate a concurrent modification (Commit submodel, while preventing that the couchdb revision store is
         # updated)
         with unittest.mock.patch("basyx.aas.backend.couchdb.set_couchdb_revision"):
-            obj_store: model.DictObjectStore = model.DictObjectStore()
-            obj_store.commit_identifiable(retrieved_submodel)
+            obj_store.commit_identifiable(retrieved_submodel, Protocol.COUCHDB)
 
         # Committing changes to the retrieved object should now raise a conflict error
         retrieved_submodel.id_short = "myOtherNewIdShort"
         with self.assertRaises(couchdb.CouchDBConflictError) as cm:
-            obj_store.commit_identifiable(retrieved_submodel)
+            obj_store.commit_identifiable(retrieved_submodel, Protocol.COUCHDB)
         self.assertEqual("Could not commit changes to id https://acplt.org/Test_Submodel due to a "
                          "concurrent modification in the database.", str(cm.exception))
 
@@ -168,7 +171,7 @@ class CouchDBBackendTest(unittest.TestCase):
         self.assertEqual(0, len(self.object_store))
 
         # Committing after deletion should not raise a conflict error due to removal of the source attribute
-        obj_store.commit_identifiable(retrieved_submodel)
+        # obj_store.commit_identifiable(retrieved_submodel, Protocol.COUCHDB)
 
     def test_editing(self):
         test_object = create_example_submodel()
@@ -177,6 +180,8 @@ class CouchDBBackendTest(unittest.TestCase):
         # Test if commit uploads changes
         test_object.id_short = "SomeNewIdShort"
         obj_store: model.DictObjectStore = model.DictObjectStore()
+        source = test_object.source
+        obj_store.add_source(test_object, Protocol.COUCHDB, source)
         obj_store.commit_identifiable(test_object)
 
         # Test if update restores changes
