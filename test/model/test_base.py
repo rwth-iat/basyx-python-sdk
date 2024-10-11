@@ -6,12 +6,10 @@
 # SPDX-License-Identifier: MIT
 
 import unittest
-from unittest import mock
-from typing import Callable, Dict, Iterable, List, Optional, Type, TypeVar, Any
+from typing import Callable, Dict, Iterable, List, Optional, Type, TypeVar
 from collections import OrderedDict
 
 from basyx.aas import model
-from basyx.aas.backend import backends
 from basyx.aas.model import Identifier, Identifiable
 from basyx.aas.examples.data import example_aas
 
@@ -50,73 +48,6 @@ class KeyTest(unittest.TestCase):
 class ExampleReferable(model.Referable):
     def __init__(self):
         super().__init__()
-
-
-class ExampleRefereableWithNamespace(model.Referable, model.UniqueIdShortNamespace):
-    def __init__(self):
-        super().__init__()
-
-
-class MockBackend(backends.ObjectBackend):
-    @classmethod
-    def update_object(cls,
-                      updated_object: "Referable",
-                      store_object: "Referable",
-                      relative_path: List[str],
-                      source: Any) -> None: ...
-
-    @classmethod
-    def commit_object(cls,
-                      committed_object: "Referable",
-                      store_object: "Referable",
-                      relative_path: List[str],
-                      source: Any) -> None: ...
-
-    update_object = mock.Mock()
-    commit_object = mock.Mock()
-
-
-class ExampleIdentifiable(model.Identifiable):
-    def __init__(self):
-        super().__init__()
-
-
-def generate_example_referable_tree() -> model.Referable:
-    """
-    Generates an example referable tree, built like this:
-
-        example_grandparent -> example_parent -> example_referable -> example_child -> example_grandchild
-        example_grandparent and example_grandchild both have an nonempty source, pointing to the mock-backend
-
-    :return: example_referable
-    """
-
-    def generate_example_referable_with_namespace(id_short: model.NameType,
-                                                  child: Optional[model.Referable] = None) -> model.Referable:
-        """
-        Generates an example referable with a namespace.
-
-        :param id_short: id_short of the referable created
-        :param child: Child to be added to the namespace sets of the Referable
-        :return: The generated Referable
-        """
-        referable = ExampleRefereableWithNamespace()
-        referable.id_short = id_short
-        if child:
-            namespace_set = model.NamespaceSet(parent=referable, attribute_names=[("id_short", True)],
-                                               items=[child])
-        return referable
-
-    example_grandchild = generate_example_referable_with_namespace("exampleGrandchild")
-    example_child = generate_example_referable_with_namespace("exampleChild", example_grandchild)
-    example_referable = generate_example_referable_with_namespace("exampleReferable", example_child)
-    example_parent = generate_example_referable_with_namespace("exampleParent", example_referable)
-    example_grandparent = generate_example_referable_with_namespace("exampleGrandparent", example_parent)
-
-    example_grandchild.source = "mockScheme:exampleGrandchild"
-    example_grandparent.source = "mockScheme:exampleGrandparent"
-
-    return example_referable
 
 
 class ReferableTest(unittest.TestCase):
@@ -158,100 +89,6 @@ class ReferableTest(unittest.TestCase):
             ref.__repr__()
         self.assertEqual('Referable must have an identifiable as root object and only parents that are referable',
                          str(cm.exception))
-
-    def test_update(self):
-        backends.register_backend("mockScheme", MockBackend)
-        example_referable = generate_example_referable_tree()
-        example_grandparent = example_referable.parent.parent
-        example_grandchild = example_referable.get_referable("exampleChild").get_referable("exampleGrandchild")
-
-        # Test update with parameter "recursive=False"
-        obj_store: model.DictObjectStore = model.DictObjectStore()
-        obj_store.update_identifiable(example_referable, recursive=False)
-        MockBackend.update_object.assert_called_once_with(
-            updated_object=example_referable,
-            store_object=example_grandparent,
-            relative_path=["exampleGrandparent", "exampleParent", "exampleReferable"]
-        )
-        MockBackend.update_object.reset_mock()
-
-        # Test update with parameter "recursive=True"
-        obj_store.update_identifiable(example_referable)
-        self.assertEqual(MockBackend.update_object.call_count, 2)
-        MockBackend.update_object.assert_has_calls([
-            mock.call(updated_object=example_referable,
-                      store_object=example_grandparent,
-                      relative_path=["exampleGrandparent", "exampleParent", "exampleReferable"]),
-            mock.call(updated_object=example_grandchild,
-                      store_object=example_grandchild,
-                      relative_path=[])
-        ])
-        MockBackend.update_object.reset_mock()
-
-        # Test update with source != "" in example_referable
-        example_referable.source = "mockScheme:exampleReferable"
-        obj_store.update_identifiable(example_referable, recursive=False)
-        MockBackend.update_object.assert_called_once_with(
-            updated_object=example_referable,
-            store_object=example_referable,
-            relative_path=[]
-        )
-        MockBackend.update_object.reset_mock()
-
-        # Test update with no source available
-        example_grandparent.source = ""
-        example_referable.source = ""
-        obj_store.update_identifiable(example_referable, recursive=False)
-        MockBackend.update_object.assert_not_called()
-
-    def test_commit(self):
-        backends.register_backend("mockScheme", MockBackend)
-        example_referable = generate_example_referable_tree()
-        example_grandparent = example_referable.parent.parent
-        example_grandchild = example_referable.get_referable("exampleChild").get_referable("exampleGrandchild")
-
-        # Test commit starting from example_referable
-        obj_store: model.DictObjectStore = model.DictObjectStore()
-        obj_store.commit_identifiable(example_referable)
-        self.assertEqual(MockBackend.commit_object.call_count, 2)
-        MockBackend.commit_object.assert_has_calls([
-            mock.call(committed_object=example_referable,
-                      store_object=example_grandparent,
-                      relative_path=["exampleParent", "exampleReferable"]),
-            mock.call(committed_object=example_grandchild,
-                      store_object=example_grandchild,
-                      relative_path=[])
-        ])
-        MockBackend.commit_object.reset_mock()
-
-        # Test commit starting from example_grandchild
-        obj_store.commit_identifiable(example_grandchild)
-        self.assertEqual(MockBackend.commit_object.call_count, 2)
-        MockBackend.commit_object.assert_has_calls([
-            mock.call(committed_object=example_grandchild,
-                      store_object=example_grandparent,
-                      relative_path=["exampleParent", "exampleReferable", "exampleChild", "exampleGrandchild"]),
-            mock.call(committed_object=example_grandchild,
-                      store_object=example_grandchild,
-                      relative_path=[])
-        ])
-        MockBackend.commit_object.reset_mock()
-
-        # Test commit starting from example_grandchild after adding a source to example_referable
-        example_referable.source = "mockScheme:exampleReferable"
-        obj_store.commit_identifiable(example_grandchild)
-        self.assertEqual(MockBackend.commit_object.call_count, 3)
-        MockBackend.commit_object.assert_has_calls([
-            mock.call(committed_object=example_grandchild,
-                      store_object=example_referable,
-                      relative_path=["exampleChild", "exampleGrandchild"]),
-            mock.call(committed_object=example_grandchild,
-                      store_object=example_grandparent,
-                      relative_path=["exampleParent", "exampleReferable", "exampleChild", "exampleGrandchild"]),
-            mock.call(committed_object=example_grandchild,
-                      store_object=example_grandchild,
-                      relative_path=[])
-        ])
 
     def test_update_from(self):
         example_submodel = example_aas.create_example_submodel()
