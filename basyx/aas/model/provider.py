@@ -13,7 +13,7 @@ This module implements Registries for the AAS, in order to enable resolving glob
 import abc
 import hashlib
 from typing import List, Optional, TypeVar, MutableSet, Generic, \
-    Iterable, Dict, Iterator, Tuple, Any, TYPE_CHECKING
+    Iterable, Dict, Iterator, Tuple, Any, TYPE_CHECKING, Union
 
 from basyx.aas.backend import backends
 from basyx.aas.model import Submodel, ModelReference
@@ -262,7 +262,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
 
     def update_identifiable(self,
                             referable: "model.Referable",
-                            protocol: Optional[Protocol] = None,
+                            protocol: Optional[Union[Protocol, str]] = None,
                             max_age: float = 0,
                             recursive: bool = True,
                             _indirect_source: bool = True) -> None:
@@ -365,7 +365,8 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
             break
         return None, None
 
-    def commit_identifiable(self, referable: "model.Referable", protocol: Optional[Protocol] = None) -> None:
+    def commit_identifiable(self, referable: "model.Referable", protocol: Optional[Union[Protocol, str]] = None)\
+            -> None:
         """
         Transfer local changes on this object to all underlying external data sources.
 
@@ -419,7 +420,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
 
     def update_referable_value(self,
                                referable: "model.Referable",
-                               protocol: Optional[Protocol] = None) -> None:
+                               protocol: Optional[Union[Protocol, str]] = None) -> None:
         """
         Update the value of a Referable object from the external data source,
         using an appropriate backend.
@@ -444,7 +445,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
 
     def commit_referable_value(self,
                                 referable: "model.Referable",
-                                protocol: Optional[Protocol] = None) -> None:
+                                protocol: Optional[Union[Protocol, str]] = None) -> None:
         """
         Commit the value of a Referable object to the external data source,
         using an appropriate backend.
@@ -469,7 +470,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
 
     def subscribe_referable_value(self,
                                   referable: "model.Referable",
-                                  protocol: Optional[Protocol] = None) -> None:
+                                  protocol: Optional[Union[Protocol, str]] = None) -> None:
         """
         Subscribe the value of a Referable object from the external data source,
         using an appropriate backend.
@@ -494,7 +495,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
 
     def publish_referable_value(self,
                                 referable: "model.Referable",
-                                protocol: Optional[Protocol] = None) -> None:
+                                protocol: Optional[Union[Protocol, str]] = None) -> None:
         """
         Publish the value of a Referable object to the external data source,
         using an appropriate backend.
