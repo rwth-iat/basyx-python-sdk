@@ -16,6 +16,7 @@ class Protocol(Enum):
     MODBUS = "MODBUS"
     COUCHDB = "COUCHDB"
     FILE = "Local File"
+    MOCK = "Mock"
 
 
 class ProtocolExtractorError(Exception):
