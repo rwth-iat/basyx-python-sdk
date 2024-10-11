@@ -14,8 +14,8 @@ from pathlib import Path
 
 import basyx.aas.examples.data.example_aas
 import basyx.aas.backend.couchdb
-from basyx.aas import model
-from basyx.aas.model.provider import Protocol
+from basyx.aas.model import DictObjectStore
+from basyx.aas.model.protocols import Protocol
 
 # To execute this tutorial, you'll need a running CouchDB server,
 # including an empty database and a user account with access to that
@@ -113,12 +113,22 @@ object_store.add(example_submodel2)
 # application, so the CouchDB backend is loaded.
 
 # Fetch recent updates from the server
-obj_store: model.DictObjectStore = model.DictObjectStore()
-obj_store.update_identifiable(example_submodel1)
+obj_store: DictObjectStore = DictObjectStore()
+
+# Add source information of the example_submodel1 into the mapping table.
+source = example_submodel1.source
+obj_store.add_source(example_submodel1, Protocol.COUCHDB, source)
+obj_store.update_identifiable(example_submodel1, Protocol.COUCHDB)
+
+# Backup delete
+# object_store.discard(example_submodel1)
 
 # Make some changes to a Property within the submodel
 prop = example_submodel1.get_referable('ManufacturerName')
 assert isinstance(prop, basyx.aas.model.Property)
+
+obj_store.update_identifiable(prop, Protocol.COUCHDB)
+
 
 prop.value = "RWTH Aachen"
 example_submodel1.id_short = 'NewIdShort'
@@ -129,8 +139,7 @@ example_submodel1.id_short = 'NewIdShort'
 # source attribute of all ancestors in the object hierarchy (
 # including the Submodel) and commit the changes to all of these
 # external data sources.
-obj_store.commit_identifiable(example_submodel1)
-
+obj_store.commit_identifiable(example_submodel1, protocol=Protocol.COUCHDB)
 
 ############
 # Clean up #
