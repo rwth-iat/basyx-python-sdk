@@ -257,6 +257,5 @@ class UnknownBackendException(BackendError):
 
 
 class BackendNotAvailableException(BackendError):
-    """Raised, if the backend does exist in the registry, but is not
-    available for some reason"""
+    """Raised, if the backend does exist in the registry, but is not available for some reason"""
     pass
