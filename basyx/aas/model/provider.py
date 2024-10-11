@@ -386,7 +386,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         # Commit to all ancestors with sources
         while current_ancestor:
             assert isinstance(current_ancestor, Referable)
-            source = self.get_source(referable, protocol)
+            source = self.get_source(current_ancestor, protocol)
             if source:
                 backends.get_backend(protocol).commit_object(
                     committed_object=referable,

@@ -9,6 +9,7 @@ import unittest
 from typing import List, Optional, Any
 
 from basyx.aas import model
+from basyx.aas.model import Protocol
 from basyx.aas.backend import backends
 from unittest import mock
 
@@ -69,19 +70,20 @@ def generate_example_referable_tree() -> model.Referable:
         return referable
 
     example_submodel = model.Submodel(
-        id_='https://acplt.org/Simple_Submodel'
+        id_='https://acplt.org/Simple_Submodel',
+        id_short= "exampleSubmodel"
     )
     example_grandchild = generate_example_referable_with_namespace("exampleGrandchild")
     example_child = generate_example_referable_with_namespace("exampleChild", example_grandchild)
     example_referable = generate_example_referable_with_namespace("exampleReferable", example_child)
     example_parent = generate_example_referable_with_namespace("exampleParent", example_referable)
     example_grandparent = generate_example_referable_with_namespace("exampleGrandparent", example_parent)
+    example_submodel.submodel_element.add(example_grandparent)
 
     example_grandchild.source = "mockScheme:exampleGrandchild"
     example_grandparent.source = "mockScheme:exampleGrandparent"
-    example_referable.source = "mockScheme:exampleReferable"
+    example_submodel.source = "mockScheme:exampleSubmodel"
 
-    example_submodel.submodel_element.add(example_grandparent)
 
     return example_referable
 
@@ -147,16 +149,18 @@ class ProvidersTest(unittest.TestCase):
         self.assertEqual("'Identifier could not be found in any of the 2 consulted registries.'", str(cm.exception))
 
     def test_update(self):
-        backends.register_backend("mockScheme", MockBackend)
+        backends.register_backend(Protocol.MOCK, MockBackend)
         example_referable = generate_example_referable_tree()
         example_grandparent = example_referable.parent.parent
         example_grandchild = example_referable.get_referable("exampleChild").get_referable("exampleGrandchild")
+        example_submodel = example_grandparent.parent
+
+        obj_store: model.DictObjectStore = model.DictObjectStore()
+        obj_store.add_source(example_grandparent, Protocol.MOCK, example_grandparent.source)
+        obj_store.add_source(example_grandchild, Protocol.MOCK, example_grandchild.source)
 
         # Test update with parameter "recursive=False"
-        obj_store: model.DictObjectStore = model.DictObjectStore()
-        obj_store.add_source(example_grandparent, "mockScheme", example_grandparent.source)
-        obj_store.add_source(example_grandchild, "mockScheme", example_grandchild.source)
-        obj_store.update_identifiable(example_referable, recursive=False, protocol="mockScheme")
+        obj_store.update_identifiable(example_referable, recursive=False, protocol=Protocol.MOCK)
         MockBackend.update_object.assert_called_once_with(
             updated_object=example_referable,
             store_object=example_grandparent,
@@ -166,7 +170,7 @@ class ProvidersTest(unittest.TestCase):
         MockBackend.update_object.reset_mock()
 
         # Test update with parameter "recursive=True"
-        obj_store.update_identifiable(example_referable)
+        obj_store.update_identifiable(example_referable, protocol=Protocol.MOCK)
         self.assertEqual(MockBackend.update_object.call_count, 2)
         MockBackend.update_object.assert_has_calls([
             mock.call(updated_object=example_referable,
@@ -182,7 +186,8 @@ class ProvidersTest(unittest.TestCase):
 
         # Test update with source != "" in example_referable
         example_referable.source = "mockScheme:exampleReferable"
-        obj_store.update_identifiable(example_referable, recursive=False)
+        obj_store.add_source(example_referable, Protocol.MOCK, example_referable.source)
+        obj_store.update_identifiable(example_referable, recursive=False, protocol=Protocol.MOCK)
         MockBackend.update_object.assert_called_once_with(
             updated_object=example_referable,
             store_object=example_referable,
@@ -192,28 +197,37 @@ class ProvidersTest(unittest.TestCase):
         MockBackend.update_object.reset_mock()
 
         # Test update with no source available
-        example_grandparent.source = ""
-        example_referable.source = ""
-        obj_store.update_identifiable(example_referable, recursive=False)
+        example_grandparent.source = None
+        example_referable.source = None
+        obj_store.add_source(example_grandparent, Protocol.MOCK, example_grandparent.source)
+        obj_store.add_source(example_referable, Protocol.MOCK, example_referable.source)
+        obj_store.update_identifiable(example_referable, recursive=False, protocol=Protocol.MOCK)
         MockBackend.update_object.assert_not_called()
 
     def test_commit(self):
-        backends.register_backend("mockScheme", MockBackend)
+        backends.register_backend(Protocol.MOCK, MockBackend)
         example_referable = generate_example_referable_tree()
         example_grandparent = example_referable.parent.parent
         example_grandchild = example_referable.get_referable("exampleChild").get_referable("exampleGrandchild")
+        example_submodel = example_grandparent.parent
+
+        obj_store: model.DictObjectStore = model.DictObjectStore()
+        obj_store.add_source(example_grandparent, Protocol.MOCK, example_grandparent.source)
+        obj_store.add_source(example_grandchild, Protocol.MOCK, example_grandchild.source)
+        obj_store.add_source(example_submodel, Protocol.MOCK, example_submodel.source)
 
         # Test commit starting from example_referable
-        obj_store: model.DictObjectStore = model.DictObjectStore()
-        obj_store.add_source(example_grandparent, "mockScheme", example_grandparent.source)
-        obj_store.add_source(example_grandchild, "mockScheme", example_grandchild.source)
-        obj_store.commit_identifiable(example_referable, protocol="mockScheme")
-        self.assertEqual(MockBackend.commit_object.call_count, 2)
+        obj_store.commit_identifiable(example_referable, protocol=Protocol.MOCK)
+        self.assertEqual(MockBackend.commit_object.call_count, 3)
         MockBackend.commit_object.assert_has_calls([
             mock.call(committed_object=example_referable,
                       store_object=example_grandparent,
                       relative_path=["exampleParent", "exampleReferable"],
                       source="mockScheme:exampleGrandparent"),
+            mock.call(committed_object=example_referable,
+                      store_object=example_submodel,
+                      relative_path=["exampleGrandparent", "exampleParent", "exampleReferable"],
+                      source="mockScheme:exampleSubmodel"),
             mock.call(committed_object=example_grandchild,
                       store_object=example_grandchild,
                       relative_path=[],
@@ -222,13 +236,18 @@ class ProvidersTest(unittest.TestCase):
         MockBackend.commit_object.reset_mock()
 
         # Test commit starting from example_grandchild
-        obj_store.commit_identifiable(example_grandchild)
-        self.assertEqual(MockBackend.commit_object.call_count, 2)
+        obj_store.commit_identifiable(example_grandchild, protocol=Protocol.MOCK)
+        self.assertEqual(MockBackend.commit_object.call_count, 3)
         MockBackend.commit_object.assert_has_calls([
             mock.call(committed_object=example_grandchild,
                       store_object=example_grandparent,
                       relative_path=["exampleParent", "exampleReferable", "exampleChild", "exampleGrandchild"],
                       source="mockScheme:exampleGrandparent"),
+            mock.call(committed_object=example_grandchild,
+                      store_object=example_submodel,
+                      relative_path=["exampleGrandparent", "exampleParent", "exampleReferable", "exampleChild",
+                                     "exampleGrandchild"],
+                      source="mockScheme:exampleSubmodel"),
             mock.call(committed_object=example_grandchild,
                       store_object=example_grandchild,
                       relative_path=[],
@@ -238,8 +257,9 @@ class ProvidersTest(unittest.TestCase):
 
         # Test commit starting from example_grandchild after adding a source to example_referable
         example_referable.source = "mockScheme:exampleReferable"
-        obj_store.commit_identifiable(example_grandchild)
-        self.assertEqual(MockBackend.commit_object.call_count, 3)
+        obj_store.add_source(example_referable, Protocol.MOCK, example_referable.source)
+        obj_store.commit_identifiable(example_grandchild, protocol=Protocol.MOCK)
+        self.assertEqual(MockBackend.commit_object.call_count, 4)
         MockBackend.commit_object.assert_has_calls([
             mock.call(committed_object=example_grandchild,
                       store_object=example_referable,
@@ -250,7 +270,13 @@ class ProvidersTest(unittest.TestCase):
                       relative_path=["exampleParent", "exampleReferable", "exampleChild", "exampleGrandchild"],
                       source="mockScheme:exampleGrandparent"),
             mock.call(committed_object=example_grandchild,
+                      store_object=example_submodel,
+                      relative_path=["exampleGrandparent", "exampleParent", "exampleReferable", "exampleChild",
+                                     "exampleGrandchild"],
+                      source="mockScheme:exampleSubmodel"),
+            mock.call(committed_object=example_grandchild,
                       store_object=example_grandchild,
                       relative_path=[],
                       source="mockScheme:exampleGrandchild")
         ])
+
