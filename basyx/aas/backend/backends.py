@@ -28,8 +28,8 @@ requests for a specific URI schema, using
 :meth:`~basyx.aas.backend.backends.register_backend`.
 """
 import abc
-from typing import List, Dict, Type, TYPE_CHECKING, Any
-
+import re
+from typing import List, Dict, Type, TYPE_CHECKING, Any, Union
 from basyx.aas.model.protocols import Protocol
 
 if TYPE_CHECKING:
@@ -189,49 +189,59 @@ class ValueBackend(Backend):
 
 # Global registry for backends by URI scheme
 # TODO allow multiple backends per scheme with priority
-_backends_map: Dict[Protocol, Type[Backend]] = {}
+_backends_map: Dict[Union[Protocol, str], Type[Backend]] = {}
 
 
-def register_backend(protocol: Protocol, backend_class: Type[Backend]) -> None:
+def register_backend(protocol: Union[Protocol, str], backend_class: Type[Backend]) -> None:
     """
     Register a Backend implementation to handle update/commit
     operations for a specific type of external data sources,
-    identified by a source URI schema.
+    identified by a Protocol enum or a string.
 
-    This method may be called multiple times for a single Backend
-    class, to register that class as a backend implementation for
-    different source Protocol types.
-    :param protocol: The predefined Protocol type of the source to be handled with
+    :param protocol: The Protocol enum or a string representing the protocol
     :param backend_class: The Backend implementation class. Should
         inherit from :class:`Backend`.
+    :raises TypeError: If the protocol is neither a Protocol enum nor a string
     """
-    # TODO handle multiple backends per scheme
-    _backends_map[protocol] = backend_class
+    if isinstance(protocol, str):
+        _backends_map[protocol] = backend_class
+    elif isinstance(protocol, Protocol):
+        _backends_map[protocol] = backend_class
+    else:
+        raise TypeError("protocol must be a Protocol enum or a string")
 
 
-# RE_URI_SCHEME = re.compile(r"^([a-zA-Z][a-zA-Z+\-\.]*):")
+RE_URI_SCHEME = re.compile(r"^([a-zA-Z][a-zA-Z+\-\.]*):")
 
 
-def get_backend(protocol: Protocol) -> Type[Backend]:
+def get_backend(protocol: Union[Protocol, str]) -> Type[Backend]:
     """
     Internal function to retrieve the Backend implementation for the
     external data source identified by the given ``url`` via the
     url's schema.
 
-    :param protocol: The predefined Protocol type of the source to be handled with
+    :param protocol: The Protocol enum or a string representing the protocol
     :return: A Backend class, capable of updating/committing from/to
         the external data source
-    :raises UnknownBackendException: When no backend is available for that url
+    :raises UnknownBackendException: When no backend is available for that protocol
     """
-    # TODO handle multiple backends per scheme
-    # scheme_match = RE_URI_SCHEME.match(url)
-    # if not scheme_match:
-    #     raise ValueError("{} is not a valid URL with URI scheme.".format(url))
-    # scheme = scheme_match[1]
+    if isinstance(protocol, str):
+        scheme_match = RE_URI_SCHEME.match(protocol)
+        if not scheme_match:
+            raise ValueError("{} is not a valid URL with URI scheme.".format(protocol))
+        scheme = scheme_match[1]
+        try:
+            return _backends_map[scheme]
+        except KeyError as e:
+            raise UnknownBackendException("Could not find Backend for source '{}'".format(protocol)) from e
+    
+    if not isinstance(protocol, Protocol):
+        raise TypeError("protocol must be a Protocol enum or a string")
+
     try:
         return _backends_map[protocol]
     except KeyError as e:
-        raise UnknownBackendException("Could not find Backend for protocol type '{}'".format(protocol)) from e
+        raise UnknownBackendException(f"Could not find Backend for protocol '{protocol}'") from e
 
 
 # #################################################################################################
