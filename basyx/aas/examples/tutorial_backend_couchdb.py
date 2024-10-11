@@ -127,7 +127,7 @@ obj_store.update_identifiable(example_submodel1, Protocol.COUCHDB)
 prop = example_submodel1.get_referable('ManufacturerName')
 assert isinstance(prop, basyx.aas.model.Property)
 
-obj_store.update_identifiable(prop, Protocol.COUCHDB)
+obj_store.update_identifiable(prop, protocol=Protocol.COUCHDB)
 
 
 prop.value = "RWTH Aachen"
