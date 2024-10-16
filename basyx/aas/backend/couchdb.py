@@ -13,7 +13,7 @@ The :class:`~.CouchDBBackend` takes care of updating and committing objects from
 """
 import threading
 import weakref
-from typing import List, Dict, Any, Optional, Iterator, Iterable, Union, Tuple
+from typing import List, Dict, Any, Optional, Iterator, Iterable, Union, Tuple, MutableMapping
 import urllib.parse
 import urllib.request
 import urllib.error
@@ -111,7 +111,7 @@ class CouchDBBackend(backends.ObjectBackend):
 
     @classmethod
     def do_request(cls, url: str, method: str = "GET", additional_headers: Dict[str, str] = {},
-                   body: Optional[bytes] = None) -> Dict[str, Any]:
+                   body: Optional[bytes] = None) -> MutableMapping[str, Any]:
         """
         Perform an HTTP(S) request to the CouchDBServer, parse the result and handle errors
 
