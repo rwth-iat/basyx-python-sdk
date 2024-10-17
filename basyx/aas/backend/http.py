@@ -6,7 +6,7 @@
 # SPDX-License-Identifier: MIT
 import requests
 from requests.auth import HTTPBasicAuth
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 import json
 from . import backends
 from basyx.aas import model
@@ -44,7 +44,7 @@ class HTTPBackend(backends.ValueBackend):
             # Bearer token authentication
             headers['Authorization'] = f"Bearer {params.get('token')}"
 
-        request_params['headers'] = headers
+        request_params['headers'] = headers  # type: ignore
         return request_params
 
     @classmethod
@@ -71,11 +71,7 @@ class HTTPBackend(backends.ValueBackend):
 
         try:
             data = response.json()
-            if isinstance(data, dict) and 'value' in data:
-                updated_object.value = data['value']
-            else:
-                print("Unexpected data format received from server")
-                updated_object.value = data  # Fallback to using the entire response
+            cls._set_object_value(updated_object, data)
         except json.JSONDecodeError:
             print("Failed to decode JSON response")
 
@@ -94,7 +90,7 @@ class HTTPBackend(backends.ValueBackend):
         if method not in ['POST', 'PUT']:
             print(f"Warning: HTTP method '{method}' may not be appropriate for committing data")
 
-        data = {"value": committed_object.value}
+        data = cls._get_object_value(committed_object)
         request_params['json'] = data
 
         try:
@@ -102,6 +98,32 @@ class HTTPBackend(backends.ValueBackend):
             response.raise_for_status()
         except requests.RequestException as e:
             print(f"Failed to commit the object to the server: {e}")
+
+    @staticmethod
+    def _set_object_value(obj: model.Referable, data: Any) -> None:
+        """
+        Sets the value of an object, handling cases where 'value' attribute might not exist.
+        """
+        if isinstance(data, dict) and 'value' in data:
+            value_to_set = data['value']
+        else:
+            value_to_set = data
+
+        if hasattr(obj, 'value'):
+            obj.value = value_to_set
+        else:
+            print(f"Warning: Object of type {type(obj).__name__} does not have a 'value' attribute.")
+
+    @staticmethod
+    def _get_object_value(obj: model.Referable) -> Dict[str, Any]:
+        """
+        Gets the value of an object, handling cases where 'value' attribute might not exist.
+        """
+        if hasattr(obj, 'value'):
+            return {"value": obj.value}
+        else:
+            print(f"Warning: Object of type {type(obj).__name__} does not have a 'value' attribute.")
+            return {}
 
 
 backends.register_backend(Protocol.HTTP, HTTPBackend)

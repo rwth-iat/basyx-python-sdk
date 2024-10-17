@@ -22,15 +22,15 @@ class ExampleRefereableWithNamespace(model.Referable, model.UniqueIdShortNamespa
 class MockBackend(backends.ObjectBackend):
     @classmethod
     def update_object(cls,
-                      updated_object: "Referable",
-                      store_object: "Referable",
+                      updated_object: model.Referable,
+                      store_object: model.Referable,
                       relative_path: List[str],
                       source: Any) -> None: ...
 
     @classmethod
     def commit_object(cls,
-                      committed_object: "Referable",
-                      store_object: "Referable",
+                      committed_object: model.Referable,
+                      store_object: model.Referable,
                       relative_path: List[str],
                       source: Any) -> None: ...
 
@@ -71,19 +71,19 @@ def generate_example_referable_tree() -> model.Referable:
 
     example_submodel = model.Submodel(
         id_='https://acplt.org/Simple_Submodel',
-        id_short= "exampleSubmodel"
+        id_short="exampleSubmodel"
     )
     example_grandchild = generate_example_referable_with_namespace("exampleGrandchild")
     example_child = generate_example_referable_with_namespace("exampleChild", example_grandchild)
     example_referable = generate_example_referable_with_namespace("exampleReferable", example_child)
     example_parent = generate_example_referable_with_namespace("exampleParent", example_referable)
     example_grandparent = generate_example_referable_with_namespace("exampleGrandparent", example_parent)
+    assert(isinstance(example_grandparent, model.SubmodelElement))
     example_submodel.submodel_element.add(example_grandparent)
 
     example_grandchild.source = "mockScheme:exampleGrandchild"
     example_grandparent.source = "mockScheme:exampleGrandparent"
     example_submodel.source = "mockScheme:exampleSubmodel"
-
 
     return example_referable
 
@@ -279,4 +279,3 @@ class ProvidersTest(unittest.TestCase):
                       relative_path=[],
                       source="mockScheme:exampleGrandchild")
         ])
-

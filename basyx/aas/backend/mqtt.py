@@ -88,7 +88,7 @@ class MQTTBackend(backends.ValueBackend):
                 host, port = mqtt_info['broker'].split(':')
                 client.connect(host, int(port))
                 client.subscribe(mqtt_info['topic'])
-                client.loop_forever()
+                client.loop_start()  # Use loop_start() instead of loop_forever()
             except Exception as e:
                 print(f"Failed to connect to MQTT broker: {e}")
 
@@ -117,9 +117,11 @@ class MQTTBackend(backends.ValueBackend):
             client.connect(host, int(port))
 
             if mqtt_info['content_type'] == 'application/json':
-                payload = json.dumps(committed_object.value)
+                if hasattr(committed_object, 'value'):
+                    payload = json.dumps(committed_object.value)
             else:
-                payload = str(committed_object.value)
+                if hasattr(committed_object, 'value'):
+                    payload = str(committed_object.value)
 
             result = client.publish(mqtt_info['topic'], payload)
 

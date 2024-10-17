@@ -234,7 +234,7 @@ def get_backend(protocol: Union[Protocol, str]) -> Type[Backend]:
             return _backends_map[scheme]
         except KeyError as e:
             raise UnknownBackendException("Could not find Backend for source '{}'".format(protocol)) from e
-    
+
     if not isinstance(protocol, Protocol):
         raise TypeError("protocol must be a Protocol enum or a string")
 

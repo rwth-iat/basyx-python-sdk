@@ -38,7 +38,9 @@ def _parse_address(href: str, protocol: Protocol) -> Dict[str, Any]:
 
 
 class ProtocolExtractor:
-    def extract_protocol_parameters(self, aid_element: model.SubmodelElement, protocol: Protocol) -> Dict[str, Any]:
+    def extract_protocol_parameters(self, aid_element: model.SubmodelElementCollection, protocol: Protocol) \
+            -> Dict[
+        str, Any]:
         # Get EndpointMetadata
         endpoint_metadata = self._get_endpoint_metadata(aid_element)
         if not endpoint_metadata:
@@ -50,7 +52,9 @@ class ProtocolExtractor:
         parameters.update(self._extract_common_parameters(endpoint_metadata))
 
         # Extract protocol-specific parameters
-        forms = aid_element.get_referable('forms')
+        # forms = aid_element.get_referable('forms')
+        if isinstance(aid_element, model.SubmodelElementCollection):
+            forms = aid_element.get_referable('forms')
         if not forms or not isinstance(forms, model.SubmodelElementCollection):
             raise ProtocolExtractorError("Forms element not found or not of correct type")
 
@@ -85,14 +89,14 @@ class ProtocolExtractor:
             return True
 
         # Check semanticId
-        if element.semantic_id and isinstance(element.semantic_id, model.ExternalReference):
+        if hasattr(element, 'semantic_id') and element.semantic_id:
             for key in element.semantic_id.key:
                 if key.value and identifier in key.value.lower():
                     return True
 
         # Check supplemental_semantic_ids
         # TODO: If required, only use semantic_id for identification
-        if element.supplemental_semantic_id:
+        if hasattr(element, 'supplemental_semantic_id'):
             for semantic_id in element.supplemental_semantic_id:
                 if isinstance(semantic_id, model.ExternalReference):
                     for key in semantic_id.key:
@@ -101,13 +105,23 @@ class ProtocolExtractor:
 
         return False
 
-    def _get_endpoint_metadata(self, aid_element: model.SubmodelElement) -> Optional[model.SubmodelElementCollection]:
+    def _get_endpoint_metadata(self, aid_element: model.SubmodelElementCollection) \
+            -> Optional[model.SubmodelElementCollection]:
         try:
-            return aid_element.parent.parent.parent.get_referable('EndpointMetadata')
+            # original code: return aid_element.parent.parent.parent.get_referable('EndpointMetadata')
+            smc_properties = aid_element.parent
+            assert (isinstance(smc_properties, model.SubmodelElementCollection))
+            interface_metadata = smc_properties.parent
+            assert (isinstance(interface_metadata, model.SubmodelElementCollection))
+            aid_interface = interface_metadata.parent
+            assert (isinstance(aid_interface, model.SubmodelElementCollection))
+            endpoint_metadata = aid_interface.get_referable('EndpointMetadata')
+            assert (isinstance(endpoint_metadata, model.SubmodelElementCollection))
+            return endpoint_metadata
         except AttributeError:
             return self._find_parent_by_id_short(aid_element, 'EndpointMetadata')
 
-    def _extract_common_parameters(self, endpoint_metadata: model.SubmodelElementCollection) -> Dict[str, Any]:
+    def _extract_common_parameters(self, endpoint_metadata: model.UniqueIdShortNamespace) -> Dict[str, Any]:
         params = {}
         base = endpoint_metadata.get_referable('base')
         if base and isinstance(base, model.Property):
@@ -125,7 +139,7 @@ class ProtocolExtractor:
         return params
 
     @staticmethod
-    def _extract_security_parameters(endpoint_metadata: model.SubmodelElementCollection) -> Dict[str, Any]:
+    def _extract_security_parameters(endpoint_metadata: model.UniqueIdShortNamespace) -> Dict[str, Any]:
         security_defs = endpoint_metadata.get_referable('securityDefinitions')
         if not security_defs or not isinstance(security_defs, model.SubmodelElementCollection):
             raise ProtocolExtractorError("Security Definitions not found in EndpointMetadata")
@@ -204,11 +218,14 @@ class ProtocolExtractor:
         return params
 
     @staticmethod
-    def _find_parent_by_id_short(element: model.SubmodelElement, id_short: str) \
+    def _find_parent_by_id_short(element: model.SubmodelElementCollection, target_id_short: str) \
             -> Optional[model.SubmodelElementCollection]:
         current = element
         while current.parent:
-            if current.parent.id_short.lower() == id_short.lower():
-                return current.parent
+            if hasattr(current.parent, 'id_short'):
+                if current.parent.id_short.lower() == target_id_short.lower():
+                    assert (isinstance(current.parent, model.SubmodelElementCollection))
+                    return current.parent
+            assert (isinstance(current.parent, model.SubmodelElementCollection))
             current = current.parent
         return None

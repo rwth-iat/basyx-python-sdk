@@ -40,7 +40,7 @@ class LocalFileBackend(backends.ObjectBackend):
                       updated_object: model.Referable,
                       store_object: model.Referable,
                       relative_path: List[str],
-                      source: Optional[str] = None) -> None:
+                      source: str = "") -> None:
         # TODO: adapt the local file backend to the new update_object method
 
         if not isinstance(store_object, model.Identifiable):
@@ -57,7 +57,7 @@ class LocalFileBackend(backends.ObjectBackend):
                       committed_object: model.Referable,
                       store_object: model.Referable,
                       relative_path: List[str],
-                      source: Optional[str] = None) -> None:
+                      source: str = "") -> None:
         if not isinstance(store_object, model.Identifiable):
             raise FileBackendSourceError("The given store_object is not Identifiable, therefore cannot be found "
                                          "in the FileBackend")

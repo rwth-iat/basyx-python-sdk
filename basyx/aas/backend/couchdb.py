@@ -73,7 +73,8 @@ class CouchDBBackend(backends.ObjectBackend):
         url = CouchDBBackend._parse_source(source)
         # We need to get the revision of the object, if it already exists, otherwise we cannot write to the Couchdb
         if get_couchdb_revision(url) is None:
-            raise CouchDBConflictError("No revision found for the given object. Try calling `update_identifiable` on it.")
+            raise CouchDBConflictError("No revision found for the given object. "
+                                       "Try calling `update_identifiable` on it.")
 
         data = json.dumps({'data': store_object, "_rev": get_couchdb_revision(url)},
                           cls=json_serialization.AASToJsonEncoder)

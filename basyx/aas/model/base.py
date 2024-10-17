@@ -2205,8 +2205,8 @@ class SpecificAssetId(HasSemantics):
     def __repr__(self) -> str:
         return "SpecificAssetId(key={}, value={}, external_subject_id={}, " \
                "semantic_id={}, supplemental_semantic_id={})".format(
-            self.name, self.value, self.external_subject_id, self.semantic_id,
-            self.supplemental_semantic_id)
+                self.name, self.value, self.external_subject_id, self.semantic_id,
+                self.supplemental_semantic_id)
 
 
 class AASConstraintViolation(Exception):
