@@ -108,15 +108,9 @@ class ProtocolExtractor:
     def _get_endpoint_metadata(self, aid_element: model.SubmodelElementCollection) \
             -> Optional[model.SubmodelElementCollection]:
         try:
-            # original code: return aid_element.parent.parent.parent.get_referable('EndpointMetadata')
-            smc_properties = aid_element.parent
-            assert (isinstance(smc_properties, model.SubmodelElementCollection))
-            interface_metadata = smc_properties.parent
-            assert (isinstance(interface_metadata, model.SubmodelElementCollection))
-            aid_interface = interface_metadata.parent
-            assert (isinstance(aid_interface, model.SubmodelElementCollection))
+            aid_interface = self._traverse_to_aid_interface(aid_element)
             endpoint_metadata = aid_interface.get_referable('EndpointMetadata')
-            assert (isinstance(endpoint_metadata, model.SubmodelElementCollection))
+            assert isinstance(endpoint_metadata, model.SubmodelElementCollection)
             return endpoint_metadata
         except AttributeError:
             return self._find_parent_by_id_short(aid_element, 'EndpointMetadata')
@@ -229,3 +223,11 @@ class ProtocolExtractor:
             assert (isinstance(current.parent, model.SubmodelElementCollection))
             current = current.parent
         return None
+
+    @staticmethod
+    def _traverse_to_aid_interface(element: model.SubmodelElementCollection) -> model.SubmodelElementCollection:
+        current = element
+        for _ in range(3):  # Traverse up 3 levels
+            assert isinstance(current.parent, model.SubmodelElementCollection)
+            current = current.parent
+        return current

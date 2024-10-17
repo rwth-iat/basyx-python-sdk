@@ -184,7 +184,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         extractor = ProtocolExtractor()
 
         # Find the parent SubmodelElementCollection (interface_element)
-        interface_element = aid_element.parent.parent.parent
+        interface_element = extractor._traverse_to_aid_interface(aid_element)
 
         protocol = extractor.determine_protocol(interface_element)
         if not protocol:
@@ -563,3 +563,4 @@ class ObjectProviderMultiplexer(AbstractObjectProvider):
         raise KeyError(
             "Identifier could not be found in any of the {} consulted registries."
             .format(len(self.providers)))
+
