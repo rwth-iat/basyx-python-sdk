@@ -563,4 +563,3 @@ class ObjectProviderMultiplexer(AbstractObjectProvider):
         raise KeyError(
             "Identifier could not be found in any of the {} consulted registries."
             .format(len(self.providers)))
-

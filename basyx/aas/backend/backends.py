@@ -259,6 +259,7 @@ def get_value_backend(protocol: Union[Protocol, str]) -> Type[ValueBackend]:
         raise TypeError(f"Backend for protocol '{protocol}' is not a ValueBackend")
     return backend
 
+
 def get_object_backend(protocol: Union[Protocol, str]) -> Type[ObjectBackend]:
     """
     Retrieve the ObjectBackend implementation for the given protocol.
@@ -273,6 +274,7 @@ def get_object_backend(protocol: Union[Protocol, str]) -> Type[ObjectBackend]:
     if not issubclass(backend, ObjectBackend):
         raise TypeError(f"Backend for protocol '{protocol}' is not an ObjectBackend")
     return backend
+
 
 # #################################################################################################
 # Custom Exception classes for reporting errors during interaction with Backends

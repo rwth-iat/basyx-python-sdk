@@ -39,8 +39,7 @@ def _parse_address(href: str, protocol: Protocol) -> Dict[str, Any]:
 
 class ProtocolExtractor:
     def extract_protocol_parameters(self, aid_element: model.SubmodelElementCollection, protocol: Protocol) \
-            -> Dict[
-        str, Any]:
+            -> Dict[str, Any]:
         # Get EndpointMetadata
         endpoint_metadata = self._get_endpoint_metadata(aid_element)
         if not endpoint_metadata:
