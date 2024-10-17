@@ -199,7 +199,8 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
             protocol = ProtocolExtractor().determine_protocol(interface_element)
         assert protocol is not None
         parameters = ProtocolExtractor().extract_protocol_parameters(aid_property, protocol)
-        # parameters['protocol'] = protocol  # Add protocol to the parameters
+        # Add protocol to the parameters. This is necessary for the backend to determine the correct protocol
+        parameters['protocol'] = protocol
         return parameters
 
     def discard(self, x: _IT) -> None:
