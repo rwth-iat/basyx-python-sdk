@@ -5,7 +5,7 @@
 #
 # SPDX-License-Identifier: MIT
 from enum import Enum
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 from urllib.parse import parse_qs
 from basyx.aas import model
 
@@ -38,10 +38,10 @@ def _parse_address(href: str, protocol: Protocol) -> Dict[str, Any]:
 
 
 class ProtocolExtractor:
-    def extract_protocol_parameters(self, aid_element: model.SubmodelElementCollection, protocol: Protocol) \
-            -> Dict[str, Any]:
+    def extract_protocol_parameters(self, aid_property: model.SubmodelElementCollection,
+                                    protocol: Union[Protocol, str]) -> Dict[str, Any]:
         # Get EndpointMetadata
-        endpoint_metadata = self._get_endpoint_metadata(aid_element)
+        endpoint_metadata = self._get_endpoint_metadata(aid_property)
         if not endpoint_metadata:
             raise ProtocolExtractorError("EndpointMetadata not found")
 
@@ -51,9 +51,9 @@ class ProtocolExtractor:
         parameters.update(self._extract_common_parameters(endpoint_metadata))
 
         # Extract protocol-specific parameters
-        # forms = aid_element.get_referable('forms')
-        if isinstance(aid_element, model.SubmodelElementCollection):
-            forms = aid_element.get_referable('forms')
+        # forms = aid_property.get_referable('forms')
+        if isinstance(aid_property, model.SubmodelElementCollection):
+            forms = aid_property.get_referable('forms')
         if not forms or not isinstance(forms, model.SubmodelElementCollection):
             raise ProtocolExtractorError("Forms element not found or not of correct type")
 
@@ -104,15 +104,15 @@ class ProtocolExtractor:
 
         return False
 
-    def _get_endpoint_metadata(self, aid_element: model.SubmodelElementCollection) \
+    def _get_endpoint_metadata(self, aid_property: model.SubmodelElementCollection) \
             -> Optional[model.SubmodelElementCollection]:
         try:
-            aid_interface = self._traverse_to_aid_interface(aid_element)
+            aid_interface = self.traverse_to_aid_interface(aid_property)
             endpoint_metadata = aid_interface.get_referable('EndpointMetadata')
             assert isinstance(endpoint_metadata, model.SubmodelElementCollection)
             return endpoint_metadata
         except AttributeError:
-            return self._find_parent_by_id_short(aid_element, 'EndpointMetadata')
+            return self._find_parent_by_id_short(aid_property, 'EndpointMetadata')
 
     def _extract_common_parameters(self, endpoint_metadata: model.UniqueIdShortNamespace) -> Dict[str, Any]:
         params = {}
@@ -224,8 +224,9 @@ class ProtocolExtractor:
         return None
 
     @staticmethod
-    def _traverse_to_aid_interface(element: model.SubmodelElementCollection) -> model.SubmodelElementCollection:
-        current = element
+    def traverse_to_aid_interface(aid_property: model.SubmodelElementCollection) -> model.SubmodelElementCollection:
+        current = aid_property
+        # Traverse up to the AID Interface by going up 3 levels
         for _ in range(3):  # Traverse up 3 levels
             assert isinstance(current.parent, model.SubmodelElementCollection)
             current = current.parent

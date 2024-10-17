@@ -78,8 +78,7 @@ def generate_example_referable_tree() -> model.Referable:
     example_referable = generate_example_referable_with_namespace("exampleReferable", example_child)
     example_parent = generate_example_referable_with_namespace("exampleParent", example_referable)
     example_grandparent = generate_example_referable_with_namespace("exampleGrandparent", example_parent)
-    assert (isinstance(example_grandparent, model.SubmodelElement))
-    example_submodel.submodel_element.add(example_grandparent)
+    model.NamespaceSet(parent=example_submodel, attribute_names=[("id_short", True)], items=[example_grandparent])
 
     example_grandchild.source = "mockScheme:exampleGrandchild"
     example_grandparent.source = "mockScheme:exampleGrandparent"

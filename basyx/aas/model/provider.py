@@ -123,7 +123,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
     @staticmethod
     def _is_aimc(submodel: "model.Submodel") -> bool:
         """
-        Check if the submodel is an AssetInterfacesMappingConfiguration (AIMC).
+        Non-public function to check if the submodel is an AssetInterfacesMappingConfiguration (AIMC).
 
         We assume that the Submodel is an AIMC if it contains a corresponding Identifier.
         """
@@ -131,31 +131,43 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
 
     def add_source_from_AIMC(self, aimc: "model.Submodel") -> None:
         """
-        Process AssetInterfacesMappingConfiguration and update _mapping.
+        Process AssetInterfacesMappingConfiguration and update the mapping table "_mapping".
+
+        The SubmodelElementCollections in the "MappingConfigurations" (SubmodelElementList) are processed.
+        The related AID elements are extracted from the AIMC Submodel and added to the mapping table.
         """
         mapping_configurations = next((sme for sme in aimc.submodel_element if ProtocolExtractor().check_identifier(
             sme, "MappingConfigurations")), None)
         if mapping_configurations:
             if hasattr(mapping_configurations, 'value'):
                 for config in mapping_configurations.value:
-                    self._process_mapping_configuration(config)
+                    self._process_configuration(config)
 
-    def _process_mapping_configuration(self, config: "model.SubmodelElementCollection") -> None:
+    def _process_configuration(self, config: "model.SubmodelElementCollection") -> None:
         """
-        Process a single MappingConfiguration.
+        Process a single Configuration in the MappingConfiguration.
         """
+        protocol = None
+        interface_reference = config.get_referable('InterfaceReference')
+        if hasattr(interface_reference, 'value') and interface_reference.value:
+            if isinstance(interface_reference.value, ModelReference):
+                interface_element = interface_reference.value.resolve(self)
+                protocol = ProtocolExtractor().determine_protocol(interface_element)
 
-        mapping_relations = next((sme for sme in config.value if sme.id_short == "MappingSourceSinkRelations"), None)
-        if mapping_relations:
-            if hasattr(mapping_relations, 'value'):
-                for relation in mapping_relations.value:
-                    self._process_relationship_element(relation)
-        else:
-            print("MappingSourceSinkRelations not found or not of type SubmodelElementList")
+        if protocol is not None:
+            mapping_relations = next((sme for sme in config.value if sme.id_short ==
+                                      "MappingSourceSinkRelations"), None)
+            if mapping_relations:
+                if hasattr(mapping_relations, 'value'):
+                    for relation in mapping_relations.value:
+                        self._process_relationship_element(relation, protocol)
+            else:
+                print("MappingSourceSinkRelations not found or not of type SubmodelElementList")
 
-    def _process_relationship_element(self, relation: "model.RelationshipElement") -> None:
+    def _process_relationship_element(self, relation: "model.RelationshipElement",
+                                      protocol: Union[Protocol, str]) -> None:
         """
-        Process a single RelationshipElement and update _mapping.
+        Process a single RelationshipElement in a Configuration and update _mapping.
         """
         if relation.second:
             second_hash = self.generate_model_reference_hash(relation.second)
@@ -164,14 +176,13 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
 
             if isinstance(relation.first, ModelReference):
                 try:
-                    aid_element = relation.first.resolve(self)
+                    aid_property = relation.first.resolve(self)
                 except Exception as e:
                     print(f"Error resolving AID element: {e}")
                     return
 
-            aid_parameters = self.extract_aid_parameters(aid_element)
+            aid_parameters = self.extract_aid_parameters(aid_property, protocol)
             if aid_parameters:
-                protocol = aid_parameters.get('protocol')
                 if protocol:
                     self._mapping[second_hash][protocol] = aid_parameters
                 else:
@@ -180,19 +191,15 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
                 print(f"Failed to extract AID parameters for relationship: {relation.id_short}")
 
     @staticmethod
-    def extract_aid_parameters(aid_element: "model.SubmodelElementCollection") -> Dict[str, Any]:
-        extractor = ProtocolExtractor()
-
-        # Find the parent SubmodelElementCollection (interface_element)
-        interface_element = extractor._traverse_to_aid_interface(aid_element)
-
-        protocol = extractor.determine_protocol(interface_element)
-        if not protocol:
-            print(f"Unable to determine protocol for interface: {interface_element.id_short}")
-            return {}
-
-        parameters = extractor.extract_protocol_parameters(aid_element, protocol)
-        parameters['protocol'] = protocol  # Add protocol to the parameters
+    def extract_aid_parameters(aid_property: "model.SubmodelElementCollection",
+                               protocol: Optional[Union[Protocol, str]] = None) -> Dict[str, Any]:
+        if protocol is None:
+            # Find the parent SubmodelElementCollection (interface_element)
+            interface_element = ProtocolExtractor().traverse_to_aid_interface(aid_property)
+            protocol = ProtocolExtractor().determine_protocol(interface_element)
+        assert protocol is not None
+        parameters = ProtocolExtractor().extract_protocol_parameters(aid_property, protocol)
+        # parameters['protocol'] = protocol  # Add protocol to the parameters
         return parameters
 
     def discard(self, x: _IT) -> None:
@@ -205,7 +212,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
 
     def _remove_mapping_for_aimc(self, aimc: "model.Submodel") -> None:
         """
-        Remove all mappings related to the AIMC.
+        Remove all mappings related to the AIMC from the mapping table.
         """
         mapping_configurations = next((sme for sme in aimc.submodel_element if sme.id_short == "MappingConfigurations"),
                                       None)
@@ -216,7 +223,10 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
 
     def _remove_mapping_for_configuration(self, config: "model.SubmodelElementCollection") -> None:
         """
-        Remove mappings for a single MappingConfiguration.
+        Remove mappings for a single Configuration in the MappingConfiguration.
+
+        We assume the integration source is either described with AID or only with a custom protocol.
+        If a Referable has mixed sources, the whole configuration will be removed.
         """
         # TODO: check if only should remove the configuration of related protocols
         mapping_relations = next((sme for sme in config.value if sme.id_short == "MappingSourceSinkRelations"), None)
@@ -254,7 +264,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
 
     def get_source(self, referable: "model.Referable", protocol: Union[Protocol, str]) -> Optional[Any]:
         """
-        find the source for the given referable and protocol
+        Find the source for the given Referable and protocol type in the mapping table.
         """
         model_ref = ModelReference.from_referable(referable)
         hash_value = self.generate_model_reference_hash(model_ref)
