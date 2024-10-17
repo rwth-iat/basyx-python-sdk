@@ -297,7 +297,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         if not _indirect_source:
             # Update was already called on an ancestor of this Referable. Only update it, if it has its own source
             if source:
-                backends.get_backend(protocol).update_object(
+                backends.get_object_backend(protocol).update_object(
                     updated_object=referable,
                     store_object=referable,
                     relative_path=[],
@@ -306,7 +306,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         else:
             # Try to find a valid source for this Referable
             if source:
-                backends.get_backend(protocol).update_object(
+                backends.get_object_backend(protocol).update_object(
                     updated_object=referable,
                     store_object=referable,
                     relative_path=[],
@@ -315,7 +315,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
                 store_object, relative_path = self.find_source(referable, protocol)
                 if store_object and relative_path is not None:
                     source = self.get_source(store_object, protocol)
-                    backends.get_backend(protocol).update_object(
+                    backends.get_object_backend(protocol).update_object(
                         updated_object=referable,
                         store_object=store_object,
                         relative_path=list(relative_path),
@@ -395,7 +395,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
             assert isinstance(current_ancestor, Referable)
             source = self.get_source(current_ancestor, protocol)
             if source:
-                backends.get_backend(protocol).commit_object(
+                backends.get_object_backend(protocol).commit_object(
                     committed_object=referable,
                     store_object=current_ancestor,
                     relative_path=list(relative_path),
@@ -411,7 +411,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         """
         source = self.get_source(referable, protocol)
         if source:
-            backends.get_backend(protocol).commit_object(
+            backends.get_object_backend(protocol).commit_object(
                 committed_object=referable,
                 store_object=referable,
                 relative_path=[],
@@ -443,7 +443,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
 
         source = self.get_source(referable, protocol)
         if source:
-            backends.get_backend(protocol).update_value(
+            backends.get_value_backend(protocol).update_value(
                 updated_object=referable,
                 source=source)
         else:
@@ -468,7 +468,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
 
         source = self.get_source(referable, protocol)
         if source:
-            backends.get_backend(protocol).commit_value(
+            backends.get_value_backend(protocol).commit_value(
                 committed_object=referable,
                 source=source)
         else:
@@ -493,7 +493,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
 
         source = self.get_source(referable, protocol)
         if source:
-            backends.get_backend(protocol).update_value(
+            backends.get_value_backend(protocol).update_value(
                 updated_object=referable,
                 source=source)
         else:
@@ -518,7 +518,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
 
         source = self.get_source(referable, protocol)
         if source:
-            backends.get_backend(protocol).commit_value(
+            backends.get_value_backend(protocol).commit_value(
                 committed_object=referable,
                 source=source)
         else:

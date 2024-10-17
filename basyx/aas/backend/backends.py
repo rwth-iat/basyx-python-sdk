@@ -244,6 +244,36 @@ def get_backend(protocol: Union[Protocol, str]) -> Type[Backend]:
         raise UnknownBackendException(f"Could not find Backend for protocol '{protocol}'") from e
 
 
+def get_value_backend(protocol: Union[Protocol, str]) -> Type[ValueBackend]:
+    """
+    Retrieve the ValueBackend implementation for the given protocol.
+
+    :param protocol: The Protocol enum or a string representing the protocol
+    :return: A ValueBackend class, capable of updating/committing values from/to
+        the external data source
+    :raises UnknownBackendException: When no backend is available for that protocol
+    :raises TypeError: If the backend for the protocol is not a ValueBackend
+    """
+    backend = get_backend(protocol)
+    if not issubclass(backend, ValueBackend):
+        raise TypeError(f"Backend for protocol '{protocol}' is not a ValueBackend")
+    return backend
+
+def get_object_backend(protocol: Union[Protocol, str]) -> Type[ObjectBackend]:
+    """
+    Retrieve the ObjectBackend implementation for the given protocol.
+
+    :param protocol: The Protocol enum or a string representing the protocol
+    :return: An ObjectBackend class, capable of updating/committing objects from/to
+        the external data source
+    :raises UnknownBackendException: When no backend is available for that protocol
+    :raises TypeError: If the backend for the protocol is not an ObjectBackend
+    """
+    backend = get_backend(protocol)
+    if not issubclass(backend, ObjectBackend):
+        raise TypeError(f"Backend for protocol '{protocol}' is not an ObjectBackend")
+    return backend
+
 # #################################################################################################
 # Custom Exception classes for reporting errors during interaction with Backends
 class BackendError(Exception):
