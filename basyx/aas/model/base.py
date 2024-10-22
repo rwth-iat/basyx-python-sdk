@@ -18,7 +18,6 @@ from typing import List, Optional, Set, TypeVar, MutableSet, Generic, Iterable, 
 import re
 
 from . import datatypes, _string_constraints
-from ..backend import backends
 
 if TYPE_CHECKING:
     from . import provider
@@ -288,6 +287,7 @@ class LangStringSet(MutableMapping[str, str]):
     “en-GB” for English (United Kingdom) and English (United States). IETF language tags are referencing ISO 639,
     ISO 3166 and ISO 15924.
     """
+
     def __init__(self, dict_: Dict[str, str]):
         self._dict: Dict[str, str] = {}
 
@@ -334,6 +334,7 @@ class ConstrainedLangStringSet(LangStringSet, metaclass=abc.ABCMeta):
     """
     A :class:`LangStringSet` with constrained values.
     """
+
     @abc.abstractmethod
     def __init__(self, dict_: Dict[str, str], constraint_check_fn: Callable[[str, str], None]):
         super().__init__(dict_)
@@ -357,6 +358,7 @@ class MultiLanguageNameType(ConstrainedLangStringSet):
     A :class:`~.ConstrainedLangStringSet` where each value is a :class:`ShortNameType`.
     See also: :func:`basyx.aas.model._string_constraints.check_short_name_type`
     """
+
     def __init__(self, dict_: Dict[str, str]):
         super().__init__(dict_, _string_constraints.check_short_name_type)
 
@@ -365,6 +367,7 @@ class MultiLanguageTextType(ConstrainedLangStringSet):
     """
     A :class:`~.ConstrainedLangStringSet` where each value must have at least 1 and at most 1023 characters.
     """
+
     def __init__(self, dict_: Dict[str, str]):
         super().__init__(dict_, _string_constraints.create_check_function(min_length=1, max_length=1023))
 
@@ -373,6 +376,7 @@ class DefinitionTypeIEC61360(ConstrainedLangStringSet):
     """
     A :class:`~.ConstrainedLangStringSet` where each value must have at least 1 and at most 1023 characters.
     """
+
     def __init__(self, dict_: Dict[str, str]):
         super().__init__(dict_, _string_constraints.create_check_function(min_length=1, max_length=1023))
 
@@ -381,6 +385,7 @@ class PreferredNameTypeIEC61360(ConstrainedLangStringSet):
     """
     A :class:`~.ConstrainedLangStringSet` where each value must have at least 1 and at most 255 characters.
     """
+
     def __init__(self, dict_: Dict[str, str]):
         super().__init__(dict_, _string_constraints.create_check_function(min_length=1, max_length=255))
 
@@ -389,6 +394,7 @@ class ShortNameTypeIEC61360(ConstrainedLangStringSet):
     """
     A :class:`~.ConstrainedLangStringSet` where each value must have at least 1 and at most 18 characters.
     """
+
     def __init__(self, dict_: Dict[str, str]):
         super().__init__(dict_, _string_constraints.create_check_function(min_length=1, max_length=18))
 
@@ -487,6 +493,7 @@ class Namespace(metaclass=abc.ABCMeta):
 
     :ivar namespace_element_sets: List of :class:`NamespaceSets <basyx.aas.model.base.NamespaceSet>`
     """
+
     @abc.abstractmethod
     def __init__(self) -> None:
         super().__init__()
@@ -546,6 +553,7 @@ class HasExtension(Namespace, metaclass=abc.ABCMeta):
     :ivar namespace_element_sets: List of :class:`NamespaceSets <basyx.aas.model.base.NamespaceSet>`
     :ivar extension: A :class:`~.NamespaceSet` of :class:`Extensions <.Extension>` of the element.
     """
+
     @abc.abstractmethod
     def __init__(self) -> None:
         super().__init__()
@@ -607,6 +615,7 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
                   This is used to specify where the Referable should be updated from and committed to.
                   Default is an empty string, making it use the source of its ancestor, if possible.
     """
+
     @abc.abstractmethod
     def __init__(self):
         super().__init__()
@@ -733,73 +742,6 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
         # Redundant to the line above. However this way, we make sure that we really update the _id_short
         self._id_short = id_short
 
-    def update(self,
-               max_age: float = 0,
-               recursive: bool = True,
-               _indirect_source: bool = True) -> None:
-        """
-        Update the local Referable object from any underlying external data source, using an appropriate backend
-
-        If there is no source given, it will find its next ancestor with a source and update from this source.
-        If there is no source in any ancestor, this function will do nothing
-
-        :param max_age: Maximum age of the local data in seconds. This method may return early, if the previous update
-                        of the object has been performed less than ``max_age`` seconds ago.
-        :param recursive: Also call update on all children of this object. Default is True
-        :param _indirect_source: Internal parameter to avoid duplicate updating.
-        :raises backends.BackendError: If no appropriate backend or the data source is not available
-        """
-        # TODO consider max_age
-        if not _indirect_source:
-            # Update was already called on an ancestor of this Referable. Only update it, if it has its own source
-            if self.source != "":
-                backends.get_backend(self.source).update_object(updated_object=self,
-                                                                store_object=self,
-                                                                relative_path=[])
-
-        else:
-            # Try to find a valid source for this Referable
-            if self.source != "":
-                backends.get_backend(self.source).update_object(updated_object=self,
-                                                                store_object=self,
-                                                                relative_path=[])
-            else:
-                store_object, relative_path = self.find_source()
-                if store_object and relative_path is not None:
-                    backends.get_backend(store_object.source).update_object(updated_object=self,
-                                                                            store_object=store_object,
-                                                                            relative_path=list(relative_path))
-
-        if recursive:
-            # update all the children who have their own source
-            if isinstance(self, UniqueIdShortNamespace):
-                for namespace_set in self.namespace_element_sets:
-                    if "id_short" not in namespace_set.get_attribute_name_list():
-                        continue
-                    for referable in namespace_set:
-                        referable.update(max_age, recursive=True, _indirect_source=False)
-
-    def find_source(self) -> Tuple[Optional["Referable"], Optional[List[str]]]:  # type: ignore
-        """
-        Finds the closest source in this objects ancestors. If there is no source, returns None
-
-        :return: Tuple with the closest ancestor with a defined source and the relative path of id_shorts to that
-                 ancestor
-        """
-        referable: Referable = self
-        relative_path: List[NameType] = [self.id_short]
-        while referable is not None:
-            if referable.source != "":
-                relative_path.reverse()
-                return referable, relative_path
-            if referable.parent:
-                assert isinstance(referable.parent, Referable)
-                referable = referable.parent
-                relative_path.append(referable.id_short)
-                continue
-            break
-        return None, None
-
     def update_from(self, other: "Referable", update_source: bool = False):
         """
         Internal function to updates the object's attributes from another object of a similar type.
@@ -821,43 +763,6 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
             else:
                 vars(self)[name] = var  # that variable is not a NameSpaceSet, so it isn't Referable
 
-    def commit(self) -> None:
-        """
-        Transfer local changes on this object to all underlying external data sources.
-
-        This function commits the current state of this object to its own and each external data source of its
-        ancestors. If there is no source, this function will do nothing.
-        """
-        current_ancestor = self.parent
-        relative_path: List[NameType] = [self.id_short]
-        # Commit to all ancestors with sources
-        while current_ancestor:
-            assert isinstance(current_ancestor, Referable)
-            if current_ancestor.source != "":
-                backends.get_backend(current_ancestor.source).commit_object(committed_object=self,
-                                                                            store_object=current_ancestor,
-                                                                            relative_path=list(relative_path))
-            relative_path.insert(0, current_ancestor.id_short)
-            current_ancestor = current_ancestor.parent
-        # Commit to own source and check if there are children with sources to commit to
-        self._direct_source_commit()
-
-    def _direct_source_commit(self):
-        """
-        Commits children of an ancestor recursively, if they have a specific source given
-        """
-        if self.source != "":
-            backends.get_backend(self.source).commit_object(committed_object=self,
-                                                            store_object=self,
-                                                            relative_path=[])
-
-        if isinstance(self, UniqueIdShortNamespace):
-            for namespace_set in self.namespace_element_sets:
-                if "id_short" not in namespace_set.get_attribute_name_list():
-                    continue
-                for referable in namespace_set:
-                    referable._direct_source_commit()
-
     id_short = property(_get_id_short, _set_id_short)
 
 
@@ -871,6 +776,7 @@ class UnexpectedTypeError(TypeError):
 
     :ivar value: The object of unexpected type
     """
+
     def __init__(self, value: Referable, *args):
         super().__init__(*args)
         self.value = value
@@ -898,6 +804,7 @@ class Reference(metaclass=abc.ABCMeta):
     :ivar referred_semantic_id: SemanticId of the referenced model element. For external references there typically is
                                 no semantic id.
     """
+
     @abc.abstractmethod
     def __init__(self, key: Tuple[Key, ...], referred_semantic_id: Optional["Reference"] = None):
         if len(key) < 1:
@@ -995,6 +902,7 @@ class ModelReference(Reference, Generic[_RT]):
     :ivar referred_semantic_id: SemanticId of the referenced model element. For external references there typically is
                                 no semantic id.
     """
+
     def __init__(self, key: Tuple[Key, ...], type_: Type[_RT], referred_semantic_id: Optional[Reference] = None):
         super().__init__(key, referred_semantic_id)
 
@@ -1057,7 +965,7 @@ class ModelReference(Reference, Generic[_RT]):
         # Check type
         if not isinstance(item, self.type):
             raise UnexpectedTypeError(item, "Retrieved object {} is not an instance of referenced type {}"
-                                            .format(item, self.type.__name__))
+                                      .format(item, self.type.__name__))
         return item
 
     def get_identifier(self) -> Identifier:
@@ -1126,6 +1034,7 @@ class Resource:
     :ivar content_type: Content type of the content of the file. The content type states which file extensions the file
                         can have.
     """
+
     def __init__(self, path: PathType, content_type: Optional[ContentType] = None):
         self.path: PathType = path
         self.content_type: Optional[ContentType] = content_type
@@ -1145,6 +1054,7 @@ class DataSpecificationContent:
     shall contain the external reference to the IRI of the corresponding data specification
     template ``https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIEC61360/3/0``
     """
+
     @abc.abstractmethod
     def __init__(self):
         pass
@@ -1157,10 +1067,11 @@ class EmbeddedDataSpecification:
     :ivar data_specification: Reference to the data specification
     :ivar data_specification_content: Actual content of the data specification
     """
+
     def __init__(
-        self,
-        data_specification: Reference,
-        data_specification_content: DataSpecificationContent,
+            self,
+            data_specification: Reference,
+            data_specification_content: DataSpecificationContent,
     ) -> None:
         self.data_specification: Reference = data_specification
         self.data_specification_content: DataSpecificationContent = data_specification_content
@@ -1182,10 +1093,11 @@ class HasDataSpecification(metaclass=abc.ABCMeta):
 
     :ivar embedded_data_specifications: List of :class:`~.EmbeddedDataSpecification`.
     """
+
     @abc.abstractmethod
     def __init__(
-        self,
-        embedded_data_specifications: Iterable[EmbeddedDataSpecification] = (),
+            self,
+            embedded_data_specifications: Iterable[EmbeddedDataSpecification] = (),
     ) -> None:
         self.embedded_data_specifications = list(embedded_data_specifications)
 
@@ -1277,6 +1189,7 @@ class Identifiable(Referable, metaclass=abc.ABCMeta):
     :ivar administration: :class:`~.AdministrativeInformation` of an identifiable element.
     :ivar id: The globally unique id of the element.
     """
+
     @abc.abstractmethod
     def __init__(self) -> None:
         super().__init__()
@@ -1336,19 +1249,23 @@ class ConstrainedList(MutableSequence[_T], Generic[_T]):
         del self[:]
 
     @overload
-    def __getitem__(self, index: int) -> _T: ...
+    def __getitem__(self, index: int) -> _T:
+        ...
 
     @overload
-    def __getitem__(self, index: slice) -> MutableSequence[_T]: ...
+    def __getitem__(self, index: slice) -> MutableSequence[_T]:
+        ...
 
     def __getitem__(self, index: Union[int, slice]) -> Union[_T, MutableSequence[_T]]:
         return self._list[index]
 
     @overload
-    def __setitem__(self, index: int, value: _T) -> None: ...
+    def __setitem__(self, index: int, value: _T) -> None:
+        ...
 
     @overload
-    def __setitem__(self, index: slice, value: Iterable[_T]) -> None: ...
+    def __setitem__(self, index: slice, value: Iterable[_T]) -> None:
+        ...
 
     def __setitem__(self, index: Union[int, slice], value: Union[_T, Iterable[_T]]) -> None:
         # TODO: remove the following type: ignore once mypy supports type narrowing using overload information
@@ -1363,10 +1280,12 @@ class ConstrainedList(MutableSequence[_T], Generic[_T]):
         self._list[index] = value  # type: ignore
 
     @overload
-    def __delitem__(self, index: int) -> None: ...
+    def __delitem__(self, index: int) -> None:
+        ...
 
     @overload
-    def __delitem__(self, index: slice) -> None: ...
+    def __delitem__(self, index: slice) -> None:
+        ...
 
     def __delitem__(self, index: Union[int, slice]) -> None:
         if isinstance(index, int):
@@ -1410,6 +1329,7 @@ class HasSemantics(metaclass=abc.ABCMeta):
     :ivar supplemental_semantic_id: Identifier of a supplemental semantic definition of the element. It is called
                                     supplemental semantic ID of the element.
     """
+
     @abc.abstractmethod
     def __init__(self) -> None:
         super().__init__()
@@ -1539,6 +1459,7 @@ class HasKind(metaclass=abc.ABCMeta):
 
     :ivar _kind: Kind of the element: either type or instance. Default = :attr:`~ModellingKind.INSTANCE`.
     """
+
     @abc.abstractmethod
     def __init__(self) -> None:
         super().__init__()
@@ -1560,6 +1481,7 @@ class Qualifiable(Namespace, metaclass=abc.ABCMeta):
     :ivar qualifier: Unordered list of :class:`Qualifiers <Qualifier>` that gives additional qualification of a
                      qualifiable element.
     """
+
     @abc.abstractmethod
     def __init__(self) -> None:
         super().__init__()
@@ -1711,6 +1633,7 @@ class UniqueIdShortNamespace(Namespace, metaclass=abc.ABCMeta):
 
     :ivar namespace_element_sets: A list of all :class:`NamespaceSets <.NamespaceSet>` of this Namespace
     """
+
     @abc.abstractmethod
     def __init__(self) -> None:
         super().__init__()
@@ -1796,6 +1719,7 @@ class UniqueSemanticIdNamespace(Namespace, metaclass=abc.ABCMeta):
 
     :ivar namespace_element_sets: A list of all NamespaceSets of this Namespace
     """
+
     @abc.abstractmethod
     def __init__(self) -> None:
         super().__init__()
@@ -1853,6 +1777,7 @@ class NamespaceSet(MutableSet[_NSO], Generic[_NSO]):
 
     :raises KeyError: When ``items`` contains multiple objects with same unique attribute
     """
+
     def __init__(self, parent: Union[UniqueIdShortNamespace, UniqueSemanticIdNamespace, Qualifiable, HasExtension],
                  attribute_names: List[Tuple[str, bool]], items: Iterable[_NSO] = (),
                  item_add_hook: Optional[Callable[[_NSO, Iterable[_NSO]], None]] = None,
@@ -2097,6 +2022,7 @@ class OrderedNamespaceSet(NamespaceSet[_NSO], MutableSequence[_NSO], Generic[_NS
     (actually it is derived from MutableSequence). However, we don't permit duplicate entries in the ordered list of
     objects.
     """
+
     def __init__(self, parent: Union[UniqueIdShortNamespace, UniqueSemanticIdNamespace, Qualifiable, HasExtension],
                  attribute_names: List[Tuple[str, bool]], items: Iterable[_NSO] = (),
                  item_add_hook: Optional[Callable[[_NSO, Iterable[_NSO]], None]] = None,
@@ -2157,19 +2083,23 @@ class OrderedNamespaceSet(NamespaceSet[_NSO], MutableSequence[_NSO], Generic[_NS
         self._order.insert(index, object_)
 
     @overload
-    def __getitem__(self, i: int) -> _NSO: ...
+    def __getitem__(self, i: int) -> _NSO:
+        ...
 
     @overload
-    def __getitem__(self, s: slice) -> MutableSequence[_NSO]: ...
+    def __getitem__(self, s: slice) -> MutableSequence[_NSO]:
+        ...
 
     def __getitem__(self, s: Union[int, slice]) -> Union[_NSO, MutableSequence[_NSO]]:
         return self._order[s]
 
     @overload
-    def __setitem__(self, i: int, o: _NSO) -> None: ...
+    def __setitem__(self, i: int, o: _NSO) -> None:
+        ...
 
     @overload
-    def __setitem__(self, s: slice, o: Iterable[_NSO]) -> None: ...
+    def __setitem__(self, s: slice, o: Iterable[_NSO]) -> None:
+        ...
 
     def __setitem__(self, s, o) -> None:
         if isinstance(s, int):
@@ -2194,14 +2124,16 @@ class OrderedNamespaceSet(NamespaceSet[_NSO], MutableSequence[_NSO], Generic[_NS
             super().remove(i)
 
     @overload
-    def __delitem__(self, i: int) -> None: ...
+    def __delitem__(self, i: int) -> None:
+        ...
 
     @overload
-    def __delitem__(self, i: slice) -> None: ...
+    def __delitem__(self, i: slice) -> None:
+        ...
 
     def __delitem__(self, i: Union[int, slice]) -> None:
         if isinstance(i, int):
-            i = slice(i, i+1)
+            i = slice(i, i + 1)
         for o in self._order[i]:
             super().remove(o)
         del self._order[i]
@@ -2272,9 +2204,9 @@ class SpecificAssetId(HasSemantics):
 
     def __repr__(self) -> str:
         return "SpecificAssetId(key={}, value={}, external_subject_id={}, " \
-                "semantic_id={}, supplemental_semantic_id={})".format(
-                    self.name, self.value, self.external_subject_id, self.semantic_id,
-                    self.supplemental_semantic_id)
+               "semantic_id={}, supplemental_semantic_id={})".format(
+                self.name, self.value, self.external_subject_id, self.semantic_id,
+                self.supplemental_semantic_id)
 
 
 class AASConstraintViolation(Exception):
@@ -2285,6 +2217,7 @@ class AASConstraintViolation(Exception):
     :ivar constraint_id: The ID of the constraint that is violated
     :ivar message: The error message of the Exception
     """
+
     def __init__(self, constraint_id: int, message: str):
         self.constraint_id: int = constraint_id
         self.message: str = message + " (Constraint AASd-" + str(constraint_id).zfill(3) + ")"
@@ -2375,6 +2308,7 @@ class DataSpecificationIEC61360(DataSpecificationContent):
     :ivar value: Optional value data type object
     :ivar level_types: Optional set of level types of the DataSpecificationContent
     """
+
     def __init__(self,
                  preferred_name: PreferredNameTypeIEC61360,
                  data_type: Optional[DataTypeIEC61360] = None,
@@ -2388,7 +2322,6 @@ class DataSpecificationIEC61360(DataSpecificationContent):
                  value_list: Optional[ValueList] = None,
                  value: Optional[ValueTypeIEC61360] = None,
                  level_types: Iterable[IEC61360LevelType] = ()):
-
         self.preferred_name: PreferredNameTypeIEC61360 = preferred_name
         self.short_name: Optional[ShortNameTypeIEC61360] = short_name
         self.data_type: Optional[DataTypeIEC61360] = data_type

@@ -45,6 +45,10 @@ dependencies = [
     "schemathesis~=3.7",
     "hypothesis~=6.13",
     "lxml-stubs~=0.5.1",
+    "requests==2.26.0",
+    "paho-mqtt~=2.1.0",
+    "types-requests==2.28.11.5",
+
 ]
 
 [project.optional-dependencies]

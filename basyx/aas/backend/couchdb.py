@@ -24,13 +24,14 @@ import urllib3  # type: ignore
 from . import backends
 from ..adapter.json import json_serialization, json_deserialization
 from basyx.aas import model
+from basyx.aas.model.protocols import Protocol
 
 
 logger = logging.getLogger(__name__)
 _http_pool_manager = urllib3.PoolManager()
 
 
-class CouchDBBackend(backends.Backend):
+class CouchDBBackend(backends.ObjectBackend):
     """
     This Backend stores each Identifiable object as a single JSON document in the configured CouchDB database. Each
     document's id is build from the object's identifier. The document's contents comprise a single property ``data``,
@@ -41,12 +42,13 @@ class CouchDBBackend(backends.Backend):
     def update_object(cls,
                       updated_object: model.Referable,
                       store_object: model.Referable,
-                      relative_path: List[str]) -> None:
+                      relative_path: List[str],
+                      source: str) -> None:
 
         if not isinstance(store_object, model.Identifiable):
             raise CouchDBSourceError("The given store_object is not Identifiable, therefore cannot be found "
                                      "in the CouchDB")
-        url = CouchDBBackend._parse_source(store_object.source)
+        url = CouchDBBackend._parse_source(source)
 
         try:
             data = CouchDBBackend.do_request(url)
@@ -63,14 +65,16 @@ class CouchDBBackend(backends.Backend):
     def commit_object(cls,
                       committed_object: model.Referable,
                       store_object: model.Referable,
-                      relative_path: List[str]) -> None:
+                      relative_path: List[str],
+                      source: str) -> None:
         if not isinstance(store_object, model.Identifiable):
             raise CouchDBSourceError("The given store_object is not Identifiable, therefore cannot be found "
                                      "in the CouchDB")
-        url = CouchDBBackend._parse_source(store_object.source)
+        url = CouchDBBackend._parse_source(source)
         # We need to get the revision of the object, if it already exists, otherwise we cannot write to the Couchdb
         if get_couchdb_revision(url) is None:
-            raise CouchDBConflictError("No revision found for the given object. Try calling `update` on it.")
+            raise CouchDBConflictError("No revision found for the given object. "
+                                       "Try calling `load_referable` on it.")
 
         data = json.dumps({'data': store_object, "_rev": get_couchdb_revision(url)},
                           cls=json_serialization.AASToJsonEncoder)
@@ -166,8 +170,8 @@ class CouchDBBackend(backends.Backend):
         return data
 
 
-backends.register_backend("couchdb", CouchDBBackend)
-backends.register_backend("couchdbs", CouchDBBackend)
+backends.register_backend(Protocol.COUCHDB, CouchDBBackend)
+# backends.register_backend("couchdbs", CouchDBBackend)
 
 
 # Global registry for credentials for CouchDB Servers
@@ -182,7 +186,8 @@ def register_credentials(url: str, username: str, password: str):
     .. Warning::
 
         Do not use this function, while other threads may be accessing the credentials via the
-        :class:`~.CouchDBObjectStore` or update or commit functions of :class:`~.basyx.aas.model.base.Referable`
+        :class:`~.CouchDBObjectStore` or load_referable or store_referable functions
+        of :class:`~.basyx.aas.model.provider.DictObjectStore`
         objects!
 
     :param url: Toplevel URL

@@ -11,7 +11,7 @@ in local files.
 The :class:`~.LocalFileBackend` takes care of updating and committing objects from and to the files, while the
 :class:`~LocalFileObjectStore` handles adding, deleting and otherwise managing the AAS objects in a specific Directory.
 """
-from typing import List, Iterator, Iterable, Union
+from typing import List, Iterator, Optional
 import logging
 import json
 import os
@@ -22,12 +22,12 @@ import weakref
 from . import backends
 from ..adapter.json import json_serialization, json_deserialization
 from basyx.aas import model
-
+from basyx.aas.model.protocols import Protocol
 
 logger = logging.getLogger(__name__)
 
 
-class LocalFileBackend(backends.Backend):
+class LocalFileBackend(backends.ObjectBackend):
     """
     This Backend stores each Identifiable object as a single JSON document as a local file in a directory.
     Each document's id is build from the object's identifier using a SHA256 sum of its identifiable; the document's
@@ -39,12 +39,14 @@ class LocalFileBackend(backends.Backend):
     def update_object(cls,
                       updated_object: model.Referable,
                       store_object: model.Referable,
-                      relative_path: List[str]) -> None:
+                      relative_path: List[str],
+                      source: str = "") -> None:
+        # TODO: adapt the local file backend to the new update_object method
 
         if not isinstance(store_object, model.Identifiable):
             raise FileBackendSourceError("The given store_object is not Identifiable, therefore cannot be found "
                                          "in the FileBackend")
-        file_name: str = store_object.source.replace("file://localhost/", "")
+        file_name: str = source.replace("file://localhost/", "")
         with open(file_name, "r") as file:
             data = json.load(file, cls=json_deserialization.AASFromJsonDecoder)
             updated_store_object = data["data"]
@@ -54,16 +56,17 @@ class LocalFileBackend(backends.Backend):
     def commit_object(cls,
                       committed_object: model.Referable,
                       store_object: model.Referable,
-                      relative_path: List[str]) -> None:
+                      relative_path: List[str],
+                      source: str = "") -> None:
         if not isinstance(store_object, model.Identifiable):
             raise FileBackendSourceError("The given store_object is not Identifiable, therefore cannot be found "
                                          "in the FileBackend")
-        file_name: str = store_object.source.replace("file://localhost/", "")
+        file_name: str = source.replace("file://localhost/", "")
         with open(file_name, "w") as file:
             json.dump({'data': store_object}, file, cls=json_serialization.AASToJsonEncoder, indent=4)
 
 
-backends.register_backend("file", LocalFileBackend)
+backends.register_backend(Protocol.FILE, LocalFileBackend)
 
 
 class LocalFileObjectStore(model.AbstractObjectStore):
