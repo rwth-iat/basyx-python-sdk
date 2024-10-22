@@ -20,8 +20,8 @@ Custom backends for additional types of data sources can be
 implemented by subclassing :class:`Backend` and implementing the
 :meth:`~.Backend.commit_object` and :meth:`~.Backend.update_object`
 class methods. These are used internally by the objects'
-:meth:`~basyx.aas.model.provider.DictObjectStore.update_identifiable` and
-:meth:`~basyx.aas.model.provider.DictObjectStore.commit_identifiable`
+:meth:`~basyx.aas.model.provider.DictObjectStore.load_referable` and
+:meth:`~basyx.aas.model.provider.DictObjectStore.store_referable`
 methods when the backend is applicable for the relevant source URI.
 Then, the Backend class needs to be registered to handle update/commit
 requests for a specific URI schema, using
@@ -47,8 +47,8 @@ class Backend(metaclass=abc.ABCMeta):
     registered via
     :meth:`~basyx.aas.backend.backends.register_backend`. to be used by
     DictObjectStore object's
-    :meth:`~basyx.aas.model.provider.DictObjectStore.update_identifiable` and
-    :meth:`~basyx.aas.model.provider.DictObjectStore.commit_identifiable` methods
+    :meth:`~basyx.aas.model.provider.DictObjectStore.load_referable` and
+    :meth:`~basyx.aas.model.provider.DictObjectStore.store_referable` methods
     when required.
     """
 
@@ -67,7 +67,7 @@ class ObjectBackend(Backend):
         via this backend implementation.
 
         It is automatically called by the
-        :meth:`~basyx.aas.model.provider.DictObjectStore.commit_identifiable`
+        :meth:`~basyx.aas.model.provider.DictObjectStore.store_referable`
         implementation, when the source URI of the object or the
         source URI one of its ancestors in the AAS object containment
         hierarchy include a URI schema for which this backend has
@@ -123,7 +123,7 @@ class ObjectBackend(Backend):
         data source) via this backend implementation.
 
         It is automatically called by the
-        :meth:`~basyx.aas.model.provider.DictObjectStore.update_identifiable`
+        :meth:`~basyx.aas.model.provider.DictObjectStore.load_referable`
         implementation, when the source URI of the object or the
         source URI one of its ancestors in the AAS object containment
         hierarchy include a URI schema for which this backend has

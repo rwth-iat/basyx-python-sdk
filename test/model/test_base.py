@@ -125,7 +125,7 @@ class ReferableTest(unittest.TestCase):
     def test_update_commit_qualifier_extension_semantic_id(self):
         submodel = model.Submodel("https://acplt.org/Test_Submodel")
         obj_store: model.DictObjectStore = model.DictObjectStore()
-        obj_store.update_identifiable(submodel)
+        obj_store.load_referable(submodel)
         qualifier = model.Qualifier("test", model.datatypes.String)
         extension = model.Extension("test")
         collection = model.SubmodelElementCollection("test")
@@ -135,7 +135,7 @@ class ReferableTest(unittest.TestCase):
         submodel.add_qualifier(qualifier)
         submodel.add_extension(extension)
         submodel.add_referable(collection)
-        obj_store.commit_identifiable(submodel)
+        obj_store.store_referable(submodel)
 
         self.assertEqual(next(iter(submodel.qualifier)), qualifier)
         self.assertEqual(next(iter(submodel.extension)), extension)
@@ -162,7 +162,7 @@ class ReferableTest(unittest.TestCase):
             next(iter(submodel.submodel_element))
         with self.assertRaises(StopIteration):
             next(iter(collection.value))
-        obj_store.commit_identifiable(submodel)
+        obj_store.store_referable(submodel)
 
 
 class ExampleNamespaceReferable(model.UniqueIdShortNamespace, model.UniqueSemanticIdNamespace, model.Identifiable):

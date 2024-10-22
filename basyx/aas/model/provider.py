@@ -85,11 +85,208 @@ class AbstractObjectStore(AbstractObjectProvider, MutableSet[_IT],
 
     @abc.abstractmethod
     def __init__(self):
-        pass
+        self._mapping: Dict[str, Dict[Union[Protocol, str], Any]] = {}
 
     def add_from(self, other: Iterable[_IT]) -> None:
         for x in other:
             self.add(x)
+
+    def load_referable(self,
+                       referable: "model.Referable",
+                       protocol: Optional[Union[Protocol, str]] = None,
+                       max_age: float = 0,
+                       recursive: bool = True,
+                       _indirect_source: bool = True) -> None:
+        """
+        Update the local Referable object from any underlying external data source, using an appropriate backend
+
+        If there is no source given, it will find its next ancestor with a source and update from this source.
+        If there is no source in any ancestor, this function will do nothing
+
+        :param referable: The object to update
+        :param protocol: The protocol to use for updating. If None, the first available protocol will be used.
+        :param max_age: Maximum age of the local data in seconds. This method may return early, if the previous update
+            of the object has been performed less than ``max_age`` seconds ago.
+        :param recursive: Also call update on all children of this object. Default is True
+        :param _indirect_source: Internal parameter to avoid duplicate updating.
+        :raises backends.BackendError: If no appropriate backend or the data source is not available
+        """
+        if protocol is None:
+            protocol = self._get_first_available_protocol(referable)
+            if protocol is None:
+                print(f"No available protocol found for referable {referable.id_short}")
+                return
+
+        source = self.get_source(referable, protocol)
+
+        if not _indirect_source:
+            # Update was already called on an ancestor of this Referable. Only update it, if it has its own source
+            if source:
+                backends.get_object_backend(protocol).update_object(
+                    updated_object=referable,
+                    store_object=referable,
+                    relative_path=[],
+                    source=source)
+
+        else:
+            # Try to find a valid source for this Referable
+            if source:
+                backends.get_object_backend(protocol).update_object(
+                    updated_object=referable,
+                    store_object=referable,
+                    relative_path=[],
+                    source=source)
+            else:
+                store_object, relative_path = self.find_source(referable, protocol)
+                if store_object and relative_path is not None:
+                    source = self.get_source(store_object, protocol)
+                    backends.get_object_backend(protocol).update_object(
+                        updated_object=referable,
+                        store_object=store_object,
+                        relative_path=list(relative_path),
+                        source=source)
+
+        if recursive:
+            # update all the children who have their own source
+            if isinstance(referable, UniqueIdShortNamespace):
+                for namespace_set in referable.namespace_element_sets:
+                    if "id_short" not in namespace_set.get_attribute_name_list():
+                        continue
+                    for referable in namespace_set:
+                        self.load_referable(referable, protocol, max_age,
+                                            recursive=True,
+                                            _indirect_source=False)
+
+    def store_referable(self, referable: "model.Referable", protocol: Optional[Union[Protocol, str]] = None) \
+            -> None:
+        """
+        Transfer local changes on this object to all underlying external data sources.
+
+        This function commits the current state of this object to its own and each external data source of its
+        ancestors. If there is no source, this function will do nothing.
+
+        :param referable: The Referable object to commit
+        :param protocol: The protocol to use for committing. If None, the first available protocol will be used.
+        """
+        if protocol is None:
+            protocol = self._get_first_available_protocol(referable)
+            if protocol is None:
+                print(f"No available protocol found for referable {referable.id_short}")
+                return
+
+        current_ancestor = referable.parent
+        relative_path: List[NameType] = [referable.id_short]
+        # Commit to all ancestors with sources
+        while current_ancestor:
+            assert isinstance(current_ancestor, Referable)
+            source = self.get_source(current_ancestor, protocol)
+            if source:
+                backends.get_object_backend(protocol).commit_object(
+                    committed_object=referable,
+                    store_object=current_ancestor,
+                    relative_path=list(relative_path),
+                    source=source)
+            relative_path.insert(0, current_ancestor.id_short)
+            current_ancestor = current_ancestor.parent
+        # Commit to own source and check if there are children with sources to commit to
+        self._direct_source_commit(referable, protocol)
+
+    def _direct_source_commit(self, referable: "model.Referable", protocol: Union[Protocol, str]) -> None:
+        """
+        Commits children of an ancestor recursively, if they have a specific source given
+        """
+        source = self.get_source(referable, protocol)
+        if source:
+            backends.get_object_backend(protocol).commit_object(
+                committed_object=referable,
+                store_object=referable,
+                relative_path=[],
+                source=source)
+
+        if isinstance(referable, UniqueIdShortNamespace):
+            for namespace_set in referable.namespace_element_sets:
+                if "id_short" not in namespace_set.get_attribute_name_list():
+                    continue
+                for referable in namespace_set:
+                    self._direct_source_commit(referable, protocol)
+
+    def get_source(self, referable: "model.Referable", protocol: Union[Protocol, str]) -> Optional[Any]:
+        """
+        Find the source for the given Referable and protocol type in the mapping table.
+        """
+        model_ref = ModelReference.from_referable(referable)
+        hash_value = self.generate_model_reference_hash(model_ref)
+        if hash_value not in self._mapping:
+            return None
+
+        if protocol not in self._mapping[hash_value]:
+            print(f"Source for protocol {protocol} is not available")
+            return None
+        return self._mapping[hash_value][protocol]
+
+    def _get_first_available_protocol(self, referable: "model.Referable") -> Optional[Union[Protocol, str]]:
+        """
+        Extract the first available protocol for the given referable.
+
+        :param referable: The Referable object to check for available protocols
+        :return: The first available Protocol, or None if no protocols are available
+        """
+        model_ref = ModelReference.from_referable(referable)
+        hash_value = self.generate_model_reference_hash(model_ref)
+
+        if hash_value in self._mapping:
+            available_protocols = list(self._mapping[hash_value].keys())
+            if available_protocols:
+                return available_protocols[0]
+
+        return None
+
+    def find_source(self, obj, protocol) -> Tuple[Optional["model.Referable"], Optional[List[str]]]:  # type: ignore
+        """
+        Finds the closest source in this object's ancestors. If there is no source, returns None
+
+        :return: Tuple with the closest ancestor with a defined source and the relative path of id_shorts to that
+                 ancestor
+        """
+        referable: "model.Referable" = obj
+        relative_path: List[NameType] = [obj.id_short]
+        while referable is not None:
+            source = self.get_source(referable, protocol)
+            if source is not None:
+                relative_path.reverse()
+                return referable, relative_path
+            if referable.parent:
+                assert isinstance(referable.parent, Referable)
+                referable = referable.parent
+                relative_path.append(referable.id_short)
+                continue
+            break
+        return None, None
+
+    @staticmethod
+    def generate_model_reference_hash(model_ref: "model.Reference") -> str:
+        """
+        Generate a hash value for the ModelReference using SHA-256.
+        Convert the key to a string and use it as input for the hash function.
+
+        :param model_ref: ModelReference
+        :return: generated hash value of the ModelReference
+        """
+        key_str = "|".join(f"{k.type},{k.value}" for k in model_ref.key)
+
+        return hashlib.sha256(key_str.encode()).hexdigest()
+
+    def add_source(self, referable: "model.Referable", protocol: Union[Protocol, str], source: Any) -> None:
+        """
+        Add a corresponding source to the mapping table. The input is extracted either from the AID or custom input.
+        TODO: adapt the source dict to a source class
+        """
+        model_ref = ModelReference.from_referable(referable)
+        hash_value = self.generate_model_reference_hash(model_ref)
+        if hash_value not in self._mapping:
+            self._mapping[hash_value] = {}
+
+        self._mapping[hash_value][protocol] = source
 
 
 class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
@@ -100,10 +297,10 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
     """
 
     def __init__(self, objects: Iterable[_IT] = ()) -> None:
+        super().__init__()
         self._backend: Dict[Identifier, _IT] = {}
         for x in objects:
             self.add(x)
-        self._mapping: Dict[str, Dict[Union[Protocol, str], Any]] = {}
 
     def get_identifiable(self, identifier: Identifier) -> _IT:
         return self._backend[identifier]
@@ -237,203 +434,6 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
                     second_hash = self.generate_model_reference_hash(relation.second)
                     if second_hash in self._mapping:
                         del self._mapping[second_hash]
-
-    @staticmethod
-    def generate_model_reference_hash(model_ref: "model.Reference") -> str:
-        """
-        Generate a hash value for the ModelReference using SHA-256.
-        Convert the key to a string and use it as input for the hash function.
-
-        :param model_ref: ModelReference
-        :return: generated hash value of the ModelReference
-        """
-        key_str = "|".join(f"{k.type},{k.value}" for k in model_ref.key)
-
-        return hashlib.sha256(key_str.encode()).hexdigest()
-
-    def add_source(self, referable: "model.Referable", protocol: Union[Protocol, str], source: Any) -> None:
-        """
-        Add a corresponding source to the mapping table. The input is extracted either from the AID or custom input.
-        TODO: adapt the source dict to a source class
-        """
-        model_ref = ModelReference.from_referable(referable)
-        hash_value = self.generate_model_reference_hash(model_ref)
-        if hash_value not in self._mapping:
-            self._mapping[hash_value] = {}
-
-        self._mapping[hash_value][protocol] = source
-
-    def get_source(self, referable: "model.Referable", protocol: Union[Protocol, str]) -> Optional[Any]:
-        """
-        Find the source for the given Referable and protocol type in the mapping table.
-        """
-        model_ref = ModelReference.from_referable(referable)
-        hash_value = self.generate_model_reference_hash(model_ref)
-        if hash_value not in self._mapping:
-            return None
-
-        if protocol not in self._mapping[hash_value]:
-            print(f"Source for protocol {protocol} is not available")
-            return None
-        return self._mapping[hash_value][protocol]
-
-    def update_identifiable(self,
-                            referable: "model.Referable",
-                            protocol: Optional[Union[Protocol, str]] = None,
-                            max_age: float = 0,
-                            recursive: bool = True,
-                            _indirect_source: bool = True) -> None:
-        """
-        Update the local Referable object from any underlying external data source, using an appropriate backend
-
-        If there is no source given, it will find its next ancestor with a source and update from this source.
-        If there is no source in any ancestor, this function will do nothing
-
-        :param referable: The object to update
-        :param protocol: The protocol to use for updating. If None, the first available protocol will be used.
-        :param max_age: Maximum age of the local data in seconds. This method may return early, if the previous update
-            of the object has been performed less than ``max_age`` seconds ago.
-        :param recursive: Also call update on all children of this object. Default is True
-        :param _indirect_source: Internal parameter to avoid duplicate updating.
-        :raises backends.BackendError: If no appropriate backend or the data source is not available
-        """
-        if protocol is None:
-            protocol = self._get_first_available_protocol(referable)
-            if protocol is None:
-                print(f"No available protocol found for referable {referable.id_short}")
-                return
-
-        source = self.get_source(referable, protocol)
-
-        if not _indirect_source:
-            # Update was already called on an ancestor of this Referable. Only update it, if it has its own source
-            if source:
-                backends.get_object_backend(protocol).update_object(
-                    updated_object=referable,
-                    store_object=referable,
-                    relative_path=[],
-                    source=source)
-
-        else:
-            # Try to find a valid source for this Referable
-            if source:
-                backends.get_object_backend(protocol).update_object(
-                    updated_object=referable,
-                    store_object=referable,
-                    relative_path=[],
-                    source=source)
-            else:
-                store_object, relative_path = self.find_source(referable, protocol)
-                if store_object and relative_path is not None:
-                    source = self.get_source(store_object, protocol)
-                    backends.get_object_backend(protocol).update_object(
-                        updated_object=referable,
-                        store_object=store_object,
-                        relative_path=list(relative_path),
-                        source=source)
-
-        if recursive:
-            # update all the children who have their own source
-            if isinstance(referable, UniqueIdShortNamespace):
-                for namespace_set in referable.namespace_element_sets:
-                    if "id_short" not in namespace_set.get_attribute_name_list():
-                        continue
-                    for referable in namespace_set:
-                        self.update_identifiable(referable, protocol, max_age,
-                                                 recursive=True,
-                                                 _indirect_source=False)
-
-    def _get_first_available_protocol(self, referable: "model.Referable") -> Optional[Union[Protocol, str]]:
-        """
-        Extract the first available protocol for the given referable.
-
-        :param referable: The Referable object to check for available protocols
-        :return: The first available Protocol, or None if no protocols are available
-        """
-        model_ref = ModelReference.from_referable(referable)
-        hash_value = self.generate_model_reference_hash(model_ref)
-
-        if hash_value in self._mapping:
-            available_protocols = list(self._mapping[hash_value].keys())
-            if available_protocols:
-                return available_protocols[0]
-
-        return None
-
-    def find_source(self, obj, protocol) -> Tuple[Optional["model.Referable"], Optional[List[str]]]:  # type: ignore
-        """
-        Finds the closest source in this object's ancestors. If there is no source, returns None
-
-        :return: Tuple with the closest ancestor with a defined source and the relative path of id_shorts to that
-                 ancestor
-        """
-        referable: "model.Referable" = obj
-        relative_path: List[NameType] = [obj.id_short]
-        while referable is not None:
-            source = self.get_source(referable, protocol)
-            if source is not None:
-                relative_path.reverse()
-                return referable, relative_path
-            if referable.parent:
-                assert isinstance(referable.parent, Referable)
-                referable = referable.parent
-                relative_path.append(referable.id_short)
-                continue
-            break
-        return None, None
-
-    def commit_identifiable(self, referable: "model.Referable", protocol: Optional[Union[Protocol, str]] = None) \
-            -> None:
-        """
-        Transfer local changes on this object to all underlying external data sources.
-
-        This function commits the current state of this object to its own and each external data source of its
-        ancestors. If there is no source, this function will do nothing.
-
-        :param referable: The Referable object to commit
-        :param protocol: The protocol to use for committing. If None, the first available protocol will be used.
-        """
-        if protocol is None:
-            protocol = self._get_first_available_protocol(referable)
-            if protocol is None:
-                print(f"No available protocol found for referable {referable.id_short}")
-                return
-
-        current_ancestor = referable.parent
-        relative_path: List[NameType] = [referable.id_short]
-        # Commit to all ancestors with sources
-        while current_ancestor:
-            assert isinstance(current_ancestor, Referable)
-            source = self.get_source(current_ancestor, protocol)
-            if source:
-                backends.get_object_backend(protocol).commit_object(
-                    committed_object=referable,
-                    store_object=current_ancestor,
-                    relative_path=list(relative_path),
-                    source=source)
-            relative_path.insert(0, current_ancestor.id_short)
-            current_ancestor = current_ancestor.parent
-        # Commit to own source and check if there are children with sources to commit to
-        self._direct_source_commit(referable, protocol)
-
-    def _direct_source_commit(self, referable: "model.Referable", protocol: Union[Protocol, str]) -> None:
-        """
-        Commits children of an ancestor recursively, if they have a specific source given
-        """
-        source = self.get_source(referable, protocol)
-        if source:
-            backends.get_object_backend(protocol).commit_object(
-                committed_object=referable,
-                store_object=referable,
-                relative_path=[],
-                source=source)
-
-        if isinstance(referable, UniqueIdShortNamespace):
-            for namespace_set in referable.namespace_element_sets:
-                if "id_short" not in namespace_set.get_attribute_name_list():
-                    continue
-                for referable in namespace_set:
-                    self._direct_source_commit(referable, protocol)
 
     def update_referable_value(self,
                                referable: "model.Referable",

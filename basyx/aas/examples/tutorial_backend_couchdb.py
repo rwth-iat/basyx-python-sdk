@@ -118,7 +118,7 @@ obj_store: DictObjectStore = DictObjectStore()
 # Add source information of the example_submodel1 into the mapping table.
 source = example_submodel1.source
 obj_store.add_source(example_submodel1, Protocol.COUCHDB, source)
-obj_store.update_identifiable(example_submodel1, Protocol.COUCHDB)
+obj_store.load_referable(example_submodel1, Protocol.COUCHDB)
 
 # Backup delete
 # object_store.discard(example_submodel1)
@@ -127,7 +127,7 @@ obj_store.update_identifiable(example_submodel1, Protocol.COUCHDB)
 prop = example_submodel1.get_referable('ManufacturerName')
 assert isinstance(prop, basyx.aas.model.Property)
 
-obj_store.update_identifiable(prop, protocol=Protocol.COUCHDB)
+obj_store.load_referable(prop, protocol=Protocol.COUCHDB)
 
 
 prop.value = "RWTH Aachen"
@@ -139,7 +139,7 @@ example_submodel1.id_short = 'NewIdShort'
 # source attribute of all ancestors in the object hierarchy (
 # including the Submodel) and commit the changes to all of these
 # external data sources.
-obj_store.commit_identifiable(example_submodel1, protocol=Protocol.COUCHDB)
+obj_store.store_referable(example_submodel1, protocol=Protocol.COUCHDB)
 
 ############
 # Clean up #

@@ -60,7 +60,7 @@ aashell = model.AssetAdministrationShell(
 # this tutorial, but may be important when dealing with dynamic data.
 # See `tutorial_dynamic_model.py` for more information on that topic.
 obj_store: model.DictObjectStore = model.DictObjectStore()
-obj_store.update_identifiable(aashell)
+obj_store.load_referable(aashell)
 
 # `AASToJsonEncoder` from the `aas.adapter.json` module is a custom JSONEncoder class for serializing
 # Asset Administration Shell data into the official JSON format according to
@@ -104,8 +104,8 @@ obj_store.add(submodel)
 obj_store.add(aashell)
 
 # step 4.2: Again, make sure that the data is up-to-date
-obj_store.update_identifiable(submodel)
-obj_store.update_identifiable(aashell)
+obj_store.load_referable(submodel)
+obj_store.load_referable(aashell)
 
 # step 4.3: writing the contents of the ObjectStore to a JSON file
 basyx.aas.adapter.json.write_aas_json_file('data.json', obj_store)

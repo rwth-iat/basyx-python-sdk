@@ -152,17 +152,17 @@ class CouchDBBackendTest(unittest.TestCase):
         # Simulate a concurrent modification (Commit submodel, while preventing that the couchdb revision store is
         # updated)
         with unittest.mock.patch("basyx.aas.backend.couchdb.set_couchdb_revision"):
-            obj_store.commit_identifiable(retrieved_submodel, Protocol.COUCHDB)
+            obj_store.store_referable(retrieved_submodel, Protocol.COUCHDB)
 
         # Committing changes to the retrieved object should now raise a conflict error
         retrieved_submodel.id_short = "myOtherNewIdShort"
         with self.assertRaises(couchdb.CouchDBConflictError) as cm:
-            obj_store.commit_identifiable(retrieved_submodel, Protocol.COUCHDB)
+            obj_store.store_referable(retrieved_submodel, Protocol.COUCHDB)
         self.assertEqual("Could not commit changes to id https://acplt.org/Test_Submodel due to a "
                          "concurrent modification in the database.", str(cm.exception))
 
-        # Deleting the submodel with safe_delete should also raise a conflict error. Deletion without safe_delete should
-        # work
+        # Deleting the submodel with safe_delete should also raise a conflict error.
+        # Deletion without safe_delete should work
         with self.assertRaises(couchdb.CouchDBConflictError) as cm:
             self.object_store.discard(retrieved_submodel, True)
         self.assertEqual("Object with id https://acplt.org/Test_Submodel has been modified in the "
@@ -171,7 +171,7 @@ class CouchDBBackendTest(unittest.TestCase):
         self.assertEqual(0, len(self.object_store))
 
         # Committing after deletion should not raise a conflict error due to removal of the source attribute
-        # obj_store.commit_identifiable(retrieved_submodel, Protocol.COUCHDB)
+        # obj_store.store_referable(retrieved_submodel, Protocol.COUCHDB)
 
     def test_editing(self):
         test_object = create_example_submodel()
@@ -182,9 +182,9 @@ class CouchDBBackendTest(unittest.TestCase):
         obj_store: model.DictObjectStore = model.DictObjectStore()
         source = test_object.source
         obj_store.add_source(test_object, Protocol.COUCHDB, source)
-        obj_store.commit_identifiable(test_object)
+        obj_store.store_referable(test_object)
 
         # Test if update restores changes
         test_object.id_short = "AnotherIdShort"
-        obj_store.update_identifiable(test_object)
+        obj_store.load_referable(test_object)
         self.assertEqual("SomeNewIdShort", test_object.id_short)
