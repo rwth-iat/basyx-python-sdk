@@ -4,19 +4,19 @@
 # the LICENSE file of this project.
 #
 # SPDX-License-Identifier: MIT
-from enum import Enum
+import enum
 from typing import Dict, Any, Optional, Union
 from urllib.parse import parse_qs
 from basyx.aas import model
 
 
-class Protocol(Enum):
-    HTTP = "HTTP"
-    MQTT = "MQTT"
-    MODBUS = "MODBUS"
-    COUCHDB = "COUCHDB"
-    FILE = "Local File"
-    MOCK = "Mock"
+class Protocol(enum.Enum):
+    HTTP = enum.auto()
+    MQTT = enum.auto()
+    MODBUS = enum.auto()
+    COUCHDB = enum.auto()
+    FILE = enum.auto()
+    MOCK = enum.auto()
 
 
 class ProtocolExtractorError(Exception):
