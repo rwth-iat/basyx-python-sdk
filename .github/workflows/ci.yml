@@ -5,7 +5,7 @@ on: [ push, pull_request ]
 env:
   X_PYTHON_MIN_VERSION: "3.9"
   X_PYTHON_MAX_VERSION: "3.12"
-  X_PYTHON_VERSIONS: "3.9, 3.10, 3.11, 3.12"
+  X_PYTHON_VERSIONS: '"3.9", "3.10", "3.11", "3.12"'
 
 jobs:
   python-matrix:
