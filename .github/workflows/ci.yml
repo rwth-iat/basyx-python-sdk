@@ -37,12 +37,14 @@ jobs:
       - name: Check if the Python Version is supported
         run: |
           python check_python_versions_supported.py \
-            ${{ env.X_PYTHON_VERSIONS }}
+            ${{ env.X_PYTHON_MIN_VERSION }} \
+            ${{ env.X_PYTHON_MAX_VERSION }}
       - name: Check the Python Version coincide with the SDKs pyproject.toml
         run: |
           python check_python_versions_coincide.py \
             ../../sdk/pyproject.toml \
-            ${{ env.X_PYTHON_VERSIONS }}
+            ${{ env.X_PYTHON_MIN_VERSION }} \
+            ${{ env.X_PYTHON_MAX_VERSION }}
 
       # Todo: Check other pyproject.toml here as well, as we add them
 
