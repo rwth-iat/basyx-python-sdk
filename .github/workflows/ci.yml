@@ -1,12 +1,23 @@
 name: ci
 
-on: [push, pull_request]
+on: [ push, pull_request ]
 
 env:
   X_PYTHON_MIN_VERSION: "3.9"
   X_PYTHON_MAX_VERSION: "3.12"
+  X_PYTHON_VERSIONS: "3.9, 3.10, 3.11, 3.12"
 
 jobs:
+  python-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      versions: ${{ steps.versions.outputs.versions }}
+    steps:
+      - name: Define Python Versions Matrix
+        id: versions
+        run: |
+          echo 'versions=[${{ env.X_PYTHON_VERSIONS }}]' >> "$GITHUB_OUTPUT"
+
   check-python-versions:
     # This job checks that the Python Versions we support match and are not End of Life
     runs-on: ubuntu-latest
@@ -23,27 +34,25 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r ./check_python_versions_requirements.txt
-      - name: Check Supported Python Versions
+      - name: Check if the Python Version is supported
         run: |
           python check_python_versions_supported.py \
-            ${{ env.X_PYTHON_MIN_VERSION }} \
-            ${{ env.X_PYTHON_MAX_VERSION }}
-
-      - name: Check Python Versions coincide with the SDKs pyproject.toml
+            ${{ env.X_PYTHON_VERSIONS }}
+      - name: Check the Python Version coincide with the SDKs pyproject.toml
         run: |
           python check_python_versions_coincide.py \
             ../../sdk/pyproject.toml \
-            ${{ env.X_PYTHON_MIN_VERSION }} \
-            ${{ env.X_PYTHON_MAX_VERSION }}
+            ${{ env.X_PYTHON_VERSIONS }}
 
       # Todo: Check other pyproject.toml here as well, as we add them
 
   sdk-test:
     # This job runs the unittests on the python versions specified down at the matrix
     runs-on: ubuntu-latest
+    needs: python-matrix
     strategy:
       matrix:
-        python-version: ["3.9", "3.12"]
+        python-version: ${{fromJson(needs.python-matrix.outputs.versions)}}
     env:
       COUCHDB_ADMIN_PASSWORD: "yo0Quai3"
       # (2024-10-11, s-heppner)
@@ -64,59 +73,57 @@ jobs:
       run:
         working-directory: ./sdk
     steps:
-    - uses: actions/checkout@v2
-    - name: Verify Matrix Version matches Global Version
-      run: |
-        if [ "${{ matrix.python-version }}" != "${{ env.X_PYTHON_MIN_VERSION }}" ] && [ "${{ matrix.python-version }}" != "${{ env.X_PYTHON_MAX_VERSION }}" ]; then
-          echo "Error: Matrix version ${{ matrix.python-version }} does not match global version."
-          exit 1
-        fi
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Collect schema files from aas-specs
-      run: |
-        mkdir -p ./test/adapter/schema
-        curl -sSL -o ./test/adapter/schema/aasJSONSchema.json https://raw.githubusercontent.com/admin-shell-io/aas-specs/${{ env.AAS_SPECS_RELEASE_TAG }}/schemas/json/aas.json
-        curl -sSL -o ./test/adapter/schema/aasXMLSchema.xsd https://raw.githubusercontent.com/admin-shell-io/aas-specs/${{ env.AAS_SPECS_RELEASE_TAG }}/schemas/xml/AAS.xsd
-    - name: Install Python dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install .[dev]
-    - name: Setup test config and CouchDB database server
-      run: |
-        python test/_helper/setup_testdb.py -u "admin" -p "$COUCHDB_ADMIN_PASSWORD"
-    - name: Test with coverage + unittest
-      run: |
-        coverage run --source=basyx -m unittest
-    - name: Report test coverage
-      if: ${{ always() }}
-      run: |
-        coverage report -m
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Collect schema files from aas-specs
+        run: |
+          mkdir -p ./test/adapter/schema
+          curl -sSL -o ./test/adapter/schema/aasJSONSchema.json https://raw.githubusercontent.com/admin-shell-io/aas-specs/${{ env.AAS_SPECS_RELEASE_TAG }}/schemas/json/aas.json
+          curl -sSL -o ./test/adapter/schema/aasXMLSchema.xsd https://raw.githubusercontent.com/admin-shell-io/aas-specs/${{ env.AAS_SPECS_RELEASE_TAG }}/schemas/xml/AAS.xsd
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .[dev]
+      - name: Setup test config and CouchDB database server
+        run: |
+          python test/_helper/setup_testdb.py -u "admin" -p "$COUCHDB_ADMIN_PASSWORD"
+      - name: Test with coverage + unittest
+        run: |
+          coverage run --source=basyx -m unittest
+      - name: Report test coverage
+        if: ${{ always() }}
+        run: |
+          coverage report -m
 
   sdk-static-analysis:
     # This job runs static code analysis, namely pycodestyle and mypy
     runs-on: ubuntu-latest
+    needs: python-matrix
+    strategy:
+      matrix:
+        python-version: ${{fromJson(needs.python-matrix.outputs.versions)}}
     defaults:
       run:
         working-directory: ./sdk
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python ${{ env.X_PYTHON_MIN_VERSION }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ env.X_PYTHON_MIN_VERSION }}
-    - name: Install Python dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install .[dev]
-    - name: Check typing with MyPy
-      run: |
-        mypy basyx test
-    - name: Check code style with PyCodestyle
-      run: |
-        pycodestyle --count --max-line-length 120 basyx test
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .[dev]
+      - name: Check typing with MyPy
+        run: |
+          mypy basyx test
+      - name: Check code style with PyCodestyle
+        run: |
+          pycodestyle --count --max-line-length 120 basyx test
 
   sdk-readme-codeblocks:
     # This job runs the same static code analysis (mypy and pycodestyle) on the codeblocks in our docstrings.
@@ -125,24 +132,24 @@ jobs:
       run:
         working-directory: ./sdk
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python ${{ env.X_PYTHON_MIN_VERSION }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ env.X_PYTHON_MIN_VERSION }}
-    - name: Install Python dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install .[dev]
-    - name: Check typing with MyPy
-      run: |
-        mypy <(codeblocks python README.md)
-    - name: Check code style with PyCodestyle
-      run: |
-        codeblocks --wrap python README.md | pycodestyle --count --max-line-length 120 -
-    - name: Run readme codeblocks with Python
-      run: |
-        codeblocks python README.md | python
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ env.X_PYTHON_MIN_VERSION }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ env.X_PYTHON_MIN_VERSION }}
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .[dev]
+      - name: Check typing with MyPy
+        run: |
+          mypy <(codeblocks python README.md)
+      - name: Check code style with PyCodestyle
+        run: |
+          codeblocks --wrap python README.md | pycodestyle --count --max-line-length 120 -
+      - name: Run readme codeblocks with Python
+        run: |
+          codeblocks python README.md | python
 
   sdk-docs:
     # This job checks, if the automatically generated documentation using sphinx can be compiled
@@ -151,19 +158,19 @@ jobs:
       run:
         working-directory: ./sdk
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python ${{ env.X_PYTHON_MIN_VERSION }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ env.X_PYTHON_MIN_VERSION }}
-    - name: Install Python dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install .
-        pip install -r docs/add-requirements.txt
-    - name: Check documentation for errors
-      run: |
-        SPHINXOPTS="-a -E -n -W --keep-going" make -C docs html
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ env.X_PYTHON_MIN_VERSION }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ env.X_PYTHON_MIN_VERSION }}
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+          pip install -r docs/add-requirements.txt
+      - name: Check documentation for errors
+        run: |
+          SPHINXOPTS="-a -E -n -W --keep-going" make -C docs html
 
   sdk-package:
     # This job checks if we can build our SDK package
@@ -172,15 +179,15 @@ jobs:
       run:
         working-directory: ./sdk
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python ${{ env.X_PYTHON_MIN_VERSION }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ env.X_PYTHON_MIN_VERSION }}
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install build
-    - name: Create source and wheel dist
-      run: |
-        python -m build
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ env.X_PYTHON_MIN_VERSION }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ env.X_PYTHON_MIN_VERSION }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+      - name: Create source and wheel dist
+        run: |
+          python -m build
