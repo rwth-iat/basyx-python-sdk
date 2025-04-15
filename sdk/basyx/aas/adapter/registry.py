@@ -169,7 +169,7 @@ class RegistryAPI:
         submodel_descriptors: Iterator[model.Submodel] = self._get_all_obj_of_type(model.SubmodelDescriptor)
         id_short = request.args.get("idShort")
         if id_short is not None:
-            submodel_descriptors= filter(lambda sm: sm.id_short == id_short, submodels)
+            submodel_descriptors= filter(lambda sm: sm.id_short == id_short, submodel_descriptors)
         semantic_id = request.args.get("semanticId")
         if semantic_id is not None:
             spec_semantic_id = HTTPApiDecoder.base64urljson(
@@ -228,7 +228,7 @@ class RegistryAPI:
 
     def delete_aas_descriptor(self, request: Request, url_args: Dict, response_t: Type[APIResponse], **_kwargs) -> Response:
         descriptor = self._get_descriptor(url_args)
-        self.object_store.remove(descriptor)
+        self.object_store.discard(descriptor)
         return response_t()
 
     def get_all_submodel_descriptors_through_superpath(self,
