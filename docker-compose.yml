@@ -11,26 +11,11 @@ services:
     depends_on:
       - keycloak
   
-  postgres:
-    image: postgres:latest
-    container_name: PostgreSQL
-    environment:
-      POSTGRES_DB: keycloak
-      POSTGRES_USER: keycloak
-      POSTGRES_PASSWORD: password
-    ports:
-      - "5432:5432"
-
   keycloak:
     image: quay.io/keycloak/keycloak:latest
     container_name: Keycloak
     command: ["start-dev", "--import-realm"]
     environment:
-      KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
-      KC_DB_USERNAME: keycloak
-      KC_DB_PASSWORD: password
-      KC_LOG_LEVEL: info
       KC_METRICS_ENABLED: true
       KC_HEALTH_ENABLED: true
       KEYCLOAK_ADMIN: admin
@@ -39,8 +24,6 @@ services:
       - "8080:8080"
     volumes:
       - ./Keycloak/realm.json:/opt/keycloak/data/import/realm.json 
-    depends_on:
-      - postgres
 
   opa-envoy:
     image: openpolicyagent/opa:latest-envoy
