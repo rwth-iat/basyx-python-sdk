@@ -10,7 +10,7 @@ import enum
 import io
 import itertools
 import json
-from typing import Iterable, Type, Iterator, Tuple, Optional, List, Union, Dict, Callable, TypeVar
+from typing import Iterable, Type, Iterator, Tuple, Optional, List, Union, Dict, Callable, TypeVar, Any
 
 import werkzeug.exceptions
 import werkzeug.routing
@@ -22,12 +22,10 @@ from werkzeug.routing import MapAdapter
 
 from basyx.aas import model
 from basyx.aas.adapter._generic import XML_NS_MAP
+from basyx.aas.adapter.json import StrictStrippedAASFromJsonDecoder, StrictAASFromJsonDecoder, AASToJsonEncoder
 from basyx.aas.adapter.xml import xml_serialization, XMLConstructables, read_aas_xml_element
 from basyx.aas.model import AbstractObjectStore
-from server.app import model as server_model
-from server.app.adapter.jsonization import ServerAASToJsonEncoder, ServerStrictAASFromJsonDecoder, \
-    ServerStrictStrippedAASFromJsonDecoder
-from server.app.util.converters import base64url_decode
+from util.converters import base64url_decode
 
 
 T = TypeVar("T")
@@ -161,7 +159,7 @@ class XmlResponseAlt(XmlResponse):
         super().__init__(*args, **kwargs, content_type=content_type)
 
 
-class ResultToJsonEncoder(ServerAASToJsonEncoder):
+class ResultToJsonEncoder(AASToJsonEncoder):
     @classmethod
     def _result_to_json(cls, result: Result) -> Dict[str, object]:
         return {
@@ -269,15 +267,14 @@ class ObjectStoreWSGIApp(BaseWSGIApp):
     def _get_all_obj_of_type(self, type_: Type[model.provider._IT]) -> Iterator[model.provider._IT]:
         for obj in self.object_store:
             if isinstance(obj, type_):
-                obj.update()
                 yield obj
 
     def _get_obj_ts(self, identifier: model.Identifier, type_: Type[model.provider._IT]) -> model.provider._IT:
         identifiable = self.object_store.get(identifier)
         if not isinstance(identifiable, type_):
             raise NotFound(f"No {type_.__name__} with {identifier} found!")
-        identifiable.update()
         return identifiable
+
 
 class HTTPApiDecoder:
     # these are the types we can construct (well, only the ones we need)
@@ -294,12 +291,7 @@ class HTTPApiDecoder:
 
     @classmethod
     def check_type_support(cls, type_: type):
-        tolerated_types = (
-            server_model.AssetAdministrationShellDescriptor,
-            server_model.SubmodelDescriptor,
-            server_model.AssetLink,
-        )
-        if type_ not in cls.type_constructables_map and type_ not in tolerated_types:
+        if type_ not in cls.type_constructables_map:
             raise TypeError(f"Parsing {type_} is not supported!")
 
     @classmethod
@@ -311,8 +303,8 @@ class HTTPApiDecoder:
     @classmethod
     def json_list(cls, data: Union[str, bytes], expect_type: Type[T], stripped: bool, expect_single: bool) -> List[T]:
         cls.check_type_support(expect_type)
-        decoder: Type[ServerStrictAASFromJsonDecoder] = ServerStrictStrippedAASFromJsonDecoder if stripped \
-            else ServerStrictAASFromJsonDecoder
+        decoder: Type[StrictAASFromJsonDecoder] = StrictStrippedAASFromJsonDecoder if stripped \
+            else StrictAASFromJsonDecoder
         try:
             parsed = json.loads(data, cls=decoder)
             if isinstance(parsed, list) and expect_single:
@@ -326,18 +318,14 @@ class HTTPApiDecoder:
             # TODO: json deserialization will always create an ModelReference[Submodel], xml deserialization determines
             #  that automatically
             mapping = {
-                model.ModelReference: decoder._construct_model_reference,  # type: ignore[assignment]
-                model.AssetInformation: decoder._construct_asset_information,  # type: ignore[assignment]
-                model.SpecificAssetId: decoder._construct_specific_asset_id,  # type: ignore[assignment]
-                model.Reference: decoder._construct_reference,  # type: ignore[assignment]
-                model.Qualifier: decoder._construct_qualifier,  # type: ignore[assignment]
-                server_model.AssetAdministrationShellDescriptor:
-                    decoder._construct_asset_administration_shell_descriptor,  # type: ignore[assignment]
-                server_model.SubmodelDescriptor: decoder._construct_submodel_descriptor,  # type: ignore[assignment]
-                server_model.AssetLink: decoder._construct_asset_link,  # type: ignore[assignment]
+                model.ModelReference: decoder._construct_model_reference,
+                model.AssetInformation: decoder._construct_asset_information,
+                model.SpecificAssetId: decoder._construct_specific_asset_id,
+                model.Reference: decoder._construct_reference,
+                model.Qualifier: decoder._construct_qualifier,
             }
 
-            constructor: Optional[Callable[..., T]] = mapping.get(expect_type)
+            constructor: Optional[Callable[..., T]] = mapping.get(expect_type)  # type: ignore[assignment]
             args = []
             if expect_type is model.ModelReference:
                 args.append(model.Submodel)
@@ -371,7 +359,7 @@ class HTTPApiDecoder:
         try:
             xml_data = io.BytesIO(data)
             rv = read_aas_xml_element(xml_data, cls.type_constructables_map[expect_type],
-                                             stripped=stripped, failsafe=False)
+                                      stripped=stripped, failsafe=False)
         except (KeyError, ValueError) as e:
             # xml deserialization creates an error chain. since we only return one error, return the root cause
             f: BaseException = e
@@ -428,15 +416,15 @@ class HTTPApiDecoder:
                 # Für jedes Element wird die Konvertierung angewandt.
                 return [cls._convert_single_json_item(item, expect_type, stripped) for item in parsed]  # type: ignore
             else:
-                return cls._convert_single_json_item(parsed, expect_type, stripped)
+                return [cls._convert_single_json_item(parsed, expect_type, stripped)]
         else:
-            return cls.xml(request.get_data(), expect_type, stripped)
+            return [cls.xml(request.get_data(), expect_type, stripped)]
 
     @classmethod
-    def _convert_single_json_item(cls, data: any, expect_type: Type[T], stripped: bool) -> T:
+    def _convert_single_json_item(cls, data: Any, expect_type: Type[T], stripped: bool) -> T:
         """
-        Konvertiert ein einzelnes JSON-Objekt (als Python-Dict) in ein Objekt vom Typ expect_type.
-        Hierbei wird das Dictionary zuerst wieder in einen JSON-String serialisiert und als Bytes übergeben.
+        Converts a single JSON-Object (as a Python-Dict) to an object of type expect_type.
+        Here the dictionary is first serialized back to a JSON-string and returned as bytes.
         """
         json_bytes = json.dumps(data).encode("utf-8")
         return cls.json(json_bytes, expect_type, stripped)
