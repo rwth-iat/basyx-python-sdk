@@ -40,7 +40,7 @@ To expose it on the host on port 8080, use the option `-p 8080:80` when running 
 
 The container can be configured via environment variables:
 - `API_BASE_PATH` determines the base path under which all other API paths are made available.
-  Default: `/api/v3.0`
+  Default: `/api/v3.1`
 - `STORAGE_TYPE` can be one of `LOCAL_FILE_READ_ONLY` or `LOCAL_FILE_BACKEND`:
   - When set to `LOCAL_FILE_READ_ONLY` (the default), the server will read and serve AASX, JSON, XML files from the storage directory.
     The files are not modified, all changes done via the API are only stored in memory.
@@ -60,7 +60,7 @@ Since Windows uses backslashes instead of forward slashes in paths, you'll have 
 > docker run -p 8080:80 -v .\storage:/storage basyx-python-server
 ```
 
-Per default, the server will use the `LOCAL_FILE_READ_ONLY` storage type and serve the API under `/api/v3.0` and read files from `/storage`. If you want to change this, you can do so like this:
+Per default, the server will use the `LOCAL_FILE_READ_ONLY` storage type and serve the API under `/api/v3.1` and read files from `/storage`. If you want to change this, you can do so like this:
 ```
 $ docker run -p 8080:80 -v ./storage2:/storage2 -e API_BASE_PATH=/api/v3.1 -e STORAGE_TYPE=LOCAL_FILE_BACKEND -e STORAGE_PATH=/storage2 basyx-python-server
 ```
@@ -85,7 +85,7 @@ services:
       - ./storage:/storage
 ```
 
-Here files are read from `/storage` and the server can be accessed at http://localhost:8080/api/v3.0/ from your host system. 
+Here files are read from `/storage` and the server can be accessed at http://localhost:8080/api/v3.1/ from your host system. 
 To get a different setup this compose.yaml file can be adapted and expanded.
 
 Note that the `Dockerfile` has to be specified explicitly, as the build context must be set to the parent directory of `/server` to allow access to the local `/sdk`.
@@ -108,7 +108,7 @@ The server can also be run directly on the host system without Docker, NGINX and
    $ python -m interfaces.repository
    ```
 
-The server can be accessed at http://localhost:8080/api/v3.0/ from your host system. 
+The server can be accessed at http://localhost:8080/api/v3.1/ from your host system. 
 
 ## Acknowledgments
 
@@ -117,8 +117,8 @@ This Dockerfile is inspired by the [tiangolo/uwsgi-nginx-docker][10] repository.
 [1]: https://github.com/eclipse-basyx/basyx-python-sdk/pull/238
 [2]: https://basyx-python-sdk.readthedocs.io/en/latest/backend/local_file.html
 [3]: https://github.com/eclipse-basyx/basyx-python-sdk
-[4]: https://app.swaggerhub.com/apis/Plattform_i40/AssetAdministrationShellRepositoryServiceSpecification/V3.0.1_SSP-001
-[5]: https://app.swaggerhub.com/apis/Plattform_i40/SubmodelRepositoryServiceSpecification/V3.0.1_SSP-001
+[4]: https://app.swaggerhub.com/apis/Plattform_i40/AssetAdministrationShellRepositoryServiceSpecification/V3.1.1_SSP-001
+[5]: https://app.swaggerhub.com/apis/Plattform_i40/SubmodelRepositoryServiceSpecification/V3.1.1_SSP-001
 [6]: https://industrialdigitaltwin.org/content-hub/aasspecifications/idta_01002-3-0_application_programming_interfaces
 [7]: https://basyx-python-sdk.readthedocs.io/en/latest/adapter/aasx.html#adapter-aasx
 [8]: https://basyx-python-sdk.readthedocs.io/en/latest/adapter/json.html

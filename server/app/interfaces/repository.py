@@ -59,7 +59,7 @@ SUPPORTED_PROFILES: ServiceDescription = ServiceDescription([
 
 class WSGIApp(ObjectStoreWSGIApp):
     def __init__(self, object_store: model.AbstractObjectStore, file_store: aasx.AbstractSupplementaryFileContainer,
-                 base_path: str = "/api/v3.0"):
+                 base_path: str = "/api/v3.1"):
         self.object_store: model.AbstractObjectStore = object_store
         self.file_store: aasx.AbstractSupplementaryFileContainer = file_store
         self.url_map = werkzeug.routing.Map([
