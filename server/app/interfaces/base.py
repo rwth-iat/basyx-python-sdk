@@ -148,7 +148,7 @@ class JsonResponse(APIResponse):
         super().__init__(*args, **kwargs, content_type=content_type)
 
     def serialize(self, obj: ResponseData, cursor: Optional[int], stripped: bool) -> str:
-        if cursor is None or (isinstance(obj, list) and not obj):
+        if cursor is None:
             data = obj
         else:
             data = {
@@ -273,8 +273,11 @@ class BaseWSGIApp:
             raise BadRequest("Limit can not be negative, cursor must be positive!")
         start_index = cursor
         end_index = cursor + limit
-        paginated_slice = itertools.islice(iterator, start_index, end_index)
-        return paginated_slice, end_index
+        items = list(itertools.islice(iterator, start_index, end_index + 1))
+        has_more = len(items) > limit
+        paginated_slice = iter(items[:limit])
+        next_cursor = cursor + limit if has_more else None
+        return paginated_slice, next_cursor
 
     def handle_request(self, request: Request):
         map_adapter: MapAdapter = self.url_map.bind_to_environ(request.environ)
