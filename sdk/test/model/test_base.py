@@ -855,7 +855,7 @@ class ModelReferenceTest(unittest.TestCase):
         dummy_submodel = model.Submodel("urn:x-test:x")
 
         class DummyObjectProvider(model.AbstractObjectProvider):
-            def get_identifiable(self, identifier: Identifier) -> Identifiable:
+            def get_object(self, identifier: Identifier) -> Identifiable:
                 return dummy_submodel
 
         x = model.ModelReference((model.Key(model.KeyTypes.SUBMODEL, "urn:x-test:x"),), model.Submodel)
@@ -869,7 +869,7 @@ class ModelReferenceTest(unittest.TestCase):
         submodel = model.Submodel("urn:x-test:submodel", {list_})
 
         class DummyObjectProvider(model.AbstractObjectProvider):
-            def get_identifiable(self, identifier: Identifier) -> Identifiable:
+            def get_object(self, identifier: Identifier) -> Identifiable:
                 if identifier == submodel.id:
                     return submodel
                 else:

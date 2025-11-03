@@ -11,7 +11,8 @@ This module implements Registries for the AAS, in order to enable resolving glob
 """
 
 import abc
-from typing import MutableSet, Iterator, Generic, TypeVar, Dict, List, Optional, Iterable, Set, Tuple, cast
+import warnings
+from typing import MutableSet, Iterator, Generic, TypeVar, Dict, List, Optional, Iterable, Set, Tuple
 
 from .base import Identifier, Identifiable
 
@@ -25,7 +26,7 @@ class AbstractObjectProvider(metaclass=abc.ABCMeta):
     This includes local object stores, database clients and AAS API clients.
     """
     @abc.abstractmethod
-    def get_identifiable(self, identifier: Identifier) -> Identifiable:
+    def get_object(self, identifier: Identifier) -> object:
         """
         Find an :class:`~basyx.aas.model.base.Identifiable` by its :class:`~basyx.aas.model.base.Identifier`
 
@@ -39,7 +40,7 @@ class AbstractObjectProvider(metaclass=abc.ABCMeta):
         """
         pass
 
-    def get(self, identifier: Identifier, default: Optional[Identifiable] = None) -> Optional[Identifiable]:
+    def fetch(self, identifier: Identifier, default: Optional[object] = None) -> Optional[object]:
         """
         Find an object in this set by its :class:`id <basyx.aas.model.base.Identifier>`, with fallback parameter
 
@@ -51,15 +52,47 @@ class AbstractObjectProvider(metaclass=abc.ABCMeta):
                  or None, if none is given.
         """
         try:
-            return self.get_identifiable(identifier)
+            return self.get_object(identifier)
         except KeyError:
             return default
 
+    def get_identifiable(self, identifier: Identifier) -> Identifiable:
+        warnings.warn(
+            "`get_identifiable()` is deprecated and will be removed in a future release. Use `get_object()`"
+            "instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
+        obj = self.get_object(identifier)
+        if not isinstance(obj, Identifiable):
+            raise TypeError(
+                f"Object with identifier {identifier} is not an Identifiable (got {type(obj).__name__})."
+            )
+        return obj
+
+    def get(self, identifier: Identifier, default: Optional[Identifiable] = None) -> Optional[Identifiable]:
+        warnings.warn(
+            "`get()` is deprecated and will be removed in a future release. Use `fetch()` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
+        obj = self.fetch(identifier, default)
+        if not (isinstance(obj, Identifiable) or obj is None):
+            if not isinstance(obj, Identifiable):
+                raise TypeError(
+                    f"Object with identifier {identifier} is not an Identifiable or NoneType (got {type(obj).__name__})"
+                    f"."
+                )
+        return obj
+
+
+_OBJ = TypeVar('_OBJ', bound=object)
 _IT = TypeVar('_IT', bound=Identifiable)
 
 
-class AbstractObjectStore(AbstractObjectProvider, MutableSet[_IT], Generic[_IT], metaclass=abc.ABCMeta):
+class AbstractObjectStore(AbstractObjectProvider, MutableSet[_OBJ], Generic[_OBJ], metaclass=abc.ABCMeta):
     """
     Abstract baseclass of for container-like objects for storage of :class:`~basyx.aas.model.base.Identifiable` objects.
 
@@ -76,42 +109,8 @@ class AbstractObjectStore(AbstractObjectProvider, MutableSet[_IT], Generic[_IT],
     def __init__(self):
         pass
 
-    def update(self, other: Iterable[_IT]) -> None:
-        for x in other:
-            self.add(x)
 
-    def sync(self, other: Iterable[_IT], overwrite: bool) -> Tuple[int, int, int]:
-        """
-        Merge :class:`Identifiables <basyx.aas.model.base.Identifiable>` from an
-        :class:`~collections.abc.Iterable` into this :class:`~basyx.aas.model.provider.AbstractObjectStore`.
-
-        :param other: :class:`~collections.abc.Iterable` to sync with
-        :param overwrite: Flag to overwrite existing :class:`Identifiables <basyx.aas.model.base.Identifiable>` in this
-            :class:`~basyx.aas.model.provider.AbstractObjectStore` with updated versions from ``other``,
-            :class:`Identifiables <basyx.aas.model.base.Identifiable>` unique to this
-            :class:`~basyx.aas.model.provider.AbstractObjectStore` are always preserved
-        :return: Counts of processed :class:`Identifiables <basyx.aas.model.base.Identifiable>` as
-            ``(added, overwritten, skipped)``
-        """
-
-        added, overwritten, skipped = 0, 0, 0
-        for identifiable in other:
-            identifiable_id = identifiable.id
-            if identifiable_id in self:
-                if overwrite:
-                    existing = self.get_identifiable(identifiable_id)
-                    self.discard(cast(_IT, existing))
-                    self.add(identifiable)
-                    overwritten += 1
-                else:
-                    skipped += 1
-            else:
-                self.add(identifiable)
-                added += 1
-        return added, overwritten, skipped
-
-
-class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
+class DictIdentifiableStore(AbstractObjectStore[_IT], Generic[_IT]):
     """
     A local in-memory object store for :class:`~basyx.aas.model.base.Identifiable` objects, backed by a dict, mapping
     :class:`~basyx.aas.model.base.Identifier` → :class:`~basyx.aas.model.base.Identifiable`
@@ -130,7 +129,7 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         for x in objects:
             self.add(x)
 
-    def get_identifiable(self, identifier: Identifier) -> _IT:
+    def get_object(self, identifier: Identifier) -> _IT:
         return self._backend[identifier]
 
     def add(self, x: _IT) -> None:
@@ -142,6 +141,10 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
     def discard(self, x: _IT) -> None:
         if self._backend.get(x.id) is x:
             del self._backend[x.id]
+
+    def update(self, other: Iterable[_IT]) -> None:
+        for x in other:
+            self.add(x)
 
     def __contains__(self, x: object) -> bool:
         if isinstance(x, Identifier):
@@ -157,7 +160,22 @@ class DictObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         return iter(self._backend.values())
 
 
-class SetObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
+class DictObjectStore(DictIdentifiableStore[_IT], Generic[_IT]):
+    """
+    `DictObjectStore` has been renamed to :class:`~.DictIdentifiableStore` and will be removed in a future release.
+    Please migrate to :class:`~.DictIdentifiableStore`.
+    """
+    def __init__(self, objects: Iterable[_IT] = ()) -> None:
+        warnings.warn(
+            "`DictObjectStore` is deprecated and will be removed in a future release. Use "
+            "`DictIdentifiableStore` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(objects)
+
+
+class SetIdentifiableStore(AbstractObjectStore[_IT], Generic[_IT]):
     """
     A local in-memory object store for :class:`~basyx.aas.model.base.Identifiable` objects, backed by a set
 
@@ -174,7 +192,7 @@ class SetObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
         for x in objects:
             self.add(x)
 
-    def get_identifiable(self, identifier: Identifier) -> _IT:
+    def get_object(self, identifier: Identifier) -> _IT:
         for x in self._backend:
             if x.id == identifier:
                 return x
@@ -185,7 +203,7 @@ class SetObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
             # Object is already in store
             return
         try:
-            self.get_identifiable(x.id)
+            self.get_object(x.id)
         except KeyError:
             self._backend.add(x)
         else:
@@ -200,7 +218,7 @@ class SetObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
     def __contains__(self, x: object) -> bool:
         if isinstance(x, Identifier):
             try:
-                self.get_identifiable(x)
+                self.get_object(x)
                 return True
             except KeyError:
                 return False
@@ -213,6 +231,21 @@ class SetObjectStore(AbstractObjectStore[_IT], Generic[_IT]):
 
     def __iter__(self) -> Iterator[_IT]:
         return iter(self._backend)
+
+
+class SetObjectStore(SetIdentifiableStore[_IT], Generic[_IT]):
+    """
+    `SetObjectStore` has been renamed to :class:`~.SetIdentifiableStore` and will be removed in a future release.
+    Please migrate to :class:`~.SetIdentifiableStore`.
+    """
+    def __init__(self, objects: Iterable[_IT] = ()) -> None:
+        warnings.warn(
+            "`SetObjectStore` is deprecated and will be removed in a future release. Use `SetIdentifiableStore`"
+            "instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(objects)
 
 
 class ObjectProviderMultiplexer(AbstractObjectProvider):
@@ -229,10 +262,10 @@ class ObjectProviderMultiplexer(AbstractObjectProvider):
     def __init__(self, registries: Optional[List[AbstractObjectProvider]] = None):
         self.providers: List[AbstractObjectProvider] = registries if registries is not None else []
 
-    def get_identifiable(self, identifier: Identifier) -> Identifiable:
+    def get_object(self, identifier: Identifier) -> object:
         for provider in self.providers:
             try:
-                return provider.get_identifiable(identifier)
+                return provider.get_object(identifier)
             except KeyError:
                 pass
         raise KeyError("Identifier could not be found in any of the {} consulted registries."

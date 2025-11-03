@@ -11,12 +11,13 @@ in local files.
 The :class:`~LocalFileObjectStore` handles adding, deleting and otherwise managing
 the AAS objects in a specific Directory.
 """
-from typing import List, Iterator, Iterable, Union
+from typing import Iterator, Iterable, Tuple
 import logging
 import json
 import os
 import hashlib
 import threading
+import warnings
 import weakref
 
 from ..adapter.json import json_serialization, json_deserialization
@@ -26,7 +27,7 @@ from basyx.aas import model
 logger = logging.getLogger(__name__)
 
 
-class LocalFileObjectStore(model.AbstractObjectStore):
+class LocalFileIdentifiableStore(model.AbstractObjectStore):
     """
     An ObjectStore implementation for :class:`~basyx.aas.model.base.Identifiable` BaSyx Python SDK objects backed
     by a local file based local backend
@@ -84,7 +85,7 @@ class LocalFileObjectStore(model.AbstractObjectStore):
         self._object_cache[obj.id] = obj
         return obj
 
-    def get_identifiable(self, identifier: model.Identifier) -> model.Identifiable:
+    def get_object(self, identifier: model.Identifier) -> model.Identifiable:
         """
         Retrieve an AAS object from the local file by its :class:`~basyx.aas.model.base.Identifier`
 
@@ -123,6 +124,46 @@ class LocalFileObjectStore(model.AbstractObjectStore):
             raise KeyError("No AAS object with id {} exists in local file database".format(x.id)) from e
         with self._object_cache_lock:
             del self._object_cache[x.id]
+
+    def sync(self, other: Iterable[model.provider._IT], overwrite: bool) -> Tuple[int, int, int]:
+        """
+        Merge :class:`Identifiables <basyx.aas.model.base.Identifiable>` from an
+        :class:`~collections.abc.Iterable` into this :class:`~basyx.aas.backend.local_file.LocalFileObjectStore`.
+
+        :param other: :class:`~collections.abc.Iterable` to sync with
+        :param overwrite: Flag to overwrite existing :class:`Identifiables <basyx.aas.model.base.Identifiable>` in this
+            :class:`~basyx.aas.backend.local_file.LocalFileObjectStore` with updated versions from ``other``,
+            :class:`Identifiables <basyx.aas.model.base.Identifiable>` unique to this
+            :class:`~basyx.aas.backend.local_file.LocalFileObjectStore` are always preserved
+        :return: Counts of processed :class:`Identifiables <basyx.aas.model.base.Identifiable>` as
+            ``(added, overwritten, skipped)``
+        """
+
+        added, overwritten, skipped = 0, 0, 0
+        for identifiable in other:
+            if identifiable in self:
+                if overwrite:
+
+                    # TODO: This is a quick fix. Yes it works. The underlying problem with the LocalFileObjectStore
+                    # will be solved in a separate issue. Think of this as pythonic duct tape.
+                    #
+                    # The problem is that the `_object_cache` doesn't get initialised together with this
+                    # `LocalFileObjectStore`, leading to an error when `discard()` is called on the empty cache.
+                    # The for-loop calls `__iter__` calls `get_identifiable_by_hash()` calls
+                    # `self._object_cache[obj.id] = obj`, adding all identifiables to the cache and therefore avoiding
+                    # the error.
+                    for element in self:
+                        pass
+
+                    self.discard(identifiable)
+                    self.add(identifiable)
+                    overwritten += 1
+                else:
+                    skipped += 1
+            else:
+                self.add(identifiable)
+                added += 1
+        return added, overwritten, skipped
 
     def __contains__(self, x: object) -> bool:
         """
@@ -168,3 +209,18 @@ class LocalFileObjectStore(model.AbstractObjectStore):
         Helper method to represent an ASS Identifier as a string to be used as Local file document id
         """
         return hashlib.sha256(identifier.encode("utf-8")).hexdigest()
+
+
+class LocalFileObjectStore(LocalFileIdentifiableStore):
+    """
+    `LocalFileObjectStore` has been renamed to :class:`~.LocalFileIdentifiableStore` and will be removed in a future
+    release. Please migrate to :class:`~.LocalFileIdentifiableStore`.
+    """
+    def __init__(self, directory_path: str):
+        warnings.warn(
+            "`LocalFileObjectStore` is deprecated and will be removed in a future release. Use"
+            "`LocalFileIdentifiableStore instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(directory_path)
