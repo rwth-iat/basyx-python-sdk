@@ -386,7 +386,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: aas-test-results
-          path: result.html
+          path: ./server/result.html
       - name: Stop and remove the container
         if: always()
         run: |
