@@ -356,9 +356,9 @@ jobs:
           pip install aas-test-engines
       - name: Prepare test data
         run: |
-          mkdir -p input
-          PKG_DIR=$(python -c "import os, aas_test_engines; print(os.path.dirname(aas_test_engines.__file__))")
-          cp "$PKG_DIR/bin/check_servers/test_data/TestDataWithThumbnail.aasx" input/
+           mkdir -p input
+           wget -O input/TestDataWithThumbnail.aasx \
+           https://raw.githubusercontent.com/admin-shell-io/aas-test-engines/main/bin/check_servers/test_data/TestDataWithThumbnail.aasx
       - name: Build the Docker image
         run: |
           docker build -t basyx-python-server -f Dockerfile ..
