@@ -364,7 +364,7 @@ jobs:
           docker build -t basyx-python-server -f Dockerfile ..
       - name: Run container
         run: |
-          docker run -d -p 8080:80 -v ./input:/input -v ./storage:/storage --name basyx-python-server basyx-python-server
+          docker run -d -p 8081:80 -v ./input:/input -v ./storage:/storage --name basyx-python-server basyx-python-server
       - name: Wait for container and server initialization
         run: |
           timeout 30s bash -c '
@@ -372,14 +372,13 @@ jobs:
               sleep 2
             done
           '
-          sleep 8
       - name: Check if container is running
         run: |
           docker inspect --format='{{.State.Running}}' basyx-python-server | grep true
       - name: Run AAS Test Engines compliance check
         run: |
           aas_test_engines check_server \
-            http://localhost:8080/api/v3.0 \
+            http://localhost:8081/api/v3.0 \
             https://admin-shell.io/aas/API/3/0/AssetAdministrationShellRepositoryServiceSpecification/SSP-002 \
             --output html > result.html
       - name: Show test results
