@@ -357,8 +357,8 @@ jobs:
       - name: Prepare test data
         run: |
            mkdir -p input
-           wget -O input/TestDataWithThumbnail.aasx \
-           https://raw.githubusercontent.com/admin-shell-io/aas-test-engines/main/bin/check_servers/test_data/TestDataWithThumbnail.aasx
+           curl -L -o input/TestDataWithThumbnail.aasx \
+           https://media.githubusercontent.com/media/admin-shell-io/aas-test-engines/main/bin/check_servers/test_data/TestDataWithThumbnail.aasx
       - name: Build the Docker image
         run: |
           docker build -t basyx-python-server -f Dockerfile ..
