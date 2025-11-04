@@ -372,6 +372,7 @@ jobs:
               sleep 2
             done
           '
+          sleep 5
       - name: Check if container is running
         run: |
           docker inspect --format='{{.State.Running}}' basyx-python-server | grep true
