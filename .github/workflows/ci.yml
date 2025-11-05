@@ -386,9 +386,11 @@ jobs:
           docker inspect --format='{{.State.Running}}' basyx-python-server | grep true
       - name: Run AAS Test Engines compliance check
         run: |
+          FILTER=$(tr -d '\n' < ../etc/scripts/aas_test_engines_filter.txt)
           aas_test_engines check_server \
             http://localhost:8081/api/v3.0 \
             https://admin-shell.io/aas/API/3/0/AssetAdministrationShellRepositoryServiceSpecification/SSP-002 \
+            --filter "$FILTER" \
             --output html > result.html
       - name: Upload test results as artifact
         if: always()
