@@ -837,6 +837,27 @@ class DictSupplementaryFileContainer(AbstractSupplementaryFileContainer):
             new_name = self._append_counter(name, i)
             i += 1
 
+    def rename_file(self, old_name: str, new_name: str) -> str:
+        if old_name not in self._name_map:
+            raise KeyError(f"File with name {old_name} not found in SupplementaryFileContainer.")
+
+        if new_name == old_name:
+            return new_name
+
+        old_hash, old_ct = self._name_map[old_name]
+
+        new_new_name = new_name
+        i = 1
+        while True:
+            if new_new_name not in self._name_map:
+                self._name_map[new_new_name] = (old_hash, old_ct)
+                del self._name_map[old_name]
+                return new_new_name
+            elif self._name_map[new_new_name] == (old_hash, old_ct):
+                return new_new_name
+            new_new_name = self._append_counter(new_name, i)
+            i += 1
+
     @staticmethod
     def _append_counter(name: str, i: int) -> str:
         split1 = name.split('/')
