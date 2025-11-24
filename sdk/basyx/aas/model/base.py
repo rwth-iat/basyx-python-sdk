@@ -770,7 +770,7 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
         """
         _string_constraints.check_name_type(id_short)
         test_id_short: NameType = str(id_short)
-        if not re.fullmatch("[A-Za-z]|[A-Za-z][A-Za-z0-9_-]*[A-Za-z0-9_]", test_id_short):
+        if not re.fullmatch("[A-Za-z0-9_-]*", test_id_short):
             raise AASConstraintViolation(
                 2,
                 "The id_short must contain only letters, digits underscore and hyphen"
