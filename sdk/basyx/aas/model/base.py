@@ -596,8 +596,9 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
     **Constraint AASd-001:** In case of a referable element not being an identifiable element the
     idShort is mandatory and used for referring to the element in its name space.
 
-    **Constraint AASd-002:** idShort shall only feature letters, digits, underscore (``_``); starting
-    mandatory with a letter.
+    **Constraint AASd-002:** idShort shall only feature letters, digits, underscore (``_``), hyphen (``-``);
+    starting mandatory with a letter and not ending with a hyphen.
+    I.e. ``^[a-zA-Z]|[a-zA-Z][a-zA-Z0-9_-]*[a-zA-Z0-9_]$``
 
     **Constraint AASd-004:** Add parent in case of non-identifiable elements.
 
@@ -758,8 +759,9 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
         """
         Validates an id_short against Constraint AASd-002 and :class:`NameType` restrictions.
 
-        **Constraint AASd-002:** idShort of Referables shall only feature letters, digits, underscore (``_``); starting
-        mandatory with a letter. I.e. ``[a-zA-Z][a-zA-Z0-9_]+``
+        **Constraint AASd-002:** idShort shall only feature letters, digits, underscore (``_``), hyphen (``-``);
+        starting mandatory with a letter and not ending with a hyphen.
+        I.e. ``^[a-zA-Z]|[a-zA-Z][a-zA-Z0-9_-]*[a-zA-Z0-9_]$``
 
         :param id_short: The id_short to validate
         :raises ValueError: If the id_short doesn't comply to the constraints imposed by :class:`NameType`
@@ -768,15 +770,20 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
         """
         _string_constraints.check_name_type(id_short)
         test_id_short: NameType = str(id_short)
-        if not re.fullmatch("[a-zA-Z0-9_]*", test_id_short):
+        if not re.fullmatch("[A-Za-z]|[A-Za-z][A-Za-z0-9_-]*[A-Za-z0-9_]", test_id_short):
             raise AASConstraintViolation(
                 2,
-                "The id_short must contain only letters, digits and underscore"
+                "The id_short must contain only letters, digits underscore and hyphen"
             )
         if not test_id_short[0].isalpha():
             raise AASConstraintViolation(
                 2,
                 "The id_short must start with a letter"
+            )
+        if test_id_short.endswith("-"):
+            raise AASConstraintViolation(
+                2,
+                "The id_short must not end with a hyphen"
             )
 
     category = property(_get_category, _set_category)
@@ -785,8 +792,9 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
         """
         Check the input string
 
-        **Constraint AASd-002:** idShort of Referables shall only feature letters, digits, underscore (``_``); starting
-        mandatory with a letter. I.e. ``[a-zA-Z][a-zA-Z0-9_]+``
+        **Constraint AASd-002:** idShort shall only feature letters, digits, underscore (``_``), hyphen (``-``);
+        starting mandatory with a letter and not ending with a hyphen.
+        I.e. ``^[a-zA-Z]|[a-zA-Z][a-zA-Z0-9_-]*[a-zA-Z0-9_]$``
 
         **Constraint AASd-022:** idShort of non-identifiable referables shall be unique in its namespace
         (case-sensitive)
