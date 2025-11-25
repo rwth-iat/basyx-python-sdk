@@ -14,7 +14,7 @@ The status information means the following:
 In most cases, if a constraint violation is detected,
 an :class:`~basyx.aas.model.base.AASConstraintViolation` will be raised
 
-.. |aasd002| replace:: ``idShort`` of ``Referable`` s shall only feature letters, digits, underscore (``_``), hyphen (``-``); starting mandatory with a letter and not ending with a hyphen. I.e. ``^[a-zA-Z]|[a-zA-Z][a-zA-Z0-9_-]*[a-zA-Z0-9_]$``
+.. |aasd002| replace:: ``idShort`` of ``Referable`` s shall only feature letters, digits, underscore (``_``), hyphen (``-``); starting mandatory with a letter and not ending with a hyphen. I.e. ``^[a-zA-Z]|[a-zA-Z][a-zA-Z0-9_-]*[a-zA-Z0-9_]$``.
 .. |aasd005| replace:: If ``AdministrativeInformation/version`` is not specified, ``AdministrativeInformation/revision`` shall also be unspecified. This means that a revision requires a version. If there is no version, there is no revision. Revision is optional.
 .. |aasd006| replace:: If both, the ``value`` and the ``valueId`` of a ``Qualifier`` are present, the value needs to be identical to the value of the referenced coded value in ``Qualifier/valueId``.
 .. |aasd007| replace:: If both the ``Property/value`` and the ``Property/valueId`` are present, the value of ``Property/value`` needs to be identical to the value of the referenced coded value in ``Property/valueId``.
