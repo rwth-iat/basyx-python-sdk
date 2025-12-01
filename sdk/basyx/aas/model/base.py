@@ -10,6 +10,7 @@ the higher level classes to inherit from.
 """
 
 import abc
+from datetime import datetime
 import inspect
 import itertools
 from enum import Enum, unique
@@ -26,6 +27,7 @@ DataTypeDefXsd = Type[datatypes.AnyXSDType]
 ValueDataType = datatypes.AnyXSDType  # any xsd atomic type (from .datatypes)
 ValueList = Set["ValueReferencePair"]
 BlobType = bytes
+DateTimeUTC = datetime
 
 # The following string aliases are constrained by the decorator functions defined in the string_constraints module,
 # wherever they are used for an instance attributes.

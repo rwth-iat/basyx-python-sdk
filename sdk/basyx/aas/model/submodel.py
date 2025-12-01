@@ -10,6 +10,7 @@ This module contains everything needed to model Submodels and define Events acco
 
 import abc
 import uuid
+from datetime import timezone
 from typing import Optional, Set, Iterable, TYPE_CHECKING, List, Type, TypeVar, Generic, Union
 
 from . import base, datatypes, _string_constraints
@@ -1296,7 +1297,7 @@ class BasicEventElement(EventElement):
                  message_topic: Optional[base.MessageTopicType] = None,
                  message_broker: Optional[base.ModelReference[Union[Submodel, SubmodelElementList,
                                                                     SubmodelElementCollection, Entity]]] = None,
-                 last_update: Optional[datatypes.DateTime] = None,
+                 last_update: Optional[base.DateTimeUTC] = None,
                  min_interval: Optional[datatypes.Duration] = None,
                  max_interval: Optional[datatypes.Duration] = None,
                  display_name: Optional[base.MultiLanguageNameType] = None,
@@ -1322,7 +1323,11 @@ class BasicEventElement(EventElement):
         self.message_topic: Optional[base.MessageTopicType] = message_topic
         self.message_broker: Optional[base.ModelReference[Union[Submodel, SubmodelElementList,
                                                                 SubmodelElementCollection, Entity]]] = message_broker
-        self.last_update: Optional[datatypes.DateTime] = last_update
+        self.last_update: Optional[base.DateTimeUTC] = last_update
+        if ((last_update and last_update.tzinfo and
+                last_update.tzinfo.utcoffset(last_update) != timezone.utc.utcoffset(None))
+            or (last_update and last_update.tzinfo is None)):
+            raise ValueError("Last update must be in UTC!")
         self.min_interval: Optional[datatypes.Duration] = min_interval
         self.max_interval: Optional[datatypes.Duration] = max_interval
 
