@@ -1326,7 +1326,7 @@ class BasicEventElement(EventElement):
         self.last_update: Optional[base.DateTimeUTC] = last_update
         if ((last_update and last_update.tzinfo and
                 last_update.tzinfo.utcoffset(last_update) != timezone.utc.utcoffset(None))
-            or (last_update and last_update.tzinfo is None)):
+                or (last_update and last_update.tzinfo is None)):
             raise ValueError("Last update must be in UTC!")
         self.min_interval: Optional[datatypes.Duration] = min_interval
         self.max_interval: Optional[datatypes.Duration] = max_interval
