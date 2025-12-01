@@ -1088,7 +1088,7 @@ class Entity(SubmodelElement, base.UniqueIdShortNamespace):
 
     def __init__(self,
                  id_short: Optional[base.NameType],
-                 entity_type: base.EntityType,
+                 entity_type: Optional[base.EntityType],
                  statement: Iterable[SubmodelElement] = (),
                  global_asset_id: Optional[base.Identifier] = None,
                  specific_asset_id: Iterable[base.SpecificAssetId] = (),
@@ -1108,7 +1108,7 @@ class Entity(SubmodelElement, base.UniqueIdShortNamespace):
                          supplemental_semantic_id, embedded_data_specifications)
         self.statement = base.NamespaceSet(self, [("id_short", True)], statement)
         # assign private attributes, bypassing setters, as constraints will be checked below
-        self._entity_type: base.EntityType = entity_type
+        self._entity_type: Optional[base.EntityType] = entity_type
         self._global_asset_id: Optional[base.Identifier] = global_asset_id
         self._specific_asset_id: base.ConstrainedList[base.SpecificAssetId] = base.ConstrainedList(
             specific_asset_id,
@@ -1120,11 +1120,11 @@ class Entity(SubmodelElement, base.UniqueIdShortNamespace):
         self._validate_aasd_014(entity_type, global_asset_id, bool(specific_asset_id))
 
     @property
-    def entity_type(self) -> base.EntityType:
+    def entity_type(self) -> Optional[base.EntityType]:
         return self._entity_type
 
     @entity_type.setter
-    def entity_type(self, entity_type: base.EntityType) -> None:
+    def entity_type(self, entity_type: Optional[base.EntityType]) -> None:
         self._validate_aasd_014(entity_type, self.global_asset_id, bool(self.specific_asset_id))
         self._entity_type = entity_type
 
@@ -1167,9 +1167,11 @@ class Entity(SubmodelElement, base.UniqueIdShortNamespace):
             _string_constraints.check_identifier(global_asset_id)
 
     @staticmethod
-    def _validate_aasd_014(entity_type: base.EntityType,
+    def _validate_aasd_014(entity_type: Optional[base.EntityType],
                            global_asset_id: Optional[base.Identifier],
                            specific_asset_id_nonempty: bool) -> None:
+        if entity_type is None:
+            return
         if entity_type == base.EntityType.SELF_MANAGED_ENTITY and global_asset_id is None \
                 and not specific_asset_id_nonempty:
             raise base.AASConstraintViolation(

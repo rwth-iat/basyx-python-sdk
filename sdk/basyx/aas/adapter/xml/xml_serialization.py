@@ -822,7 +822,8 @@ def entity_to_xml(obj: model.Entity,
         for statement in obj.statement:
             et_statements.append(submodel_element_to_xml(statement))
         et_entity.append(et_statements)
-    et_entity.append(_generate_element(NS_AAS + "entityType", text=_generic.ENTITY_TYPES[obj.entity_type]))
+    if obj.entity_type:
+        et_entity.append(_generate_element(NS_AAS + "entityType", text=_generic.ENTITY_TYPES[obj.entity_type]))
     if obj.global_asset_id:
         et_entity.append(_generate_element(NS_AAS + "globalAssetId", text=obj.global_asset_id))
     if obj.specific_asset_id:
