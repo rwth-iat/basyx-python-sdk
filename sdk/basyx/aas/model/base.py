@@ -223,7 +223,7 @@ class ModellingKind(Enum):
 @unique
 class AssetKind(Enum):
     """
-    Enumeration for denoting whether an asset is a type asset or an instance asset or whether this kind of
+    Enumeration for denoting whether an asset is a type asset or an instance asset or role asset or whether this kind of
     classification is not applicable.
 
     .. note::
@@ -235,12 +235,14 @@ class AssetKind(Enum):
 
     :cvar TYPE: Type asset
     :cvar INSTANCE: Instance asset
-    :cvar NOT_APPLICABLE: Neither a type asset nor an instance asset
+    :cvar ROLE: Role asset
+    :cvar NOT_APPLICABLE: Neither a type asset nor an instance asset nor a role asset
     """
 
     TYPE = 0
     INSTANCE = 1
-    NOT_APPLICABLE = 2
+    ROLE = 2
+    NOT_APPLICABLE = 3
 
 
 class QualifierKind(Enum):
