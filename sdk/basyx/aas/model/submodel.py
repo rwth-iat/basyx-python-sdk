@@ -474,7 +474,7 @@ class Blob(DataElement):
 
     def __init__(self,
                  id_short: Optional[base.NameType],
-                 content_type: base.ContentType,
+                 content_type: Optional[base.ContentType],
                  value: Optional[base.BlobType] = None,
                  display_name: Optional[base.MultiLanguageNameType] = None,
                  category: Optional[base.NameType] = None,
@@ -492,7 +492,7 @@ class Blob(DataElement):
         super().__init__(id_short, display_name, category, description, parent, semantic_id, qualifier, extension,
                          supplemental_semantic_id, embedded_data_specifications)
         self.value: Optional[base.BlobType] = value
-        self.content_type: base.ContentType = content_type
+        self.content_type: Optional[base.ContentType] = content_type
 
 
 @_string_constraints.constrain_content_type("content_type")
@@ -528,7 +528,7 @@ class File(DataElement):
 
     def __init__(self,
                  id_short: Optional[base.NameType],
-                 content_type: base.ContentType,
+                 content_type: Optional[base.ContentType],
                  value: Optional[base.PathType] = None,
                  display_name: Optional[base.MultiLanguageNameType] = None,
                  category: Optional[base.NameType] = None,
@@ -546,7 +546,7 @@ class File(DataElement):
         super().__init__(id_short, display_name, category, description, parent, semantic_id, qualifier, extension,
                          supplemental_semantic_id, embedded_data_specifications)
         self.value: Optional[base.PathType] = value
-        self.content_type: base.ContentType = content_type
+        self.content_type: Optional[base.ContentType] = content_type
 
 
 class ReferenceElement(DataElement):
