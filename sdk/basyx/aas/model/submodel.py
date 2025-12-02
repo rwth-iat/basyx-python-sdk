@@ -1181,7 +1181,7 @@ class Entity(SubmodelElement, base.UniqueIdShortNamespace):
                            global_asset_id: Optional[base.Identifier],
                            specific_asset_id_nonempty: bool) -> None:
         if entity_type is None:
-            return
+            return 
         if entity_type == base.EntityType.SELF_MANAGED_ENTITY and global_asset_id is None \
                 and not specific_asset_id_nonempty:
             raise base.AASConstraintViolation(
