@@ -150,13 +150,6 @@ class Submodel(base.Identifiable, base.HasSemantics, base.HasKind, base.Qualifia
         self.embedded_data_specifications: List[base.EmbeddedDataSpecification] = list(embedded_data_specifications)
 
 
-ALLOWED_DATA_ELEMENT_CATEGORIES: Set[str] = {
-    "CONSTANT",
-    "PARAMETER",
-    "VARIABLE"
-}
-
-
 class DataElement(SubmodelElement, metaclass=abc.ABCMeta):
     """
     A data element is a :class:`~.SubmodelElement` that is not further composed out of other
@@ -202,21 +195,6 @@ class DataElement(SubmodelElement, metaclass=abc.ABCMeta):
                  embedded_data_specifications: Iterable[base.EmbeddedDataSpecification] = ()):
         super().__init__(id_short, display_name, category, description, parent, semantic_id, qualifier, extension,
                          supplemental_semantic_id, embedded_data_specifications)
-
-    def _set_category(self, category: Optional[str]):
-        if category == "":
-            raise base.AASConstraintViolation(100,
-                                              "category is not allowed to be an empty string")
-        if category is None:
-            self._category = None
-        else:
-            if category not in ALLOWED_DATA_ELEMENT_CATEGORIES:
-                if not (isinstance(self, File) or isinstance(self, Blob)):
-                    raise base.AASConstraintViolation(
-                        90,
-                        "DataElement.category must be one of the following: " +
-                        ", ".join(ALLOWED_DATA_ELEMENT_CATEGORIES))
-            self._category = category
 
 
 class Property(DataElement):
