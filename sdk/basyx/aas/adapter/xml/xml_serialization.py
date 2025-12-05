@@ -733,8 +733,10 @@ def relationship_element_to_xml(obj: model.RelationshipElement,
     :return: Serialized :class:`~lxml.etree._Element` object
     """
     et_relationship_element = abstract_classes_to_xml(tag, obj)
-    et_relationship_element.append(reference_to_xml(obj.first, NS_AAS+"first"))
-    et_relationship_element.append(reference_to_xml(obj.second, NS_AAS+"second"))
+    if obj.first is not None:
+        et_relationship_element.append(reference_to_xml(obj.first, NS_AAS+"first"))
+    if obj.second is not None:
+        et_relationship_element.append(reference_to_xml(obj.second, NS_AAS+"second"))
     return et_relationship_element
 
 
