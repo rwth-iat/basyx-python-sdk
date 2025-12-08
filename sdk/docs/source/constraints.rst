@@ -36,7 +36,6 @@ an :class:`~basyx.aas.model.base.AASConstraintViolation` will be raised
 .. |aasd117| replace:: ``idShort`` of non-identifiable ``Referables`` not being a direct child of a ``SubmodelElementList`` shall be specified.
 .. |aasd118| replace:: If a supplemental semantic ID (``HasSemantics/supplementalSemanticId``) is defined, there shall also be a main semantic ID (``HasSemantics/semanticId``).
 .. |aasd119| replace:: If any ``Qualifier/kind`` value of a ``Qualifiable/qualifier`` is equal to ``TemplateQualifier`` and the qualified element inherits from ``HasKind``, the qualified element shall be of kind ``Template`` (``HasKind/kind = Template``).
-.. |aasd120| replace:: ``idShort`` of submodel elements being a direct child of a ``SubmodelElementList`` shall not be specified.
 .. |aasd121| replace:: For ``References``, the value of ``Key/type`` of the first ``key`` of ``Reference/keys`` shall be one of ``GloballyIdentifiables``.
 .. |aasd122| replace:: For external references, i.e. ``References`` with ``Reference/type = ExternalReference``, the value of ``Key/type`` of the first key of ``Reference/keys`` shall be one of ``GenericGloballyIdentifiables``.
 .. |aasd123| replace:: For model references, i.e. ``References`` with ``Reference/type = ModellReference``, the value of ``Key/type`` of the first ``key`` of ``Reference/keys`` shall be one of ``AasIdentifiables``.
@@ -86,7 +85,6 @@ an :class:`~basyx.aas.model.base.AASConstraintViolation` will be raised
     AASd-117, |aasd117|, ✅,
     AASd-118, |aasd118|, ✅,
     AASd-119, |aasd119|, ❌, See `#119 <https://github.com/eclipse-basyx/basyx-python-sdk/issues/119>`__
-    AASd-120, |aasd120|, ✅,
     AASd-121, |aasd121|, ✅,
     AASd-122, |aasd122|, ✅,
     AASd-123, |aasd123|, ✅,
