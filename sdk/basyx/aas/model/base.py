@@ -241,8 +241,8 @@ class AssetKind(Enum):
 
     TYPE = 0
     INSTANCE = 1
-    ROLE = 2
-    NOT_APPLICABLE = 3
+    NOT_APPLICABLE = 2
+    ROLE = 3
 
 
 class QualifierKind(Enum):
