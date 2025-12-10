@@ -474,7 +474,7 @@ class Blob(DataElement):
 
     def __init__(self,
                  id_short: Optional[base.NameType],
-                 content_type: Optional[base.ContentType],
+                 content_type: Optional[base.ContentType] = None,
                  value: Optional[base.BlobType] = None,
                  display_name: Optional[base.MultiLanguageNameType] = None,
                  category: Optional[base.NameType] = None,
@@ -528,7 +528,7 @@ class File(DataElement):
 
     def __init__(self,
                  id_short: Optional[base.NameType],
-                 content_type: Optional[base.ContentType],
+                 content_type: Optional[base.ContentType] = None,
                  value: Optional[base.PathType] = None,
                  display_name: Optional[base.MultiLanguageNameType] = None,
                  category: Optional[base.NameType] = None,
