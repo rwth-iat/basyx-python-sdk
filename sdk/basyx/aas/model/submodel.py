@@ -741,8 +741,10 @@ class SubmodelElementList(SubmodelElement, base.UniqueIdShortNamespace, Generic[
 
     def _generate_id_short(self, new: _SE) -> None:
         if new.id_short is not None:
-            raise base.AASConstraintViolation(120, "Objects with an id_short may not be added to a "
-                                                   f"SubmodelElementList, got {new!r} with id_short={new.id_short}")
+            return
+            # Here we ignore the constraint, as in Version 3.1 of the Metamodel the constraint is removed.
+            # raise base.AASConstraintViolation(120, "Objects with an id_short may not be added to a "
+            #                                        f"SubmodelElementList, got {new!r} with id_short={new.id_short}")
         # Generate a unique id_short when a SubmodelElement is added, because children of a SubmodelElementList may not
         # have an id_short. The alternative would be making SubmodelElementList a special kind of base.Namespace without
         # a unique attribute for child-elements (which contradicts the definition of a Namespace).
