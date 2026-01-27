@@ -26,7 +26,6 @@ an :class:`~basyx.aas.model.base.AASConstraintViolation` will be raised
 .. |aasd077| replace:: The name of an extension (``Extension/name``) within ``HasExtensions`` needs to be unique.
 .. |aasd080| replace:: In case ``Key/type`` == ``GlobalReference`` ``idType`` shall not be any LocalKeyType (``IdShort, FragmentId``).
 .. |aasd081| replace:: In case ``Key/type`` == ``AssetAdministrationShell`` ``Key/idType`` shall not be any LocalKeyType (``IdShort``, ``FragmentId``).
-.. |aasd090| replace:: for data elements, ``category`` (inherited by ``Referable``) shall be one of the following values: CONSTANT, PARAMETER or VARIABLE. Default: VARIABLE
 .. |aasd107| replace:: If a first level child element in a ``SubmodelElementList`` has a semanticId, it shall be identical to ``SubmodelElementList/semanticIdListElement``.
 .. |aasd108| replace:: All first level child elements in a ``SubmodelElementList`` shall have the same submodel element type as specified in ``SubmodelElementList/typeValueListElement``.
 .. |aasd109| replace:: If ``SubmodelElementList/typeValueListElement`` is equal to ``Property`` or ``Range,`` ``SubmodelElementList/valueTypeListElement`` shall be set and all first level child elements in the ``SubmodelElementList`` shall have the value type as specified in ``SubmodelElementList/valueTypeListElement``.
@@ -76,7 +75,6 @@ an :class:`~basyx.aas.model.base.AASConstraintViolation` will be raised
     AASd-077, |aasd077|, ✅,
     AASd-080, |aasd080|, ✅,
     AASd-081, |aasd081|, ✅,
-    AASd-090, |aasd090|, ✅,
     AASd-107, |aasd107|, ✅,
     AASd-108, |aasd108|, ✅,
     AASd-109, |aasd109|, ✅,
