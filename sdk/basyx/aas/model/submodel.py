@@ -1063,7 +1063,7 @@ class Entity(SubmodelElement, base.UniqueIdShortNamespace):
     """
     An entity is a :class:`~.SubmodelElement` that is used to model entities
 
-    **Constraint AASd-014:** Either the attribute ``globalAssetId`` or ``specificAssetId`` of an ``Entity`` 
+    **Constraint AASd-014:** Either the attribute ``globalAssetId`` or ``specificAssetId`` of an ``Entity``
     must be set if ``Entity/entityType`` is set to ``SelfManagedEntity``.
 
     :ivar id_short: Identifying string of the element within its name space. (inherited from
