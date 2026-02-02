@@ -1063,8 +1063,8 @@ class Entity(SubmodelElement, base.UniqueIdShortNamespace):
     """
     An entity is a :class:`~.SubmodelElement` that is used to model entities
 
-    **Constraint AASd-014:** global_asset_id or specific_asset_id must be set if ``entity_type`` is set to
-    :attr:`~basyx.aas.model.base.EntityType.SELF_MANAGED_ENTITY`. They must be empty otherwise.
+    **Constraint AASd-014:** Either the attribute ``globalAssetId`` or ``specificAssetId`` of an ``Entity`` 
+    must be set if ``Entity/entityType`` is set to ``SelfManagedEntity``.
 
     :ivar id_short: Identifying string of the element within its name space. (inherited from
                     :class:`~basyx.aas.model.base.Referable`)
