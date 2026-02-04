@@ -1,4 +1,4 @@
-# Copyright (c) 2025 the Eclipse BaSyx Authors
+# Copyright (c) 2026 the Eclipse BaSyx Authors
 #
 # This program and the accompanying materials are made available under the terms of the MIT License, available in
 # the LICENSE file of this project.
@@ -528,9 +528,12 @@ class AASFromJsonDecoder(json.JSONDecoder):
         if 'specificAssetIds' in dct:
             for desc_data in _get_ts(dct, "specificAssetIds", list):
                 specific_asset_id.add(cls._construct_specific_asset_id(desc_data, model.SpecificAssetId))
-
+        if 'entityType' in dct:
+            entity_type = ENTITY_TYPES_INVERSE[_get_ts(dct, 'entityType', str)]
+        else:
+            entity_type = None
         ret = object_class(id_short=None,
-                           entity_type=ENTITY_TYPES_INVERSE[_get_ts(dct, "entityType", str)],
+                           entity_type=entity_type,
                            global_asset_id=global_asset_id,
                            specific_asset_id=specific_asset_id)
         cls._amend_abstract_attributes(ret, dct)
