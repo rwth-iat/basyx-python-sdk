@@ -1,4 +1,4 @@
-# Copyright (c) 2025 the Eclipse BaSyx Authors
+# Copyright (c) 2026 the Eclipse BaSyx Authors
 #
 # This program and the accompanying materials are made available under the terms of the MIT License, available in
 # the LICENSE file of this project.
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 _embedded_data_specification_iec61360 = model.EmbeddedDataSpecification(
     data_specification=model.ExternalReference((model.Key(type_=model.KeyTypes.GLOBAL_REFERENCE,
                                                           value='https://admin-shell.io/DataSpecificationTemplates/'
-                                                                'DataSpecificationIEC61360/3/0'),)),
+                                                                'DataSpecificationIEC61360/3/1'),)),
     data_specification_content=model.DataSpecificationIEC61360(preferred_name=model.PreferredNameTypeIEC61360({
         'de': 'Test Specification',
         'en-US': 'TestSpecification'

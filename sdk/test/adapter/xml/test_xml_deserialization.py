@@ -1,4 +1,4 @@
-# Copyright (c) 2025 the Eclipse BaSyx Authors
+# Copyright (c) 2026 the Eclipse BaSyx Authors
 #
 # This program and the accompanying materials are made available under the terms of the MIT License, available in
 # the LICENSE file of this project.
@@ -450,22 +450,22 @@ class XmlDeserializationDerivingTest(unittest.TestCase):
 
 class TestTagReplaceNamespace(unittest.TestCase):
     def test_known_namespace(self):
-        tag = '{https://admin-shell.io/aas/3/0}tag'
+        tag = '{https://admin-shell.io/aas/3/1}tag'
         expected = 'aas:tag'
         self.assertEqual(_tag_replace_namespace(tag, XML_NS_MAP), expected)
 
     def test_empty_prefix(self):
         # Empty prefix should not be replaced as otherwise it would apply everywhere
-        tag = '{https://admin-shell.io/aas/3/0}tag'
-        nsmap = {"": "https://admin-shell.io/aas/3/0"}
-        expected = '{https://admin-shell.io/aas/3/0}tag'
+        tag = '{https://admin-shell.io/aas/3/1}tag'
+        nsmap = {"": "https://admin-shell.io/aas/3/1"}
+        expected = '{https://admin-shell.io/aas/3/1}tag'
         self.assertEqual(_tag_replace_namespace(tag, nsmap), expected)
 
     def test_empty_namespace(self):
         # Empty namespaces should also have no effect
-        tag = '{https://admin-shell.io/aas/3/0}tag'
+        tag = '{https://admin-shell.io/aas/3/1}tag'
         nsmap = {"aas": ""}
-        expected = '{https://admin-shell.io/aas/3/0}tag'
+        expected = '{https://admin-shell.io/aas/3/1}tag'
         self.assertEqual(_tag_replace_namespace(tag, nsmap), expected)
 
     def test_unknown_namespace(self):
