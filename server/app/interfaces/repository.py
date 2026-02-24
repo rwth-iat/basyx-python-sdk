@@ -1,4 +1,4 @@
-# Copyright (c) 2025 the Eclipse BaSyx Authors
+# Copyright (c) 2026 the Eclipse BaSyx Authors
 #
 # This program and the accompanying materials are made available under the terms of the MIT License, available in
 # the LICENSE file of this project.
@@ -6,32 +6,6 @@
 # SPDX-License-Identifier: MIT
 """
 This module implements the "Specification of the Asset Administration Shell Part 2 Application Programming Interfaces".
-However, several features and routes are currently not supported:
-
-1. Correlation ID: Not implemented because it was deemed unnecessary for this server.
-
-2. Extent Parameter (`withBlobValue/withoutBlobValue`):
-   Not implemented due to the lack of support in JSON/XML serialization.
-
-3. Route `/shells/{aasIdentifier}/asset-information/thumbnail`: Not implemented because the specification lacks clarity.
-
-4. Serialization and Description Routes:
-   - `/serialization`
-   - `/description`
-   These routes are not implemented at this time.
-
-5. Value, Path, and PATCH Routes:
-   - All `/…/value$`, `/…/path$`, and `PATCH` routes are currently not implemented.
-
-6. Operation Invocation Routes: The following routes are not implemented because operation invocation
-   is not yet supported by the `basyx-python-sdk`:
-   - `POST /submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/invoke`
-   - `POST /submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/invoke/$value`
-   - `POST /submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/invoke-async`
-   - `POST /submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/invoke-async/$value`
-   - `GET /submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/operation-status/{handleId}`
-   - `GET /submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/operation-results/{handleId}`
-   - `GET /submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/operation-results/{handleId}/$value`
 """
 
 import io
@@ -193,13 +167,14 @@ class WSGIApp(ObjectStoreWSGIApp):
         response: Response = self.handle_request(Request(environ))
         return response(environ, start_response)
 
-    def _get_obj_ts(self, identifier: model.Identifier, type_: Type[model.provider._IT]) -> model.provider._IT:
+    def _get_obj_ts(self, identifier: model.Identifier, type_: Type[model.provider._IDENTIFIABLE]) \
+            -> model.provider._IDENTIFIABLE:
         identifiable = self.object_store.get(identifier)
         if not isinstance(identifiable, type_):
             raise NotFound(f"No {type_.__name__} with {identifier} found!")
         return identifiable
 
-    def _get_all_obj_of_type(self, type_: Type[model.provider._IT]) -> Iterator[model.provider._IT]:
+    def _get_all_obj_of_type(self, type_: Type[model.provider._IDENTIFIABLE]) -> Iterator[model.provider._IDENTIFIABLE]:
         for obj in self.object_store:
             if isinstance(obj, type_):
                 yield obj

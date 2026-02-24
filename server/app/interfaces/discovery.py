@@ -12,10 +12,10 @@ from werkzeug.routing import Rule, Submount
 from werkzeug.wrappers import Request, Response
 
 from basyx.aas import model
-from server.app.util.converters import Base64URLConverter
+from server.app.util.converters import IdentifierToBase64URLConverter
 from server.app.interfaces.base import BaseWSGIApp, HTTPApiDecoder
-from .. import model as server_model
-from ..adapter.jsonization import ServerAASToJsonEncoder
+from server.app import model as server_model
+from server.app.adapter.jsonization import ServerAASToJsonEncoder
 
 encoder=ServerAASToJsonEncoder()
 
@@ -171,7 +171,7 @@ class DiscoveryAPI(BaseWSGIApp):
                 ]),
             ])
         ], converters={
-            "base64url": Base64URLConverter
+            "base64url": IdentifierToBase64URLConverter
         }, strict_slashes=False)
 
     def search_all_aas_ids_by_asset_link(self, request: Request, url_args: dict, response_t: type,

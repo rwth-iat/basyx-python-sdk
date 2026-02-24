@@ -14,7 +14,7 @@ from werkzeug.wrappers import Request, Response
 
 import server.app.model as server_model
 from basyx.aas import model
-from server.app.util.converters import Base64URLConverter, base64url_decode
+from server.app.util.converters import IdentifierToBase64URLConverter, base64url_decode
 from server.app.interfaces.base import ObjectStoreWSGIApp, APIResponse, is_stripped_request, HTTPApiDecoder
 
 
@@ -55,7 +55,7 @@ class RegistryAPI(ObjectStoreWSGIApp):
                 ])
             ])
         ], converters={
-            "base64url": Base64URLConverter
+            "base64url": IdentifierToBase64URLConverter
         }, strict_slashes=False)
 
     def _get_all_aas_descriptors(self, request: "Request") -> Tuple[
