@@ -1,4 +1,4 @@
-# Copyright (c) 2025 the Eclipse BaSyx Authors
+# Copyright (c) 2026 the Eclipse BaSyx Authors
 #
 # This program and the accompanying materials are made available under the terms of the MIT License, available in
 # the LICENSE file of this project.
@@ -627,7 +627,8 @@ def blob_to_xml(obj: model.Blob,
     if obj.value is not None:
         et_value.text = base64.b64encode(obj.value).decode()
     et_blob.append(et_value)
-    et_blob.append(_generate_element(NS_AAS + "contentType", text=obj.content_type))
+    if obj.content_type is not None:
+        et_blob.append(_generate_element(NS_AAS + "contentType", text=obj.content_type))
     return et_blob
 
 
@@ -643,7 +644,8 @@ def file_to_xml(obj: model.File,
     et_file = abstract_classes_to_xml(tag, obj)
     if obj.value:
         et_file.append(_generate_element(NS_AAS + "value", text=obj.value))
-    et_file.append(_generate_element(NS_AAS + "contentType", text=obj.content_type))
+    if obj.content_type is not None:
+        et_file.append(_generate_element(NS_AAS + "contentType", text=obj.content_type))
     return et_file
 
 

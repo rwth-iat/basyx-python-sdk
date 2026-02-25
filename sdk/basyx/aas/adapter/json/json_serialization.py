@@ -1,4 +1,4 @@
-# Copyright (c) 2025 the Eclipse BaSyx Authors
+# Copyright (c) 2026 the Eclipse BaSyx Authors
 #
 # This program and the accompanying materials are made available under the terms of the MIT License, available in
 # the LICENSE file of this project.
@@ -476,7 +476,8 @@ class AASToJsonEncoder(json.JSONEncoder):
         :return: dict with the serialized attributes of this object
         """
         data = cls._abstract_classes_to_json(obj)
-        data['contentType'] = obj.content_type
+        if obj.content_type is not None:
+            data['contentType'] = obj.content_type
         if obj.value is not None:
             data['value'] = base64.b64encode(obj.value).decode()
         return data
@@ -490,7 +491,8 @@ class AASToJsonEncoder(json.JSONEncoder):
         :return: dict with the serialized attributes of this object
         """
         data = cls._abstract_classes_to_json(obj)
-        data['contentType'] = obj.content_type
+        if obj.content_type is not None:
+            data['contentType'] = obj.content_type
         if obj.value is not None:
             data['value'] = obj.value
         return data
