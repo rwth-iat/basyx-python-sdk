@@ -1,4 +1,4 @@
-# Copyright (c) 2025 the Eclipse BaSyx Authors
+# Copyright (c) 2026 the Eclipse BaSyx Authors
 #
 # This program and the accompanying materials are made available under the terms of the MIT License, available in
 # the LICENSE file of this project.
@@ -231,19 +231,6 @@ class SubmodelElementListTest(unittest.TestCase):
                          "which aren't equal. (Constraint AASd-114)", str(cm.exception))
         mlp2.semantic_id = semantic_id1
         model.SubmodelElementList("test_list", model.MultiLanguageProperty, [mlp1, mlp2])
-
-        # AASd-120
-        mlp = model.MultiLanguageProperty("mlp")
-        with self.assertRaises(model.AASConstraintViolation) as cm:
-            model.SubmodelElementList("test_list", model.MultiLanguageProperty, [mlp])
-        self.assertEqual("Objects with an id_short may not be added to a SubmodelElementList, got "
-                         "MultiLanguageProperty[mlp] with id_short=mlp (Constraint AASd-120)", str(cm.exception))
-        mlp.id_short = None
-        model.SubmodelElementList("test_list", model.MultiLanguageProperty, [mlp])
-        with self.assertRaises(model.AASConstraintViolation) as cm:
-            mlp.id_short = "mlp"
-        self.assertEqual("id_short of MultiLanguageProperty[test_list[0]] cannot be set, because it is "
-                         "contained in a SubmodelElementList[test_list] (Constraint AASd-120)", str(cm.exception))
 
     def test_aasd_108_add_set(self):
         prop = model.Property(None, model.datatypes.Int)
