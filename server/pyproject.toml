@@ -13,7 +13,7 @@ build-backend = "setuptools.build_meta"
 # - Allows for automatic versioning between releases (e.g., 1.0.1.dev4+g12345)
 # If you want to use the version anywhere in the code, use
 # ```
-# from basyx.version import version
+# from app.version import version
 # print(f"Project version: {version}")
 # ```
 root = ".."  # Defines the path to the root of the repository
@@ -34,9 +34,8 @@ classifiers = [
     "Operating System :: OS Independent",
     "Development Status :: 5 - Production/Stable"
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
-    "basyx-python-sdk", #TODO: Think about the version
     "urllib3>=1.26,<3",
     "Werkzeug>=3.0.3,<4",
 ]
@@ -46,18 +45,20 @@ dev = [
     "mypy",
     "pycodestyle",
     "codeblocks",
-    "coverage",
     "schemathesis~=3.7",
     "jsonschema~=4.7",
     "hypothesis~=6.13",
-    "types-python-dateutil",
+    "lxml-stubs~=0.5.1",
 ]
 
 [project.urls]
 "Homepage" = "https://github.com/eclipse-basyx/basyx-python-sdk"
 
 [tool.setuptools]
-packages = { find = { include = ["basyx*"], exclude = ["test*"] } }
+packages = { find = { include = ["app*"], exclude = ["test*"] } }
 
 [tool.setuptools.package-data]
 app = ["py.typed"]
+
+[tool.mypy]
+exclude = "build/"
