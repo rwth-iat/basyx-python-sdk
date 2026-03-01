@@ -5,12 +5,11 @@ Supports AssetAdministrationShellDescriptors and SubmodelDescriptors
 import json
 import threading
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional
 from abc import ABC, abstractmethod
 import logging
 
-from basyx.aas import model
-import server.app.model as server_model
+import app.model as server_model
 
 logger = logging.getLogger(__name__)
 

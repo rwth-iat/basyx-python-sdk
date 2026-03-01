@@ -93,7 +93,10 @@ class Endpoint:
         if len(parts) != 2:
             return False
         short_name, version = parts
-        return short_name in cls.INTERFACE_SHORTNAMES and cls.VERSION_PATTERN.match(version)
+        if short_name in cls.INTERFACE_SHORTNAMES and cls.VERSION_PATTERN.match(version):
+            return True
+        else:
+            return False
 
     @property
     def protocol_information(self) -> ProtocolInformation:

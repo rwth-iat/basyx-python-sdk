@@ -63,13 +63,12 @@ class InMemoryDiscoveryStore(AbstractDiscoveryStore):
 
     def add_specific_asset_ids_to_aas(self, aas_id: model.Identifier,
                                       asset_ids: List[model.SpecificAssetId]) -> None:
-        serialized_assets = [encoder.default(asset_id) for asset_id in asset_ids]
-        if aas_id in self.aas_id_to_asset_ids:
-            for asset in serialized_assets:
-                if asset not in self.aas_id_to_asset_ids[aas_id]:
-                    self.aas_id_to_asset_ids[aas_id].append(asset)
-        else:
-            self.aas_id_to_asset_ids[aas_id] = serialized_assets[:]
+
+        if aas_id not in self.aas_id_to_asset_ids:
+            self.aas_id_to_asset_ids[aas_id] = set()
+
+        for asset in asset_ids:
+            self.aas_id_to_asset_ids[aas_id].add(asset)
 
     def delete_specific_asset_ids_by_aas_id(self, aas_id: model.Identifier) -> None:
         key = aas_id
@@ -85,16 +84,16 @@ class InMemoryDiscoveryStore(AbstractDiscoveryStore):
         return result
 
     def _add_aas_id_to_specific_asset_id(self, asset_id: model.SpecificAssetId, aas_id: model.Identifier) -> None:
-        asset_key = f"{asset_id.name}:{asset_id.value}"
-        if asset_key in self.asset_id_to_aas_ids:
-            self.asset_id_to_aas_ids[asset_key].add(aas_id)
+        if asset_id in self.asset_id_to_aas_ids:
+            self.asset_id_to_aas_ids[asset_id].add(aas_id)
         else:
-            self.asset_id_to_aas_ids[asset_key] = {aas_id}
+            self.asset_id_to_aas_ids[asset_id] = {aas_id}
 
     def _delete_aas_id_from_specific_asset_ids(self, asset_id: model.SpecificAssetId, aas_id: model.Identifier) -> None:
-        asset_key = f"{asset_id.name}:{asset_id.value}"
-        if asset_key in self.asset_id_to_aas_ids:
-            self.asset_id_to_aas_ids[asset_key].discard(aas_id)
+        if asset_id in self.asset_id_to_aas_ids:
+            self.asset_id_to_aas_ids[asset_id].discard(aas_id)
+
+
 
 
 class MongoDiscoveryStore(AbstractDiscoveryStore):
@@ -103,7 +102,7 @@ class MongoDiscoveryStore(AbstractDiscoveryStore):
                  db_name: str = "basyx",
                  coll_aas_to_assets: str = "aas_to_assets",
                  coll_asset_to_aas: str = "asset_to_aas"):
-        self.client = MongoClient(uri)
+        self.client: MongoClient = MongoClient(uri)
         self.db = self.client[db_name]
         self.coll_aas_to_assets: Collection = self.db[coll_aas_to_assets]
         self.coll_asset_to_aas: Collection = self.db[coll_asset_to_aas]
@@ -181,17 +180,16 @@ class DiscoveryAPI(BaseWSGIApp):
         for asset_link in asset_links:
             aas_keys = self.persistent_store.search_aas_ids_by_asset_link(asset_link)
             matching_aas_keys.update(aas_keys)
-        matching_aas_keys = list(matching_aas_keys)
-        paginated_slice, cursor = self._get_slice(request, matching_aas_keys)
+        paginated_slice, cursor = self._get_slice(request, list(matching_aas_keys))
         return response_t(list(paginated_slice), cursor=cursor)
 
     def get_all_specific_asset_ids_by_aas_id(self, request: Request, url_args: dict, response_t: type, **_kwargs) -> Response:
-        aas_identifier = url_args.get("aas_id")
+        aas_identifier = str(url_args["aas_id"])
         asset_ids = self.persistent_store.get_all_specific_asset_ids_by_aas_id(aas_identifier)
         return response_t(asset_ids)
 
     def post_all_asset_links_by_id(self, request: Request, url_args: dict, response_t: type, **_kwargs) -> Response:
-        aas_identifier = url_args.get("aas_id")
+        aas_identifier = str(url_args["aas_id"])
         specific_asset_ids = HTTPApiDecoder.request_body_list(request, model.SpecificAssetId, False)
         self.persistent_store.add_specific_asset_ids_to_aas(aas_identifier, specific_asset_ids)
         for asset_id in specific_asset_ids:
@@ -200,7 +198,7 @@ class DiscoveryAPI(BaseWSGIApp):
         return response_t(updated)
 
     def delete_all_asset_links_by_id(self, request: Request, url_args: dict, response_t: type, **_kwargs) -> Response:
-        aas_identifier = url_args.get("aas_id")
+        aas_identifier = str(url_args["aas_id"])
         self.persistent_store.delete_specific_asset_ids_by_aas_id(aas_identifier)
         for key in list(self.persistent_store.asset_id_to_aas_ids.keys()):
             self.persistent_store.asset_id_to_aas_ids[key].discard(aas_identifier)

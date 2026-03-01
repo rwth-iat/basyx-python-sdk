@@ -138,7 +138,7 @@ class PersistentDescriptorStore(DescriptorStore):
         signatures differ.
         """
         # Lazy import to avoid heavy dependencies at module load time
-        from server.app.model.descriptor import (
+        from app.model.descriptor import (
             AssetAdministrationShellDescriptor,
             SubmodelDescriptor,
         )
