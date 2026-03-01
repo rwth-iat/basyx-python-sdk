@@ -2,7 +2,7 @@
 This module implements the Registry interface defined in the 'Specification of the Asset Administration Shell Part 2 – Application Programming Interface'.
 """
 
-from typing import Dict, Iterator, List, Type, Tuple
+from typing import Dict, Iterator, Type, Tuple
 
 import werkzeug.exceptions
 import werkzeug.routing
@@ -12,10 +12,10 @@ from werkzeug.exceptions import Conflict, NotFound, BadRequest
 from werkzeug.routing import MapAdapter, Rule, Submount
 from werkzeug.wrappers import Request, Response
 
-import server.app.model as server_model
 from basyx.aas import model
-from server.app.util.converters import IdentifierToBase64URLConverter, base64url_decode
-from server.app.interfaces.base import ObjectStoreWSGIApp, APIResponse, is_stripped_request, HTTPApiDecoder
+import app.model as server_model
+from app.util.converters import IdentifierToBase64URLConverter, base64url_decode
+from app.interfaces.base import ObjectStoreWSGIApp, APIResponse, is_stripped_request, HTTPApiDecoder
 
 
 class RegistryAPI(ObjectStoreWSGIApp):

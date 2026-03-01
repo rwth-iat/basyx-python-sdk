@@ -1,14 +1,16 @@
-from typing import Dict, Set, Optional, Type
+from typing import Dict, Set, Optional, Type, Callable
+import logging
 
-import server.app.model as server_model
 from basyx.aas import model
 from basyx.aas.adapter._generic import ASSET_KIND_INVERSE, PathOrIO, ASSET_KIND, JSON_AAS_TOP_LEVEL_KEYS_TO_TYPES
 from basyx.aas.adapter.json import AASToJsonEncoder
-from basyx.aas.adapter.json.json_deserialization import _get_ts, AASFromJsonDecoder,  \
-    read_aas_json_file_into
+from basyx.aas.adapter.json.json_deserialization import (
+        _get_ts,
+        AASFromJsonDecoder,
+        read_aas_json_file_into,
+    )
 
-import logging
-from typing import Callable
+import app.model as server_model
 
 logger = logging.getLogger(__name__)
 
