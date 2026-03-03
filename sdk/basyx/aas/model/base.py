@@ -1071,7 +1071,7 @@ class ModelReference(Reference, Generic[_RT]):
             raise AssertionError(f"Retrieving the identifier of the first {self.key[0]!r} failed.")
 
         try:
-            item: Referable = provider_.get_identifiable(identifier)
+            item: Referable = provider_.get_item(identifier)
         except KeyError as e:
             raise KeyError("Could not resolve identifier {}".format(identifier)) from e
 
@@ -1300,7 +1300,8 @@ class AdministrativeInformation(HasDataSpecification):
 @_string_constraints.constrain_identifier("id")
 class Identifiable(Referable, metaclass=abc.ABCMeta):
     """
-    An element that has a globally unique :class:`Identifier`.
+    Identifiable element with a globally unique :class:`Identifier` and, optionally, additional
+    :class:`~.AdministrativeInformation`.
 
     <<abstract>>
 
