@@ -1,4 +1,4 @@
-from typing import Iterator
+from typing import Iterator, Dict, Type, Union
 import logging
 import json
 import os
@@ -6,6 +6,7 @@ import hashlib
 import threading
 import weakref
 
+from app.model import AssetAdministrationShellDescriptor, SubmodelDescriptor
 from basyx.aas import model
 from basyx.aas.model import provider as sdk_provider
 
@@ -14,6 +15,13 @@ from app.adapter import jsonization
 
 
 logger = logging.getLogger(__name__)
+
+
+# We need to resolve the Descriptor type in order to deserialize it again from JSON
+DESCRIPTOR_TYPE_TO_STRING: Dict[Type[Union[AssetAdministrationShellDescriptor, SubmodelDescriptor]], str] = {
+    AssetAdministrationShellDescriptor: "AssetAdministrationShellDescriptor",
+    SubmodelDescriptor: "SubmodelDescriptor",
+}
 
 
 class LocalFileDescriptorStore(sdk_provider.AbstractObjectStore[model.Identifier, Descriptor]):
@@ -60,8 +68,7 @@ class LocalFileDescriptorStore(sdk_provider.AbstractObjectStore[model.Identifier
         # Try to get the correct file
         try:
             with open("{}/{}.json".format(self.directory_path, hash_), "r") as file:
-                data = json.load(file, cls=jsonization.ServerAASFromJsonDecoder)
-                obj = data["data"]
+                obj = json.load(file, cls=jsonization.ServerAASFromJsonDecoder)
         except FileNotFoundError as e:
             raise KeyError("No Descriptor with hash {} found in local file database".format(hash_)) from e
         # If we still have a local replication of that object (since it is referenced from anywhere else), update that
@@ -93,9 +100,16 @@ class LocalFileDescriptorStore(sdk_provider.AbstractObjectStore[model.Identifier
         """
         logger.debug("Adding object %s to Local File Store ...", repr(x))
         if os.path.exists("{}/{}.json".format(self.directory_path, self._transform_id(x.id))):
-            raise KeyError("Identifiable with id {} already exists in local file database".format(x.id))
+            raise KeyError("Descriptor with id {} already exists in local file database".format(x.id))
         with open("{}/{}.json".format(self.directory_path, self._transform_id(x.id)), "w") as file:
-            json.dump({"data": x}, file, cls=jsonization.ServerAASToJsonEncoder, indent=4)
+            # Usually, we don't need to serialize the modelType, since during HTTP requests, we know exactly if this
+            # is an AASDescriptor or SubmodelDescriptor. However, here we cannot distinguish them, so to deserialize
+            # them successfully, we hack the `modelType` into the JSON.
+            serialized = json.loads(
+                json.dumps(x, cls=jsonization.ServerAASToJsonEncoder)
+            )
+            serialized["modelType"] = DESCRIPTOR_TYPE_TO_STRING[type(x)]
+            json.dump(serialized, file, indent=4)
             with self._object_cache_lock:
                 self._object_cache[x.id] = x
 

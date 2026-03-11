@@ -58,30 +58,31 @@ class LocalFileBackendTest(TestCase):
         self.descriptor_store.add(self.sd2)
         self.descriptor_store.add(self.aasd1)
         self.descriptor_store.add(self.aasd2)
-        self.assertEqual(5, len(self.descriptor_store))
+        self.assertEqual(4, len(self.descriptor_store))
 
         # Iterate objects, add them to a DictDescriptorStore and check them
         retrieved_descriptor_store = provider.DictDescriptorStore()
         for item in self.descriptor_store:
             retrieved_descriptor_store.add(item)
-        self.assertEqual(5, len(retrieved_descriptor_store))
+        self.assertEqual(4, len(retrieved_descriptor_store))
         self.assertIn(self.sd1, retrieved_descriptor_store)
         self.assertIn(self.sd2, retrieved_descriptor_store)
         self.assertIn(self.aasd1, retrieved_descriptor_store)
         self.assertIn(self.aasd2, retrieved_descriptor_store)
 
     def test_key_errors(self) -> None:
-        self.descriptor_store.add(self.sd1)
+        self.descriptor_store.add(self.aasd1)
         with self.assertRaises(KeyError) as cm:
             self.descriptor_store.add(self.aasd1)
-        self.assertEqual("'Descriptor object with same id https://example.org/AASDescriptor/1 is already "
-                         "stored in this store'", str(cm.exception))
+        self.assertEqual("'Descriptor with id https://example.org/AASDescriptor/1 already exists in "
+                            "local file database'", str(cm.exception))
 
         self.descriptor_store.discard(self.aasd1)
         with self.assertRaises(KeyError) as cm:
             self.descriptor_store.get_item("https://example.org/AASDescriptor/1")
         self.assertIsNone(self.descriptor_store.get("https://example.org/AASDescriptor/1"))
-        self.assertEqual("'https://example.org/AASDescriptor/1'", str(cm.exception))
+        self.assertEqual("'No Identifiable with id https://example.org/AASDescriptor/1 found in local "
+                            "file database'", str(cm.exception))
 
     def test_reload_discard(self) -> None:
         self.descriptor_store.add(self.sd1)
