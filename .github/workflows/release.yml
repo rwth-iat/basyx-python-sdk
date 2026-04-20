@@ -5,7 +5,7 @@ on:
     types: [published]
 
 jobs:
-  publish-pypi:
+  sdk-publish:
     # This job publishes the package to PyPI
     runs-on: ubuntu-latest
     defaults:
@@ -32,7 +32,34 @@ jobs:
       with:
         password: ${{ secrets.PYPI_ORG_TOKEN }}
 
-  publish-dockerhub:
+  compliance-tool-publish:
+    # This job publishes the compliance_tool package to PyPI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./compliance_tool
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+      - name: Create source and wheel dist
+        # (2024-12-11, s-heppner)
+        # The PyPI Action expects the dist files in a toplevel `/dist` directory,
+        # so we have to specify this as output directory here.
+        run: |
+          python -m build --outdir ../dist
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_ORG_TOKEN }}
+
+  server-publish:
     # This job publishes the server docker image to DockerHub
     runs-on: ubuntu-latest
     defaults:
@@ -66,8 +93,8 @@ jobs:
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v6
         with:
-          context: ..
-          file: ./Dockerfile  # Todo: Update paths
+          context: .
+          file: ./server/Dockerfile  # Todo: Update paths
           push: true
           platforms: linux/amd64,linux/arm64  # Todo: Check which platforms we should support
           tags: ${{ steps.meta.outputs.tags }}
