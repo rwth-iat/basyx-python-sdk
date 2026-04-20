@@ -96,6 +96,5 @@ jobs:
           context: .
           file: ./server/Dockerfile  # Todo: Update paths
           push: true
-          platforms: linux/amd64,linux/arm64  # Todo: Check which platforms we should support
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
