@@ -19,6 +19,7 @@ from basyx.aas import model
 from basyx.aas.adapter._generic import XML_NS_MAP
 from basyx.aas.adapter.xml import XMLConstructables, read_aas_xml_element, xml_serialization
 from basyx.aas.model import AbstractObjectStore
+from basyx.aas.model.datatypes import NonNegativeInteger
 from lxml import etree
 from werkzeug import Request, Response
 from werkzeug.exceptions import BadRequest, NotFound
@@ -28,6 +29,15 @@ import app.model
 from app.adapter import ServerAASToJsonEncoder, ServerStrictAASFromJsonDecoder, ServerStrictStrippedAASFromJsonDecoder
 from app.model import AssetAdministrationShellDescriptor, AssetLink, SubmodelDescriptor
 from app.util.converters import base64url_decode
+from . import _string_constraints
+
+# The following string aliases are constrained by the decorator functions defined in the string_constraints module,
+# wherever they are used for an instances attributes.
+CodeType = str
+ShortIdType = str
+LocatorType = str
+TextType = str
+SchemeType = str
 
 T = TypeVar("T")
 
@@ -44,15 +54,16 @@ class MessageType(enum.Enum):
         return self.name.capitalize()
 
 
+@_string_constraints.constrain_code_type("code")
 class Message:
     def __init__(
         self,
-        code: str,
+        code: CodeType,
         text: str,
         message_type: MessageType = MessageType.UNDEFINED,
         timestamp: Optional[datetime.datetime] = None,
     ):
-        self.code: str = code
+        self.code: CodeType = code
         self.text: str = text
         self.message_type: MessageType = message_type
         self.timestamp: datetime.datetime = (
@@ -203,9 +214,8 @@ class BaseWSGIApp:
         limit_str = request.args.get("limit", default="10")
         cursor_str = request.args.get("cursor", default="1")
         try:
-            limit, cursor = int(limit_str), int(cursor_str) - 1  # cursor is 1-indexed
-            if limit < 0 or cursor < 0:
-                raise ValueError
+            limit, cursor = (NonNegativeInteger(int(limit_str)),
+                             NonNegativeInteger(int(cursor_str) - 1))  # cursor is 1-indexed
         except ValueError:
             raise BadRequest("Limit can not be negative, cursor must be positive!")
         start_index = cursor
