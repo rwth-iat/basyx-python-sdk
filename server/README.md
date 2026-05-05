@@ -99,7 +99,7 @@ The server can also be run directly on the host system without Docker, NGINX and
    $ python -m app.interfaces.repository
    ```
 
-The server can be accessed at http://localhost:8080/api/v3.0/ from your host system. 
+The server can be accessed at http://localhost:8080/api/v3.1/ from your host system. 
 
 ## Currently Unimplemented
 Several features and routes are currently not supported:
@@ -136,9 +136,9 @@ This Dockerfile is inspired by the [tiangolo/uwsgi-nginx-docker][10] repository.
 [1]: https://github.com/eclipse-basyx/basyx-python-sdk/pull/238
 [2]: https://basyx-python-sdk.readthedocs.io/en/latest/backend/local_file.html
 [3]: https://github.com/eclipse-basyx/basyx-python-sdk
-[4]: https://app.swaggerhub.com/apis/Plattform_i40/AssetAdministrationShellRepositoryServiceSpecification/V3.0.1_SSP-001
-[5]: https://app.swaggerhub.com/apis/Plattform_i40/SubmodelRepositoryServiceSpecification/V3.0.1_SSP-001
-[6]: https://industrialdigitaltwin.io/aas-specifications/IDTA-01002/v3.0/index.html
+[4]: https://app.swaggerhub.com/apis/Plattform_i40/AssetAdministrationShellRepositoryServiceSpecification/V3.1.1_SSP-001
+[5]: https://app.swaggerhub.com/apis/Plattform_i40/SubmodelRepositoryServiceSpecification/V3.1.1_SSP-001
+[6]: https://industrialdigitaltwin.io/aas-specifications/IDTA-01002/v3.1.2/index.html
 [7]: https://basyx-python-sdk.readthedocs.io/en/latest/adapter/aasx.html#adapter-aasx
 [8]: https://basyx-python-sdk.readthedocs.io/en/latest/adapter/json.html
 [9]: https://basyx-python-sdk.readthedocs.io/en/latest/adapter/xml.html
