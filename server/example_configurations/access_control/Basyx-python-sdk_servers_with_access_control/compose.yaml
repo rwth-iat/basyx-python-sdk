@@ -1,0 +1,100 @@
+name: secured-basyx-stack
+
+services:
+  envoy:
+    image: envoyproxy/envoy:v1.31-latest
+    command:
+      - envoy
+      - -c
+      - /etc/envoy/envoy.yaml
+      - --log-level
+      - info
+      - --component-log-level
+      - jwt:debug,ext_authz:debug
+    ports:
+      - "10000:10000"
+      - "8001:8001"
+    volumes:
+      - ./envoy.yaml:/etc/envoy/envoy.yaml:ro
+    depends_on:
+      - repository
+      - registry
+      - discovery
+      - aas-web-ui
+      - keycloak
+      - opa-envoy
+
+  repository:
+    build:
+      context: ../../../..
+      dockerfile: server/docker/repository/Dockerfile
+    volumes:
+      - ../../repository_standalone/input:/input
+      - ./storage/repository:/storage
+    environment:
+      API_BASE_PATH: /repository/api/v3.0/
+      STORAGE_PERSISTENCY: "True"
+
+  registry:
+    build:
+      context: ../../../..
+      dockerfile: server/docker/registry/Dockerfile
+    volumes:
+      - ../../registry_standalone/input:/input
+      - ./storage/registry:/storage
+    environment:
+      API_BASE_PATH: /registry/api/v3.1.1/
+      STORAGE_PERSISTENCY: "True"
+
+  discovery:
+    build:
+      context: ../../../..
+      dockerfile: server/docker/discovery/Dockerfile
+    environment:
+      API_BASE_PATH: /discovery/api/v3.1.1/
+
+
+  aas-web-ui:
+    image: eclipsebasyx/aas-gui:latest
+    restart: unless-stopped
+    environment:
+      BASE_PATH: /ui
+      ENDPOINT_CONFIG_AVAILABLE: "false"
+      ALLOW_EDITING: "true"
+      ALLOW_UPLOADING: "true"
+    volumes:
+      - ./basyx-infra.yml:/basyx-infra.yml:ro
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0.4
+    command:
+      - start-dev
+      - --import-realm
+      - --hostname=http://localhost:8080
+      - --hostname-strict=false
+    environment:
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./keycloak/realm.json:/opt/keycloak/data/import/realm.json:ro
+
+  opa-envoy:
+    image: openpolicyagent/opa:latest-envoy
+    command:
+      - run
+      - --server
+      - --addr=0.0.0.0:8181
+      - --diagnostic-addr=0.0.0.0:9901
+      - --log-level=info
+      - --config-file=/config/opa.yaml
+      - /policies
+    ports:
+      - "8181:8181"
+      - "9901:9901"
+    volumes:
+      - ./opa.yaml:/config/opa.yaml:ro
+      - ./policies:/policies:ro

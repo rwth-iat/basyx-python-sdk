@@ -1,0 +1,112 @@
+{
+  "access_control": {
+    "public_path_prefixes": [
+      "/",
+      "/ui"
+    ],
+    "rules": [
+      {
+        "description": "Authenticated users can read repository resources.",
+        "path_prefix": "/repository",
+        "methods": [
+          "GET"
+        ],
+        "roles": [
+          "viewer",
+          "editor",
+          "admin"
+        ]
+      },
+      {
+        "description": "Editors can change repository resources.",
+        "path_prefix": "/repository",
+        "methods": [
+          "POST",
+          "PUT"
+        ],
+        "roles": [
+          "editor",
+          "admin"
+        ]
+      },
+      {
+        "description": "Only admins can delete repository resources.",
+        "path_prefix": "/repository",
+        "methods": [
+          "DELETE"
+        ],
+        "roles": [
+          "admin"
+        ]
+      },
+      {
+        "description": "Authenticated users can read registry resources.",
+        "path_prefix": "/registry",
+        "methods": [
+          "GET"
+        ],
+        "roles": [
+          "viewer",
+          "editor",
+          "admin"
+        ]
+      },
+      {
+        "description": "Editors can change registry resources.",
+        "path_prefix": "/registry",
+        "methods": [
+          "POST",
+          "PUT"
+        ],
+        "roles": [
+          "editor",
+          "admin"
+        ]
+      },
+      {
+        "description": "Only admins can delete registry resources.",
+        "path_prefix": "/registry",
+        "methods": [
+          "DELETE"
+        ],
+        "roles": [
+          "admin"
+        ]
+      },
+      {
+        "description": "Authenticated users can read discovery resources.",
+        "path_prefix": "/discovery",
+        "methods": [
+          "GET"
+        ],
+        "roles": [
+          "viewer",
+          "editor",
+          "admin"
+        ]
+      },
+      {
+        "description": "Editors can change discovery resources.",
+        "path_prefix": "/discovery",
+        "methods": [
+          "POST",
+          "PUT"
+        ],
+        "roles": [
+          "editor",
+          "admin"
+        ]
+      },
+      {
+        "description": "Only admins can delete discovery resources.",
+        "path_prefix": "/discovery",
+        "methods": [
+          "DELETE"
+        ],
+        "roles": [
+          "admin"
+        ]
+      }
+    ]
+  }
+}

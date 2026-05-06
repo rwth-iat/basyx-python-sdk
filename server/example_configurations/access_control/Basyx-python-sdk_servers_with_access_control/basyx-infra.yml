@@ -1,0 +1,26 @@
+infrastructures:
+  default: secured-python-stack
+
+  secured-python-stack:
+    name: Secured BaSyx Python Stack
+    components:
+      aasDiscovery:
+        baseUrl: "http://localhost:10000/discovery/api/v3.1.1"
+      aasRegistry:
+        baseUrl: "http://localhost:10000/registry/api/v3.1.1"
+        hasDiscoveryIntegration: true
+      submodelRegistry:
+        baseUrl: "http://localhost:10000/registry/api/v3.1.1"
+      aasRepository:
+        baseUrl: "http://localhost:10000/repository/api/v3.0"
+        hasRegistryIntegration: true
+      submodelRepository:
+        baseUrl: "http://localhost:10000/repository/api/v3.0"
+        hasRegistryIntegration: true
+    security:
+      type: oauth2
+      config:
+        flow: auth_code
+        issuer: "http://localhost:8080/realms/basyx-secured-stack"
+        clientId: "basyx-web-ui"
+        scope: "openid profile email"

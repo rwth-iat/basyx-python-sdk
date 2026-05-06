@@ -1,0 +1,11 @@
+{
+    "data": {
+        "idShort": "Example",
+        "modelType": "AssetAdministrationShell",
+        "id": "3ca4bdcf-e473-4610-944e-3cdd1d9e7fa6",
+        "assetInformation": {
+            "assetKind": "Instance",
+            "globalAssetId": "https://example.com/ids/9394_8543_7698_5130"
+        }
+    }
+}
