@@ -1,4 +1,4 @@
-# Copyright (c) 2025 the Eclipse BaSyx Authors
+# Copyright (c) 2026 the Eclipse BaSyx Authors
 #
 # This program and the accompanying materials are made available under the terms of the MIT License, available in
 # the LICENSE file of this project.
@@ -100,7 +100,7 @@ def check_short_name_type(value: str, type_name: str = "ShortNameType") -> None:
 
 
 def check_value_type_iec61360(value: str, type_name: str = "ValueTypeIEC61360") -> None:
-    return check(value, type_name, 1, 2000)
+    return check(value, type_name, 1, 2048)
 
 
 def check_version_type(value: str, type_name: str = "VersionType") -> None:

@@ -1197,7 +1197,7 @@ class DataSpecificationContent:
     **Constraint AASc-3a-050:** If the ``Data_specification_IEC_61360`` is used
     for an element, the value of ``HasDataSpecification.embedded_data_specifications``
     shall contain the external reference to the IRI of the corresponding data specification
-    template ``https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIEC61360/3/0``
+    template ``https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIEC61360/3``
     """
     @abc.abstractmethod
     def __init__(self):
@@ -1745,14 +1745,14 @@ class ValueReferencePair:
 
     def __init__(self,
                  value: ValueTypeIEC61360,
-                 value_id: Reference):
+                 value_id: Optional[Reference] = None):
         """
 
 
         TODO: Add instruction what to do after construction
         """
-        self.value_id: Reference = value_id
         self.value: ValueTypeIEC61360 = value
+        self.value_id: Optional[Reference] = value_id
 
     def __repr__(self) -> str:
         return "ValueReferencePair(value={}, value_id={})".format(self.value, self.value_id)
