@@ -74,36 +74,6 @@
   ],
   "users": [
     {
-      "username": "alice",
-      "enabled": true,
-      "emailVerified": true,
-      "credentials": [
-        {
-          "type": "password",
-          "value": "alice",
-          "temporary": false
-        }
-      ],
-      "realmRoles": [
-        "reader"
-      ]
-    },
-    {
-      "username": "bob",
-      "enabled": true,
-      "emailVerified": true,
-      "credentials": [
-        {
-          "type": "password",
-          "value": "bob",
-          "temporary": false
-        }
-      ],
-      "realmRoles": [
-        "writer"
-      ]
-    },
-    {
       "username": "admin",
       "enabled": true,
       "emailVerified": true,

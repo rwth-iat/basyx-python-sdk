@@ -1,15 +1,13 @@
 # Secured BaSyx Python Server Stack
 
-This example runs the Python repository, registry and discovery servers together with the BaSyx AAS Web UI behind the access-control concept from `access_control_general`.
-
-Envoy is the public API gateway. The Python servers are only reachable inside the Docker network. Envoy validates JWTs issued by Keycloak and asks OPA whether the request is allowed before forwarding it to a server.
+This example runs the Basyx Python repository, registry and discovery servers together with the BaSyx AAS Web UI behind the access-control concept from `access_control_general`.
 
 ## Components
 
 - `envoy`: Public gateway on http://localhost:10000.
-- `repository`: Python AAS/Submodel repository server.
-- `registry`: Python AAS/Submodel registry server.
-- `discovery`: Python AAS discovery server.
+- `repository`: Basyx Python AAS/Submodel repository server.
+- `registry`: Basyx Python AAS/Submodel registry server.
+- `discovery`: Basyx Python AAS discovery server.
 - `aas-web-ui`: BaSyx AAS Web UI served under http://localhost:10000/ui.
 - `keycloak`: Demo identity provider on http://localhost:8080.
 - `opa-envoy`: OPA external authorization service for Envoy.
@@ -38,29 +36,20 @@ Demo users:
 | `editor` | `editor` | `editor` |
 | `admin` | `admin` | `admin` |
 
-## Gateway Routes
-
-| Public route | Backend service | Backend base path |
-|--------------|-----------------|-------------------|
-| `/ui` | `aas-web-ui:3000` | `/ui` |
-| `/repository/api/v3.0/` | `repository:80` | `/repository/api/v3.0/` |
-| `/registry/api/v3.1.1/` | `registry:80` | `/registry/api/v3.1.1/` |
-| `/discovery/api/v3.1.1/` | `discovery:80` | `/discovery/api/v3.1.1/` |
-
-The server containers are configured with matching `API_BASE_PATH` values, so Envoy does not rewrite API paths.
-
 ## Policy
 
 OPA policy data is in `policies/data.json`.
-
-The default rules are intentionally conservative:
+The policy has two layers:
+1. Server-level rules decide whether a role may call broad server areas such as `/repository`, `/registry` or `/discovery` with a given HTTP method.
+2. Resource-level rules decide whether a role may access a concrete resource URL when the resource id is present in the request path.
 
 - UI paths are public.
-- `GET` on server APIs is allowed for `viewer`, `editor` and `admin`.
+- `GET` on broad server APIs is allowed for `editor` and `admin`.
 - `POST` and `PUT` are allowed for `editor` and `admin`.
 - `DELETE` is allowed only for `admin`.
+- `viewer` does not receive broad repository, registry or discovery access
 
-Change the policy data when repository, registry and discovery need different role models.
+`GET all` requests are not supported for resource-level filtering in this version.
 
 ## UI Configuration
 
@@ -71,6 +60,28 @@ ENDPOINT_CONFIG_AVAILABLE: "false"
 ```
 
 This avoids users accidentally bypassing the gateway by entering direct backend URLs.
+
+## Test resource level access
+
+```powershell
+$token = (Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://localhost:8080/realms/basyx-secured-stack/protocol/openid-connect/token" `
+  -ContentType "application/x-www-form-urlencoded" `
+  -Body @{
+    grant_type = "password"
+    client_id = "basyx-web-ui"
+    username = "viewer"
+    password = "viewer"
+  }).access_token
+
+Invoke-WebRequest `
+  -Method Get `
+  -Uri "http://localhost:10000/repository/api/v3.0/shells/aHR0cHM6Ly9hY3BsdC5vcmcvVGVzdF9Bc3NldEFkbWluaXN0cmF0aW9uU2hlbGw" `
+  -Headers @{ Authorization = "Bearer $token" } |
+  ConvertTo-Json -Depth 50
+```
+
 
 ## Notes
 

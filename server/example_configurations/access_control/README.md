@@ -1,6 +1,6 @@
 # Access Control for the Eclipse BaSyx Python SDK - HTTP Servers
 
-This folder explains the access-control concept for the [BaSyx Python SDK HTTP servers](../README.md). The main advantage of this approach is that it is not limited to the BaSyx Python SDK servers: it can also be used with other HTTP servers or applications.
+This folder describes the access-control concept for the [BaSyx Python SDK HTTP servers](../README.md). The main advantage of this approach is that it is not limited to the BaSyx Python SDK servers: it can also be used with other HTTP servers or applications.
 
 The general concept is described in [`access_control_general`](./access_control_general).
 

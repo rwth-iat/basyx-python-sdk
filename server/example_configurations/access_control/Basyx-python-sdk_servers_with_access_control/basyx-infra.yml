@@ -8,15 +8,15 @@ infrastructures:
         baseUrl: "http://localhost:10000/discovery/api/v3.1.1"
       aasRegistry:
         baseUrl: "http://localhost:10000/registry/api/v3.1.1"
-        hasDiscoveryIntegration: true
+        hasDiscoveryIntegration: false
       submodelRegistry:
         baseUrl: "http://localhost:10000/registry/api/v3.1.1"
       aasRepository:
         baseUrl: "http://localhost:10000/repository/api/v3.0"
-        hasRegistryIntegration: true
+        hasRegistryIntegration: false
       submodelRepository:
         baseUrl: "http://localhost:10000/repository/api/v3.0"
-        hasRegistryIntegration: true
+        hasRegistryIntegration: false
     security:
       type: oauth2
       config:

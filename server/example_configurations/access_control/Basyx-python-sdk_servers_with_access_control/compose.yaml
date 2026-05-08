@@ -30,7 +30,7 @@ services:
       dockerfile: server/docker/repository/Dockerfile
     volumes:
       - ../../repository_standalone/input:/input
-      - ./storage/repository:/storage
+      - ../../repository_standalone/storage:/storage
     environment:
       API_BASE_PATH: /repository/api/v3.0/
       STORAGE_PERSISTENCY: "True"
@@ -41,7 +41,7 @@ services:
       dockerfile: server/docker/registry/Dockerfile
     volumes:
       - ../../registry_standalone/input:/input
-      - ./storage/registry:/storage
+      - ../../registry_standalone/storage:/storage
     environment:
       API_BASE_PATH: /registry/api/v3.1.1/
       STORAGE_PERSISTENCY: "True"

@@ -6,19 +6,18 @@
     ],
     "rules": [
       {
-        "description": "Authenticated users can read repository resources.",
+        "description": "Editors and admins can read repository resources.",
         "path_prefix": "/repository",
         "methods": [
           "GET"
         ],
         "roles": [
-          "viewer",
           "editor",
           "admin"
         ]
       },
       {
-        "description": "Editors can change repository resources.",
+        "description": "Editors and admins can change repository resources.",
         "path_prefix": "/repository",
         "methods": [
           "POST",
@@ -40,19 +39,18 @@
         ]
       },
       {
-        "description": "Authenticated users can read registry resources.",
+        "description": "Editors and admins can read registry resources.",
         "path_prefix": "/registry",
         "methods": [
           "GET"
         ],
         "roles": [
-          "viewer",
           "editor",
           "admin"
         ]
       },
       {
-        "description": "Editors can change registry resources.",
+        "description": "Editors and admins can change registry resources.",
         "path_prefix": "/registry",
         "methods": [
           "POST",
@@ -74,19 +72,29 @@
         ]
       },
       {
-        "description": "Authenticated users can read discovery resources.",
+        "description": "Editors and admins can read discovery resources.",
         "path_prefix": "/discovery",
         "methods": [
           "GET"
         ],
         "roles": [
-          "viewer",
           "editor",
           "admin"
         ]
       },
       {
-        "description": "Editors can change discovery resources.",
+        "description": "Editors and admins can run discovery lookups that return collections.",
+        "path_prefix": "/discovery/api/v3.1.1/lookup/shellsByAssetLink",
+        "methods": [
+          "POST"
+        ],
+        "roles": [
+          "editor",
+          "admin"
+        ]
+      },
+      {
+        "description": "Editors and admins can change discovery resources.",
         "path_prefix": "/discovery",
         "methods": [
           "POST",
@@ -105,6 +113,49 @@
         ],
         "roles": [
           "admin"
+        ]
+      }
+    ],
+    "resource_rules": [
+      {
+        "description": "Viewers can read only selected AAS endpoints. IDs are the base64url path identifiers used by the HTTP API.",
+        "path_templates": [
+          "/repository/api/v3.0/shells/{aas_id}",
+          "/registry/api/v3.1.1/shell-descriptors/{aas_id}",
+          "/discovery/api/v3.1.1/lookup/shells/{aas_id}"
+        ],
+        "ids": [
+          "aHR0cHM6Ly9hY3BsdC5vcmcvVGVzdF9Bc3NldEFkbWluaXN0cmF0aW9uU2hlbGw",
+          "aHR0cHM6Ly9hY3BsdC5vcmcvVGVzdF9Bc3NldEFkbWluaXN0cmF0aW9uU2hlbGxfTWFuZGF0b3J5",
+          "aHR0cHM6Ly9hY3BsdC5vcmcvVGVzdF9Bc3NldEFkbWluaXN0cmF0aW9uU2hlbGwyX01hbmRhdG9yeQ"
+        ],
+        "methods": [
+          "GET"
+        ],
+        "roles": [
+          "viewer"
+        ]
+      },
+      {
+        "description": "Viewers can read only selected Submodel endpoints. IDs are the base64url path identifiers used by the HTTP API.",
+        "path_templates": [
+          "/repository/api/v3.0/submodels/{submodel_id}",
+          "/repository/api/v3.0/shells/{aas_id}/submodels/{submodel_id}",
+          "/registry/api/v3.1.1/submodel-descriptors/{submodel_id}",
+          "/registry/api/v3.1.1/shell-descriptors/{aas_id}/submodel-descriptors/{submodel_id}"
+        ],
+        "ids": [
+          "aHR0cDovL2FjcGx0Lm9yZy9TdWJtb2RlbHMvQXNzZXRzL1Rlc3RBc3NldC9JZGVudGlmaWNhdGlvbg",
+          "aHR0cDovL2FjcGx0Lm9yZy9TdWJtb2RlbHMvQXNzZXRzL1Rlc3RBc3NldC9CaWxsT2ZNYXRlcmlhbA",
+          "aHR0cHM6Ly9hY3BsdC5vcmcvVGVzdF9TdWJtb2RlbA",
+          "aHR0cHM6Ly9hY3BsdC5vcmcvVGVzdF9TdWJtb2RlbF9NYW5kYXRvcnk",
+          "aHR0cHM6Ly9hY3BsdC5vcmcvVGVzdF9TdWJtb2RlbDJfTWFuZGF0b3J5"
+        ],
+        "methods": [
+          "GET"
+        ],
+        "roles": [
+          "viewer"
         ]
       }
     ]
