@@ -4,7 +4,7 @@ This module implements the Registry interface defined in the
 – Application Programming Interface'.
 """
 
-from typing import Dict, Iterator, Tuple, Type
+from typing import Dict, Iterator, Tuple, Type, Optional
 
 import werkzeug.exceptions
 import werkzeug.routing
@@ -17,8 +17,15 @@ from werkzeug.wrappers import Request, Response
 
 import app.model as server_model
 from app.interfaces.base import APIResponse, HTTPApiDecoder, ObjectStoreWSGIApp, is_stripped_request
-from app.model import DictDescriptorStore
+from app.model import DictDescriptorStore, ServiceSpecificationProfileEnum, ServiceDescription
 from app.util.converters import IdentifierToBase64URLConverter, base64url_decode
+
+SUPPORTED_PROFILES: ServiceDescription = ServiceDescription([
+    ServiceSpecificationProfileEnum.AAS_REGISTRY_FULL,
+    ServiceSpecificationProfileEnum.SUBMODEL_REGISTRY_FULL,
+    ServiceSpecificationProfileEnum.AAS_REGISTRY_READ,
+    ServiceSpecificationProfileEnum.SUBMODEL_REGISTRY_READ,
+])
 
 
 class RegistryAPI(ObjectStoreWSGIApp):
@@ -108,7 +115,7 @@ class RegistryAPI(ObjectStoreWSGIApp):
 
     def _get_all_aas_descriptors(
         self, request: "Request"
-    ) -> Tuple[Iterator[server_model.AssetAdministrationShellDescriptor], int]:
+    ) -> Tuple[Iterator[server_model.AssetAdministrationShellDescriptor], Optional[int]]:
 
         descriptors: Iterator[server_model.AssetAdministrationShellDescriptor] = self._get_all_obj_of_type(
             server_model.AssetAdministrationShellDescriptor
@@ -140,7 +147,9 @@ class RegistryAPI(ObjectStoreWSGIApp):
     def _get_aas_descriptor(self, url_args: Dict) -> server_model.AssetAdministrationShellDescriptor:
         return self._get_obj_ts(url_args["aas_id"], server_model.AssetAdministrationShellDescriptor)
 
-    def _get_all_submodel_descriptors(self, request: Request) -> Tuple[Iterator[server_model.SubmodelDescriptor], int]:
+    def _get_all_submodel_descriptors(self, request: Request) -> Tuple[
+        Iterator[server_model.SubmodelDescriptor], Optional[int]
+    ]:
         submodel_descriptors: Iterator[server_model.SubmodelDescriptor] = self._get_all_obj_of_type(
             server_model.SubmodelDescriptor
         )
@@ -154,15 +163,7 @@ class RegistryAPI(ObjectStoreWSGIApp):
     def get_self_description(
         self, request: Request, url_args: Dict, response_t: Type[APIResponse], **_kwargs
     ) -> Response:
-        service_description = server_model.ServiceDescription(
-            profiles=[
-                server_model.ServiceSpecificationProfileEnum.AAS_REGISTRY_FULL,
-                server_model.ServiceSpecificationProfileEnum.AAS_REGISTRY_READ,
-                server_model.ServiceSpecificationProfileEnum.SUBMODEL_REGISTRY_FULL,
-                server_model.ServiceSpecificationProfileEnum.SUBMODEL_REGISTRY_READ,
-            ]
-        )
-        return response_t(service_description.to_dict())
+        return response_t(SUPPORTED_PROFILES.to_dict())
 
     # ------ AAS REGISTRY ROUTES -------
     def get_all_aas_descriptors(
