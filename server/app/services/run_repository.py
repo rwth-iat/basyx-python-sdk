@@ -10,6 +10,7 @@ This module provides the WSGI entry point for the Asset Administration Shell Rep
 
 import logging
 import os
+import time
 from typing import Tuple, Union
 
 from basyx.aas.adapter import load_directory
@@ -72,8 +73,10 @@ def build_storage(
             from basyx.aas.adapter import read_aas_json_file_into, read_aas_xml_file_into
             from basyx.aas.adapter.aasx import AASXReader
             from basyx.aas.model.provider import DictIdentifiableStore as _FileStore
+            from neo4j.exceptions import ServiceUnavailable
             input_supp_files = DictSupplementaryFileContainer()
             loaded, skipped = 0, 0
+            input_objects: list = []
             for file in Path(env_input).iterdir():
                 if not file.is_file():
                     continue
@@ -90,12 +93,22 @@ def build_storage(
                         reader.read_into(object_store=file_store, file_store=input_supp_files)
                 else:
                     continue
-                for obj in file_store:
-                    try:
-                        store.add(obj)
-                        loaded += 1
-                    except KeyError:
-                        skipped += 1
+                input_objects.extend(file_store)
+            for attempt in range(10):
+                try:
+                    for obj in input_objects:
+                        try:
+                            store.add(obj)
+                            loaded += 1
+                        except KeyError:
+                            skipped += 1
+                    break
+                except ServiceUnavailable as exc:
+                    if attempt == 9:
+                        raise
+                    logger.warning("Neo4j not reachable (%s), retrying in 3s (%d/9)...", exc, attempt + 1)
+                    loaded, skipped = 0, 0
+                    time.sleep(3)
             logger.info(
                 'Loaded %d identifiable(s) from "%s" into Neo4j (%d skipped, already existed)',
                 loaded, env_input, skipped,
