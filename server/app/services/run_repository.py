@@ -68,14 +68,34 @@ def build_storage(
         logger.info('Using Neo4j backend at "%s" (user=%s)', neo4j_uri, neo4j_user)
         store = build_neo4j_object_store(neo4j_uri, neo4j_user, neo4j_password)
         if os.path.isdir(env_input):
-            input_objects, input_supp_files = load_directory(env_input)
+            from pathlib import Path
+            from basyx.aas.adapter import read_aas_json_file_into, read_aas_xml_file_into
+            from basyx.aas.adapter.aasx import AASXReader
+            from basyx.aas.model.provider import DictIdentifiableStore as _FileStore
+            input_supp_files = DictSupplementaryFileContainer()
             loaded, skipped = 0, 0
-            for obj in input_objects:
-                try:
-                    store.add(obj)
-                    loaded += 1
-                except KeyError:
-                    skipped += 1
+            for file in Path(env_input).iterdir():
+                if not file.is_file():
+                    continue
+                file_store: _FileStore = _FileStore()
+                suffix = file.suffix.lower()
+                if suffix == ".json":
+                    with open(file) as f:
+                        read_aas_json_file_into(file_store, f)
+                elif suffix == ".xml":
+                    with open(file) as f:
+                        read_aas_xml_file_into(file_store, f)
+                elif suffix == ".aasx":
+                    with AASXReader(file) as reader:
+                        reader.read_into(object_store=file_store, file_store=input_supp_files)
+                else:
+                    continue
+                for obj in file_store:
+                    try:
+                        store.add(obj)
+                        loaded += 1
+                    except KeyError:
+                        skipped += 1
             logger.info(
                 'Loaded %d identifiable(s) from "%s" into Neo4j (%d skipped, already existed)',
                 loaded, env_input, skipped,
