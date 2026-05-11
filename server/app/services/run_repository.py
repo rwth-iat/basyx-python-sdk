@@ -15,6 +15,7 @@ from typing import Tuple, Union
 from basyx.aas.adapter import load_directory
 from basyx.aas.adapter.aasx import DictSupplementaryFileContainer
 from basyx.aas.backend.local_file import LocalFileIdentifiableStore
+from basyx.aas.model import AbstractObjectStore
 from basyx.aas.model.provider import DictIdentifiableStore
 
 from app.interfaces.repository import WSGIApp
@@ -42,7 +43,7 @@ def setup_logger() -> logging.Logger:
 
 def build_storage(
     env_input: str, env_storage: str, env_storage_persistency: bool, env_storage_overwrite: bool, logger: logging.Logger
-) -> Tuple[Union[DictIdentifiableStore, LocalFileIdentifiableStore], DictSupplementaryFileContainer]:
+) -> Tuple[AbstractObjectStore, DictSupplementaryFileContainer]:
     """
     Configure the server's storage according to the given start-up settings.
 
@@ -53,11 +54,36 @@ def build_storage(
     :param env_storage_overwrite: Flag to overwrite existing :class:`Identifiables <basyx.aas.model.base.Identifiable>`
         in the :class:`~basyx.aas.backend.local_file.LocalFileIdentifiableStore` if persistent storage is enabled
     :param logger: :class:`~logging.Logger` used for start-up diagnostics
-    :return: Tuple consisting of a :class:`~basyx.aas.model.provider.DictIdentifiableStore` if persistent storage is
-        disabled or a :class:`~basyx.aas.backend.local_file.LocalFileIdentifiableStore` if persistent storage is
-        enabled and a :class:`~basyx.aas.adapter.aasx.DictSupplementaryFileContainer` as storage for
-        :class:`~interfaces.repository.WSGIApp`
+    :return: Tuple consisting of a storage backend and a
+        :class:`~basyx.aas.adapter.aasx.DictSupplementaryFileContainer` for :class:`~interfaces.repository.WSGIApp`
     """
+
+    env_storage_backend = os.getenv("STORAGE_BACKEND", "memory").lower()
+
+    if env_storage_backend == "neo4j":
+        from app.backend.neo4j import build_neo4j_object_store
+        neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+        neo4j_user = os.getenv("NEO4J_USER", "neo4j")
+        neo4j_password = os.getenv("NEO4J_PASSWORD", "")
+        logger.info('Using Neo4j backend at "%s" (user=%s)', neo4j_uri, neo4j_user)
+        store = build_neo4j_object_store(neo4j_uri, neo4j_user, neo4j_password)
+        if os.path.isdir(env_input):
+            input_objects, input_supp_files = load_directory(env_input)
+            loaded, skipped = 0, 0
+            for obj in input_objects:
+                try:
+                    store.add(obj)
+                    loaded += 1
+                except KeyError:
+                    skipped += 1
+            logger.info(
+                'Loaded %d identifiable(s) from "%s" into Neo4j (%d skipped, already existed)',
+                loaded, env_input, skipped,
+            )
+            return store, input_supp_files
+        else:
+            logger.warning('INPUT directory "%s" not found, starting empty Neo4j store', env_input)
+            return store, DictSupplementaryFileContainer()
 
     if env_storage_persistency:
         storage_files = LocalFileIdentifiableStore(env_storage)
@@ -109,8 +135,9 @@ env_api_base_path = os.getenv("API_BASE_PATH")
 wsgi_optparams = {"base_path": env_api_base_path} if env_api_base_path else {}
 
 logger.info(
-    'Loaded settings API_BASE_PATH="%s", INPUT="%s", STORAGE="%s", PERSISTENCY=%s, OVERWRITE=%s',
+    'Loaded settings API_BASE_PATH="%s", STORAGE_BACKEND="%s", INPUT="%s", STORAGE="%s", PERSISTENCY=%s, OVERWRITE=%s',
     env_api_base_path or "",
+    os.getenv("STORAGE_BACKEND", "memory"),
     env_input,
     env_storage,
     env_storage_persistency,

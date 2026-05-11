@@ -32,6 +32,8 @@ SUPPORTED_PROFILES: ServiceDescription = ServiceDescription([
     ServiceSpecificationProfileEnum.SUBMODEL_REPOSITORY_FULL,
     ServiceSpecificationProfileEnum.AAS_REPOSITORY_READ,
     ServiceSpecificationProfileEnum.SUBMODEL_REPOSITORY_READ,
+    ServiceSpecificationProfileEnum.AAS_REPOSITORY_QUERY,
+    ServiceSpecificationProfileEnum.SUBMODEL_REPOSITORY_QUERY,
 ])
 
 
@@ -49,6 +51,8 @@ class WSGIApp(ObjectStoreWSGIApp):
                 Submount(
                     base_path,
                     [
+                        Rule("/query/shells", methods=["POST"], endpoint=self.query_shells),
+                        Rule("/query/submodels", methods=["POST"], endpoint=self.query_submodels),
                         Rule("/serialization", methods=["GET"], endpoint=self.not_implemented),
                         Rule("/description", methods=["GET"], endpoint=self.get_description),
                         Rule("/shells", methods=["GET"], endpoint=self.get_aas_all),
@@ -516,6 +520,51 @@ class WSGIApp(ObjectStoreWSGIApp):
 
     def _get_concept_description(self, url_args):
         return self._get_obj_ts(url_args["concept_id"], model.ConceptDescription)
+
+    # ------ AASQL QUERY ROUTES -------
+    def _query_neo4j(self, request: Request, return_var: str) -> List[Dict]:
+        try:
+            from aas_mapping.aas_neo4j_adapter.neo_aas_object_store import Neo4jObjectStore
+            from aas_mapping.aas_neo4j_adapter.querification.aasql_to_cypher import convert_aasql_to_cypher
+        except ImportError as e:
+            raise werkzeug.exceptions.NotImplemented("aas_mapping package required for query endpoints") from e
+
+        if not isinstance(self.object_store, Neo4jObjectStore):
+            raise werkzeug.exceptions.NotImplemented(
+                "Query endpoints require Neo4j backend (set STORAGE_BACKEND=neo4j)"
+            )
+
+        client = self.object_store._client
+        try:
+            cypher = convert_aasql_to_cypher(request.get_data(as_text=True))
+        except (json.JSONDecodeError, ValueError) as e:
+            raise BadRequest(f"Invalid AASQL query: {e}") from e
+
+        records = client.execute_clause(cypher) or []
+        results = []
+        for record in records:
+            if return_var in record.keys():
+                obj_id = record[return_var]["id"]
+            elif f"{return_var}.id" in record.keys():
+                obj_id = record[f"{return_var}.id"]
+            else:
+                continue
+            results.append(client.get_identifiable(obj_id))
+        return results
+
+    def query_submodels(self, request: Request, url_args: Dict, **_kwargs) -> Response:
+        results = self._query_neo4j(request, "sm")
+        return Response(
+            json.dumps({"paging_metadata": {"resultType": "Submodel"}, "result": results}),
+            content_type="application/json",
+        )
+
+    def query_shells(self, request: Request, url_args: Dict, **_kwargs) -> Response:
+        results = self._query_neo4j(request, "aas")
+        return Response(
+            json.dumps({"paging_metadata": {"resultType": "AssetAdministrationShell"}, "result": results}),
+            content_type="application/json",
+        )
 
     # ------ all not implemented ROUTES -------
     def not_implemented(self, request: Request, url_args: Dict, **_kwargs) -> Response:
