@@ -58,12 +58,6 @@ def build_storage(
         :class:`~basyx.aas.adapter.aasx.DictSupplementaryFileContainer` for :class:`~interfaces.repository.WSGIApp`
     """
 
-    env_storage_backend = os.getenv("STORAGE_BACKEND", "memory").lower()
-
-    if env_storage_backend == "neo4j":
-        from app.backend.neo4j import build_neo4j_storage
-        return build_neo4j_storage(env_input, logger)
-
     if env_storage_persistency:
         storage_files = LocalFileIdentifiableStore(env_storage)
         storage_files.check_directory(create=True)
@@ -114,9 +108,8 @@ env_api_base_path = os.getenv("API_BASE_PATH")
 wsgi_optparams = {"base_path": env_api_base_path} if env_api_base_path else {}
 
 logger.info(
-    'Loaded settings API_BASE_PATH="%s", STORAGE_BACKEND="%s", INPUT="%s", STORAGE="%s", PERSISTENCY=%s, OVERWRITE=%s',
+    'Loaded settings API_BASE_PATH="%s", INPUT="%s", STORAGE="%s", PERSISTENCY=%s, OVERWRITE=%s',
     env_api_base_path or "",
-    os.getenv("STORAGE_BACKEND", "memory"),
     env_input,
     env_storage,
     env_storage_persistency,
