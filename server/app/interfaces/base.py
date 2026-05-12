@@ -10,7 +10,7 @@ import enum
 import io
 import itertools
 import json
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Protocol, Tuple, Type, TypeVar, Union, runtime_checkable
 
 import werkzeug.exceptions
 import werkzeug.routing
@@ -293,6 +293,24 @@ class BaseWSGIApp:
         else:
             result = Result(False)
         return response_type(result, status=exception.code, headers=headers)
+
+
+@runtime_checkable
+class QueryableObjectStore(Protocol):
+    """Structural protocol for object stores that support AASQL querying.
+
+    Implement ``query(aasql_body, return_var)`` to advertise query support.
+    No explicit inheritance required — duck-typing via ``isinstance`` works at runtime.
+    """
+
+    def query(self, aasql_body: str, return_var: str) -> List[dict]:
+        """Execute an AASQL query and return matching serialized AAS objects.
+
+        :param aasql_body: raw AASQL JSON string
+        :param return_var: Cypher return variable name (``"sm"`` or ``"aas"``)
+        :return: list of serialized AAS/Submodel dicts
+        """
+        ...
 
 
 class ObjectStoreWSGIApp(BaseWSGIApp):

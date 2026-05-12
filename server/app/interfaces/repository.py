@@ -24,7 +24,7 @@ from werkzeug.routing import MapAdapter, Rule, Submount
 
 from app.interfaces.base import PagingMetadata
 from app.util.converters import IdentifierToBase64URLConverter, IdShortPathConverter, base64url_decode
-from .base import ObjectStoreWSGIApp, APIResponse, is_stripped_request, HTTPApiDecoder, T
+from .base import ObjectStoreWSGIApp, APIResponse, is_stripped_request, HTTPApiDecoder, QueryableObjectStore, T
 from app.model import ServiceSpecificationProfileEnum, ServiceDescription
 
 SUPPORTED_PROFILES: ServiceDescription = ServiceDescription([
@@ -32,6 +32,8 @@ SUPPORTED_PROFILES: ServiceDescription = ServiceDescription([
     ServiceSpecificationProfileEnum.SUBMODEL_REPOSITORY_FULL,
     ServiceSpecificationProfileEnum.AAS_REPOSITORY_READ,
     ServiceSpecificationProfileEnum.SUBMODEL_REPOSITORY_READ,
+    # ServiceSpecificationProfileEnum.AAS_REPOSITORY_QUERY,
+    # ServiceSpecificationProfileEnum.SUBMODEL_REPOSITORY_QUERY,
 ])
 
 
@@ -49,6 +51,8 @@ class WSGIApp(ObjectStoreWSGIApp):
                 Submount(
                     base_path,
                     [
+                        Rule("/query/shells", methods=["POST"], endpoint=self.query_shells),
+                        Rule("/query/submodels", methods=["POST"], endpoint=self.query_submodels),
                         Rule("/serialization", methods=["GET"], endpoint=self.not_implemented),
                         Rule("/description", methods=["GET"], endpoint=self.get_description),
                         Rule("/shells", methods=["GET"], endpoint=self.get_aas_all),
@@ -517,12 +521,42 @@ class WSGIApp(ObjectStoreWSGIApp):
     def _get_concept_description(self, url_args):
         return self._get_obj_ts(url_args["concept_id"], model.ConceptDescription)
 
+    def query_submodels(self, request: Request, url_args: Dict, **_kwargs) -> Response:
+        if not isinstance(self.object_store, QueryableObjectStore):
+            raise werkzeug.exceptions.NotImplemented("The current store does not support AASQL queries")
+        try:
+            results = self.object_store.query(request.get_data(as_text=True), "sm")
+        except (json.JSONDecodeError, ValueError) as e:
+            raise BadRequest(f"Invalid AASQL query: {e}") from e
+        return Response(
+            json.dumps({"paging_metadata": {"resultType": "Submodel"}, "result": results}),
+            content_type="application/json",
+        )
+
+    def query_shells(self, request: Request, url_args: Dict, **_kwargs) -> Response:
+        if not isinstance(self.object_store, QueryableObjectStore):
+            raise werkzeug.exceptions.NotImplemented("The current store does not support AASQL queries")
+        try:
+            results = self.object_store.query(request.get_data(as_text=True), "aas")
+        except (json.JSONDecodeError, ValueError) as e:
+            raise BadRequest(f"Invalid AASQL query: {e}") from e
+        return Response(
+            json.dumps({"paging_metadata": {"resultType": "AssetAdministrationShell"}, "result": results}),
+            content_type="application/json",
+        )
+
     # ------ all not implemented ROUTES -------
     def not_implemented(self, request: Request, url_args: Dict, **_kwargs) -> Response:
         raise werkzeug.exceptions.NotImplemented("This route is not implemented!")
 
     def get_description(self, request: Request, url_args: Dict, response_t: Type[APIResponse], **_kwargs) -> Response:
-        return response_t(SUPPORTED_PROFILES.to_dict())
+        profiles = SUPPORTED_PROFILES.to_dict()
+        if isinstance(self.object_store, QueryableObjectStore):
+            profiles["profiles"].extend([
+                ServiceSpecificationProfileEnum.AAS_REPOSITORY_QUERY.value,
+                ServiceSpecificationProfileEnum.SUBMODEL_REPOSITORY_QUERY.value,
+            ])
+        return response_t(profiles)
 
     # ------ AAS REPO ROUTES -------
     def get_aas_all(self, request: Request, url_args: Dict, response_t: Type[APIResponse], **_kwargs) -> Response:
