@@ -5,7 +5,6 @@ from typing import IO, Dict, Iterable, Iterator, Union
 from basyx.aas import model
 from basyx.aas.model import provider as sdk_provider
 
-from app.adapter import ServerAASFromJsonDecoder
 from app.model import descriptor
 
 PathOrIO = Union[Path, IO]
@@ -52,6 +51,12 @@ class DictDescriptorStore(sdk_provider.AbstractObjectStore[model.Identifier, _DE
         return iter(self._backend.values())
 
 
+_DESCRIPTOR_KEY_TO_CLS = (
+    ("assetAdministrationShellDescriptors", descriptor.AssetAdministrationShellDescriptor),
+    ("submodelDescriptors", descriptor.SubmodelDescriptor),
+)
+
+
 def load_directory(directory: Union[Path, str]) -> DictDescriptorStore:
     """
     Load AAS/Submodel descriptor JSON files from a directory into a :class:`DictDescriptorStore`.
@@ -59,6 +64,8 @@ def load_directory(directory: Union[Path, str]) -> DictDescriptorStore:
     :param directory: Path to the directory containing JSON descriptor files
     :return: Populated :class:`DictDescriptorStore`
     """
+    from app.adapter import ServerAASFromJsonDecoder
+
     store = DictDescriptorStore()
     directory = Path(directory)
 
@@ -67,17 +74,12 @@ def load_directory(directory: Union[Path, str]) -> DictDescriptorStore:
             continue
         with open(file) as f:
             data = json.load(f, cls=ServerAASFromJsonDecoder)
-        for item in data.get("assetAdministrationShellDescriptors", []):
-            if isinstance(item, descriptor.AssetAdministrationShellDescriptor):
-                try:
-                    store.add(item)
-                except KeyError:
-                    pass
-        for item in data.get("submodelDescriptors", []):
-            if isinstance(item, descriptor.SubmodelDescriptor):
-                try:
-                    store.add(item)
-                except KeyError:
-                    pass
+        for key, cls in _DESCRIPTOR_KEY_TO_CLS:
+            for item in data.get(key, []):
+                if isinstance(item, cls):
+                    try:
+                        store.add(item)
+                    except KeyError:
+                        pass
 
     return store
