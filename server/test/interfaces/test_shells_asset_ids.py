@@ -16,6 +16,8 @@ from werkzeug.test import Client
 
 from app.interfaces.repository import WSGIApp
 
+BASE_PATH = "/api/v3.1"
+
 
 def _encode_asset_id(name: str, value: str) -> str:
     payload = json.dumps({"name": name, "value": value})
@@ -24,10 +26,24 @@ def _encode_asset_id(name: str, value: str) -> str:
 
 class ShellsAssetIdsTest(unittest.TestCase):
     def setUp(self) -> None:
-        app = WSGIApp(create_full_example(), DictSupplementaryFileContainer())
+        self.example_data = create_full_example()
+        app = WSGIApp(self.example_data, DictSupplementaryFileContainer())
         self.client = Client(app)
+
+    def test_multiple_global_asset_ids_returns_matching_results(self) -> None:
+        aas_list = [obj for obj in self.example_data if isinstance(obj, model.AssetAdministrationShell)]
+        known_id = aas_list[0].asset_information.global_asset_id
+        assert known_id is not None
+        unknown_id = "http://example.org/nonexistent_asset"
+        id1 = _encode_asset_id("globalAssetId", known_id)
+        id2 = _encode_asset_id("globalAssetId", unknown_id)
+        response = self.client.get(f"{BASE_PATH}/shells?assetIds={id1}&assetIds={id2}")
+        self.assertEqual(200, response.status_code)
+        result = json.loads(response.data)
+        returned_ids = [r["id"] for r in result]
+        self.assertIn(aas_list[0].id, returned_ids)
 
     def test_malformed_asset_id_missing_field_returns_400(self) -> None:
         bad_payload = base64.urlsafe_b64encode(b'{"name": "globalAssetId"}').decode()
-        response = self.client.get(f"/api/v3.1/shells?assetIds={bad_payload}")
+        response = self.client.get(f"{BASE_PATH}/shells?assetIds={bad_payload}")
         self.assertEqual(400, response.status_code)

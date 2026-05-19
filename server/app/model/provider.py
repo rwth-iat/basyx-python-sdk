@@ -5,6 +5,7 @@ from typing import IO, Dict, Iterable, Iterator, Union
 from basyx.aas import model
 from basyx.aas.model import provider as sdk_provider
 
+from app import adapter
 from app.model import descriptor
 
 PathOrIO = Union[Path, IO]
@@ -64,8 +65,6 @@ def load_directory(directory: Union[Path, str]) -> DictDescriptorStore:
     :param directory: Path to the directory containing JSON descriptor files
     :return: Populated :class:`DictDescriptorStore`
     """
-    from app.adapter import ServerAASFromJsonDecoder
-
     store = DictDescriptorStore()
     directory = Path(directory)
 
@@ -73,7 +72,7 @@ def load_directory(directory: Union[Path, str]) -> DictDescriptorStore:
         if not file.is_file() or file.suffix.lower() != ".json":
             continue
         with open(file) as f:
-            data = json.load(f, cls=ServerAASFromJsonDecoder)
+            data = json.load(f, cls=adapter.ServerAASFromJsonDecoder)
         for key, cls in _DESCRIPTOR_KEY_TO_CLS:
             for item in data.get(key, []):
                 if isinstance(item, cls):
