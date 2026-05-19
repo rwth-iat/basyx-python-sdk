@@ -32,7 +32,7 @@ services:
       - ../../repository_standalone/input:/input
       - ../../repository_standalone/storage:/storage
     environment:
-      API_BASE_PATH: /repository/api/v3.0/
+      API_BASE_PATH: /repository/api/v3.1/
       STORAGE_PERSISTENCY: "True"
 
   registry:
@@ -43,7 +43,7 @@ services:
       - ../../registry_standalone/input:/input
       - ../../registry_standalone/storage:/storage
     environment:
-      API_BASE_PATH: /registry/api/v3.1.1/
+      API_BASE_PATH: /registry/api/v3.1/
       STORAGE_PERSISTENCY: "True"
 
   discovery:
@@ -51,7 +51,7 @@ services:
       context: ../../../..
       dockerfile: server/docker/discovery/Dockerfile
     environment:
-      API_BASE_PATH: /discovery/api/v3.1.1/
+      API_BASE_PATH: /discovery/api/v3.1/
 
 
   aas-web-ui:

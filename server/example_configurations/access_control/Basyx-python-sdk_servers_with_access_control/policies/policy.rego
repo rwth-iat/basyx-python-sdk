@@ -132,47 +132,47 @@ requested_resource_allowed(requested_resource) if {
 
 path_segments := split(request_path, "/")
 
-requested_resources contains {"template": "/repository/api/v3.0/shells/{aas_id}", "id": id} if {
+requested_resources contains {"template": "/repository/api/v3.1/shells/{aas_id}", "id": id} if {
 	path_segments[1] == "repository"
 	path_segments[4] == "shells"
 	id := path_segments[5]
 	id != "$reference"
 }
 
-requested_resources contains {"template": "/repository/api/v3.0/shells/{aas_id}/submodels/{submodel_id}", "id": id} if {
+requested_resources contains {"template": "/repository/api/v3.1/shells/{aas_id}/submodels/{submodel_id}", "id": id} if {
 	path_segments[1] == "repository"
 	path_segments[4] == "shells"
 	path_segments[6] == "submodels"
 	id := path_segments[7]
 }
 
-requested_resources contains {"template": "/repository/api/v3.0/submodels/{submodel_id}", "id": id} if {
+requested_resources contains {"template": "/repository/api/v3.1/submodels/{submodel_id}", "id": id} if {
 	path_segments[1] == "repository"
 	path_segments[4] == "submodels"
 	id := path_segments[5]
 	not startswith(id, "$")
 }
 
-requested_resources contains {"template": "/registry/api/v3.1.1/shell-descriptors/{aas_id}", "id": id} if {
+requested_resources contains {"template": "/registry/api/v3.1/shell-descriptors/{aas_id}", "id": id} if {
 	path_segments[1] == "registry"
 	path_segments[4] == "shell-descriptors"
 	id := path_segments[5]
 }
 
-requested_resources contains {"template": "/registry/api/v3.1.1/shell-descriptors/{aas_id}/submodel-descriptors/{submodel_id}", "id": id} if {
+requested_resources contains {"template": "/registry/api/v3.1/shell-descriptors/{aas_id}/submodel-descriptors/{submodel_id}", "id": id} if {
 	path_segments[1] == "registry"
 	path_segments[4] == "shell-descriptors"
 	path_segments[6] == "submodel-descriptors"
 	id := path_segments[7]
 }
 
-requested_resources contains {"template": "/registry/api/v3.1.1/submodel-descriptors/{submodel_id}", "id": id} if {
+requested_resources contains {"template": "/registry/api/v3.1/submodel-descriptors/{submodel_id}", "id": id} if {
 	path_segments[1] == "registry"
 	path_segments[4] == "submodel-descriptors"
 	id := path_segments[5]
 }
 
-requested_resources contains {"template": "/discovery/api/v3.1.1/lookup/shells/{aas_id}", "id": id} if {
+requested_resources contains {"template": "/discovery/api/v3.1/lookup/shells/{aas_id}", "id": id} if {
 	path_segments[1] == "discovery"
 	path_segments[4] == "lookup"
 	path_segments[5] == "shells"

@@ -5,18 +5,20 @@ infrastructures:
     name: Secured BaSyx Python Stack
     components:
       aasDiscovery:
-        baseUrl: "http://localhost:10000/discovery/api/v3.1.1"
+        baseUrl: "http://localhost:10000/discovery/api/v3.1"
       aasRegistry:
-        baseUrl: "http://localhost:10000/registry/api/v3.1.1"
+        baseUrl: "http://localhost:10000/registry/api/v3.1"
         hasDiscoveryIntegration: false
       submodelRegistry:
-        baseUrl: "http://localhost:10000/registry/api/v3.1.1"
+        baseUrl: "http://localhost:10000/registry/api/v3.1"
       aasRepository:
-        baseUrl: "http://localhost:10000/repository/api/v3.0"
+        baseUrl: "http://localhost:10000/repository/api/v3.1"
         hasRegistryIntegration: false
       submodelRepository:
-        baseUrl: "http://localhost:10000/repository/api/v3.0"
+        baseUrl: "http://localhost:10000/repository/api/v3.1"
         hasRegistryIntegration: false
+      conceptDescriptionRepository:
+        baseUrl: "http://localhost:10000/repository/api/v3.1"
     security:
       type: oauth2
       config:
