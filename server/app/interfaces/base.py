@@ -82,19 +82,25 @@ class Result:
 ResponseData = Union[Result, object, List[object]]
 
 
+class PagingMetadata:
+    def __init__(self, cursor: Optional[str] = None):
+        self.cursor = cursor
+
+
 class APIResponse(abc.ABC, Response):
     @abc.abstractmethod
     def __init__(
-        self, obj: Optional[ResponseData] = None, cursor: Optional[int] = None, stripped: bool = False, *args, **kwargs
+            self, obj: Optional[ResponseData] = None, paging_metadata: Optional[PagingMetadata] = None,
+            stripped: bool = False, *args, **kwargs
     ):
         super().__init__(*args, **kwargs)
         if obj is None:
             self.status_code = 204
         else:
-            self.data = self.serialize(obj, cursor, stripped)
+            self.data = self.serialize(obj, paging_metadata, stripped)
 
     @abc.abstractmethod
-    def serialize(self, obj: ResponseData, cursor: Optional[int], stripped: bool) -> str:
+    def serialize(self, obj: ResponseData, paging_metadata: Optional[PagingMetadata], stripped: bool) -> str:
         pass
 
 
@@ -102,11 +108,11 @@ class JsonResponse(APIResponse):
     def __init__(self, *args, content_type="application/json", **kwargs):
         super().__init__(*args, **kwargs, content_type=content_type)
 
-    def serialize(self, obj: ResponseData, cursor: Optional[int], stripped: bool) -> str:
-        if cursor is None:
+    def serialize(self, obj: ResponseData, paging_metadata: Optional[PagingMetadata], stripped: bool) -> str:
+        if paging_metadata is None:
             data = obj
         else:
-            data = {"paging_metadata": {"cursor": str(cursor)}, "result": obj}
+            data = {"paging_metadata": paging_metadata, "result": obj}
         return json.dumps(
             data, cls=StrippedResultToJsonEncoder if stripped else ResultToJsonEncoder, separators=(",", ":")
         )
@@ -116,10 +122,10 @@ class XmlResponse(APIResponse):
     def __init__(self, *args, content_type="application/xml", **kwargs):
         super().__init__(*args, **kwargs, content_type=content_type)
 
-    def serialize(self, obj: ResponseData, cursor: Optional[int], stripped: bool) -> str:
+    def serialize(self, obj: ResponseData, paging_metadata: Optional[PagingMetadata], stripped: bool) -> str:
         root_elem = etree.Element("response", nsmap=XML_NS_MAP)
-        if cursor is not None or not (isinstance(obj, list) and not obj):
-            root_elem.set("cursor", str(cursor))
+        if paging_metadata is not None:
+            root_elem.set("cursor", str(paging_metadata.cursor))
         if isinstance(obj, Result):
             result_elem = self.result_to_xml(obj, **XML_NS_MAP)
             for child in result_elem:
@@ -187,6 +193,13 @@ class ResultToJsonEncoder(ServerAASToJsonEncoder):
             "timestamp": message.timestamp.isoformat(),
         }
 
+    @classmethod
+    def _paging_metadata_to_json(cls, metadata: PagingMetadata) -> Dict[str, object]:
+        json_result: Dict[str, object] = dict()
+        if metadata.cursor is not None:
+            json_result["cursor"] = str(metadata.cursor)
+        return json_result
+
     def default(self, obj: object) -> object:
         if isinstance(obj, Result):
             return self._result_to_json(obj)
@@ -194,6 +207,8 @@ class ResultToJsonEncoder(ServerAASToJsonEncoder):
             return self._message_to_json(obj)
         if isinstance(obj, MessageType):
             return str(obj)
+        if isinstance(obj, PagingMetadata):
+            return self._paging_metadata_to_json(obj)
         return super().default(obj)
 
 
@@ -210,8 +225,8 @@ class BaseWSGIApp:
         return response(environ, start_response)
 
     @classmethod
-    def _get_slice(cls, request: Request, iterator: Iterable[T]) -> Tuple[Iterator[T], Optional[int]]:
-        limit_str = request.args.get("limit", default="10")
+    def _get_slice(cls, request: Request, iterator: Iterable[T]) -> Tuple[Iterator[T], Optional[PagingMetadata]]:
+        limit_str = request.args.get("limit", default="100")
         cursor_str = request.args.get("cursor", default="1")
         try:
             limit, cursor = (NonNegativeInteger(int(limit_str)),
@@ -223,8 +238,10 @@ class BaseWSGIApp:
         items = list(itertools.islice(iterator, start_index, end_index + 1))
         has_more = len(items) > limit
         paginated_slice = iter(items[:limit])
-        next_cursor = cursor + limit if has_more else None
-        return paginated_slice, next_cursor
+        next_cursor = str(cursor + limit + 1) if has_more else None
+
+        paging_metadata = PagingMetadata(cursor=next_cursor)
+        return paginated_slice, paging_metadata
 
     def handle_request(self, request: Request):
         map_adapter: MapAdapter = self.url_map.bind_to_environ(request.environ)

@@ -16,7 +16,7 @@ from werkzeug.routing import MapAdapter, Rule, Submount
 from werkzeug.wrappers import Request, Response
 
 import app.model as server_model
-from app.interfaces.base import APIResponse, HTTPApiDecoder, ObjectStoreWSGIApp, is_stripped_request
+from app.interfaces.base import APIResponse, HTTPApiDecoder, ObjectStoreWSGIApp, is_stripped_request, PagingMetadata
 from app.model import DictDescriptorStore, ServiceSpecificationProfileEnum, ServiceDescription
 from app.util.converters import IdentifierToBase64URLConverter, base64url_decode
 
@@ -29,7 +29,7 @@ SUPPORTED_PROFILES: ServiceDescription = ServiceDescription([
 
 
 class RegistryAPI(ObjectStoreWSGIApp):
-    def __init__(self, object_store: model.AbstractObjectStore, base_path: str = "/api/v3.1.1"):
+    def __init__(self, object_store: model.AbstractObjectStore, base_path: str = "/api/v3.1"):
         self.object_store: model.AbstractObjectStore = object_store
         self.url_map = werkzeug.routing.Map(
             [
@@ -115,7 +115,7 @@ class RegistryAPI(ObjectStoreWSGIApp):
 
     def _get_all_aas_descriptors(
         self, request: "Request"
-    ) -> Tuple[Iterator[server_model.AssetAdministrationShellDescriptor], Optional[int]]:
+    ) -> Tuple[Iterator[server_model.AssetAdministrationShellDescriptor], Optional[PagingMetadata]]:
 
         descriptors: Iterator[server_model.AssetAdministrationShellDescriptor] = self._get_all_obj_of_type(
             server_model.AssetAdministrationShellDescriptor
@@ -141,20 +141,20 @@ class RegistryAPI(ObjectStoreWSGIApp):
                 raise BadRequest(f"Invalid assetType: '{asset_type}'")
             descriptors = filter(lambda desc: desc.asset_type == asset_type, descriptors)
 
-        paginated_descriptors, end_index = self._get_slice(request, descriptors)
-        return paginated_descriptors, end_index
+        paginated_descriptors, paging_metadata = self._get_slice(request, descriptors)
+        return paginated_descriptors, paging_metadata
 
     def _get_aas_descriptor(self, url_args: Dict) -> server_model.AssetAdministrationShellDescriptor:
         return self._get_obj_ts(url_args["aas_id"], server_model.AssetAdministrationShellDescriptor)
 
     def _get_all_submodel_descriptors(self, request: Request) -> Tuple[
-        Iterator[server_model.SubmodelDescriptor], Optional[int]
+        Iterator[server_model.SubmodelDescriptor], Optional[PagingMetadata]
     ]:
         submodel_descriptors: Iterator[server_model.SubmodelDescriptor] = self._get_all_obj_of_type(
             server_model.SubmodelDescriptor
         )
-        paginated_submodel_descriptors, end_index = self._get_slice(request, submodel_descriptors)
-        return paginated_submodel_descriptors, end_index
+        paginated_submodel_descriptors, paging_metadata = self._get_slice(request, submodel_descriptors)
+        return paginated_submodel_descriptors, paging_metadata
 
     def _get_submodel_descriptor(self, url_args: Dict) -> server_model.SubmodelDescriptor:
         return self._get_obj_ts(url_args["submodel_id"], server_model.SubmodelDescriptor)
@@ -169,8 +169,8 @@ class RegistryAPI(ObjectStoreWSGIApp):
     def get_all_aas_descriptors(
         self, request: Request, url_args: Dict, response_t: Type[APIResponse], **_kwargs
     ) -> Response:
-        aas_descriptors, cursor = self._get_all_aas_descriptors(request)
-        return response_t(list(aas_descriptors), cursor=cursor)
+        aas_descriptors, paging_metadata = self._get_all_aas_descriptors(request)
+        return response_t(list(aas_descriptors), paging_metadata=paging_metadata)
 
     def post_aas_descriptor(
         self, request: Request, url_args: Dict, response_t: Type[APIResponse], map_adapter: MapAdapter
@@ -224,8 +224,8 @@ class RegistryAPI(ObjectStoreWSGIApp):
         self, request: Request, url_args: Dict, response_t: Type[APIResponse], **_kwargs
     ) -> Response:
         aas_descriptor = self._get_aas_descriptor(url_args)
-        submodel_descriptors, cursor = self._get_slice(request, aas_descriptor.submodel_descriptors)
-        return response_t(list(submodel_descriptors), cursor=cursor)
+        submodel_descriptors, paging_metadata = self._get_slice(request, aas_descriptor.submodel_descriptors)
+        return response_t(list(submodel_descriptors), paging_metadata=paging_metadata)
 
     def get_submodel_descriptor_by_id_through_superpath(
         self, request: Request, url_args: Dict, response_t: Type[APIResponse], **_kwargs
@@ -300,8 +300,10 @@ class RegistryAPI(ObjectStoreWSGIApp):
     def get_all_submodel_descriptors(
         self, request: Request, url_args: Dict, response_t: Type[APIResponse], **_kwargs
     ) -> Response:
-        submodel_descriptors, cursor = self._get_all_submodel_descriptors(request)
-        return response_t(list(submodel_descriptors), cursor=cursor, stripped=is_stripped_request(request))
+        submodel_descriptors, paging_metadata = self._get_all_submodel_descriptors(request)
+        return response_t(
+            list(submodel_descriptors), paging_metadata=paging_metadata, stripped=is_stripped_request(request)
+        )
 
     def get_submodel_descriptor_by_id(
         self, request: Request, url_args: Dict, response_t: Type[APIResponse], **_kwargs

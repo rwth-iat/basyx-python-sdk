@@ -150,7 +150,7 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
         :return: The number of objects (determined from the number of documents)
         """
         logger.debug("Fetching number of documents from database ...")
-        return len(os.listdir(self.directory_path))
+        return sum(1 for f in os.listdir(self.directory_path) if f.lower().endswith(".json"))
 
     def __iter__(self) -> Iterator[model.Identifiable]:
         """
@@ -161,7 +161,8 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
         """
         logger.debug("Iterating over objects in database ...")
         for name in os.listdir(self.directory_path):
-            yield self.get_identifiable_by_hash(name.rstrip(".json"))
+            if name.lower().endswith(".json"):
+                yield self.get_identifiable_by_hash(name[:-5])
 
     @staticmethod
     def _transform_id(identifier: model.Identifier) -> str:
