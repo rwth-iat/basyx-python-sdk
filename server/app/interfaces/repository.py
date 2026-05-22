@@ -708,6 +708,8 @@ class WSGIApp(ObjectStoreWSGIApp):
     def put_submodel(self, request: Request, url_args: Dict, response_t: Type[APIResponse], **_kwargs) -> Response:
         submodel = self._get_submodel(url_args)
         submodel.update_from(HTTPApiDecoder.request_body(request, model.Submodel, is_stripped_request(request)))
+        if hasattr(self.object_store, 'commit'):
+            self.object_store.commit(submodel)
         return response_t()
 
     def get_submodel_submodel_elements(
@@ -787,6 +789,7 @@ class WSGIApp(ObjectStoreWSGIApp):
     def put_submodel_submodel_elements_id_short_path(
         self, request: Request, url_args: Dict, response_t: Type[APIResponse], **_kwargs
     ) -> Response:
+        submodel = self._get_submodel(url_args)
         submodel_element = self._get_submodel_submodel_elements_id_short_path(url_args)
         # TODO: remove the following type: ignore comment when mypy supports abstract types for Type[T]
         # see https://github.com/python/mypy/issues/5374
@@ -794,6 +797,8 @@ class WSGIApp(ObjectStoreWSGIApp):
             request, model.SubmodelElement, is_stripped_request(request)  # type: ignore[type-abstract]
         )
         submodel_element.update_from(new_submodel_element)
+        if hasattr(self.object_store, 'commit'):
+            self.object_store.commit(submodel)
         return response_t()
 
     def delete_submodel_submodel_elements_id_short_path(

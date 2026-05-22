@@ -110,6 +110,22 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
             with self._object_cache_lock:
                 self._object_cache[x.id] = x
 
+    def commit(self, x: model.Identifiable) -> None:
+        """
+        Write an updated :class:`~basyx.aas.model.base.Identifiable` object back to its storage file.
+
+        Use this after mutating an object that was retrieved from the store to persist the changes to disk.
+
+        :param x: The object to persist
+        :raises KeyError: If the object does not exist in the database
+        """
+        logger.debug("Committing object %s to Local File Store ...", repr(x))
+        path = "{}/{}.json".format(self.directory_path, self._transform_id(x.id))
+        if not os.path.exists(path):
+            raise KeyError("No AAS object with id {} exists in local file database".format(x.id))
+        with open(path, "w") as file:
+            json.dump({"data": x}, file, cls=json_serialization.AASToJsonEncoder, indent=4)
+
     def discard(self, x: model.Identifiable) -> None:
         """
         Delete an :class:`~basyx.aas.model.base.Identifiable` AAS object from the local file store
