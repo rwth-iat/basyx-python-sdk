@@ -894,7 +894,7 @@ class WSGIApp(ObjectStoreWSGIApp):
             if not isinstance(value_data, dict):
                 raise BadRequest("ValueOnly for SubmodelElementCollection must be a JSON object")
             for id_short, child_value in value_data.items():
-                child = next((e for e in element.submodel_element if e.id_short == id_short), None)
+                child = next((e for e in element.value if e.id_short == id_short), None)
                 if child is None:
                     raise BadRequest(f"No submodel element with idShort {id_short!r} in {element.id_short!r}")
                 self._apply_value_only(child, child_value)
