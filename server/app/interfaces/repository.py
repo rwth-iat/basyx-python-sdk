@@ -8,9 +8,10 @@
 This module implements the "Specification of the Asset Administration Shell Part 2 Application Programming Interfaces".
 """
 
+import base64
 import io
 import json
-from typing import Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Type, Union
 
 import werkzeug.exceptions
 import werkzeug.routing
@@ -124,14 +125,14 @@ class WSGIApp(ObjectStoreWSGIApp):
                                 Rule("/<base64url:submodel_id>", methods=["GET"], endpoint=self.get_submodel),
                                 Rule("/<base64url:submodel_id>", methods=["PUT"], endpoint=self.put_submodel),
                                 Rule("/<base64url:submodel_id>", methods=["DELETE"], endpoint=self.delete_submodel),
-                                Rule("/<base64url:submodel_id>", methods=["PATCH"], endpoint=self.not_implemented),
+                                Rule("/<base64url:submodel_id>", methods=["PATCH"], endpoint=self.patch_submodel),
                                 Submount(
                                     "/<base64url:submodel_id>",
                                     [
                                         Rule("/$metadata", methods=["GET"], endpoint=self.get_submodels_metadata),
-                                        Rule("/$metadata", methods=["PATCH"], endpoint=self.not_implemented),
+                                        Rule("/$metadata", methods=["PATCH"], endpoint=self.patch_submodel_metadata),
                                         Rule("/$value", methods=["GET"], endpoint=self.not_implemented),
-                                        Rule("/$value", methods=["PATCH"], endpoint=self.not_implemented),
+                                        Rule("/$value", methods=["PATCH"], endpoint=self.patch_submodel_value),
                                         Rule("/$reference", methods=["GET"], endpoint=self.get_submodels_reference),
                                         Rule("/$path", methods=["GET"], endpoint=self.not_implemented),
                                         Rule(
@@ -182,7 +183,7 @@ class WSGIApp(ObjectStoreWSGIApp):
                                                 Rule(
                                                     "/<id_short_path:id_shorts>",
                                                     methods=["PATCH"],
-                                                    endpoint=self.not_implemented,
+                                                    endpoint=self.patch_submodel_submodel_elements_id_short_path,
                                                 ),
                                                 Submount(
                                                     "/<id_short_path:id_shorts>",
@@ -195,7 +196,7 @@ class WSGIApp(ObjectStoreWSGIApp):
                                                         Rule(
                                                             "/$metadata",
                                                             methods=["PATCH"],
-                                                            endpoint=self.not_implemented,
+                                                            endpoint=self.patch_submodel_submodel_elements_id_short_path_metadata,  # noqa: E501
                                                         ),
                                                         Rule(
                                                             "/$reference",
@@ -204,7 +205,8 @@ class WSGIApp(ObjectStoreWSGIApp):
                                                         ),
                                                         Rule("/$value", methods=["GET"], endpoint=self.not_implemented),
                                                         Rule(
-                                                            "/$value", methods=["PATCH"], endpoint=self.not_implemented
+                                                            "/$value", methods=["PATCH"],
+                                                            endpoint=self.patch_submodel_submodel_elements_id_short_path_value,  # noqa: E501
                                                         ),
                                                         Rule("/$path", methods=["GET"], endpoint=self.not_implemented),
                                                         Rule(
@@ -708,7 +710,7 @@ class WSGIApp(ObjectStoreWSGIApp):
     def put_submodel(self, request: Request, url_args: Dict, response_t: Type[APIResponse], **_kwargs) -> Response:
         submodel = self._get_submodel(url_args)
         submodel.update_from(HTTPApiDecoder.request_body(request, model.Submodel, is_stripped_request(request)))
-        if hasattr(self.object_store, 'commit'):
+        if hasattr(self.object_store, "commit"):
             self.object_store.commit(submodel)
         return response_t()
 
@@ -797,9 +799,115 @@ class WSGIApp(ObjectStoreWSGIApp):
             request, model.SubmodelElement, is_stripped_request(request)  # type: ignore[type-abstract]
         )
         submodel_element.update_from(new_submodel_element)
-        if hasattr(self.object_store, 'commit'):
+        if hasattr(self.object_store, "commit"):
             self.object_store.commit(submodel)
         return response_t()
+
+    def patch_submodel(self, request: Request, url_args: Dict, response_t: Type[APIResponse], **_kwargs) -> Response:
+        submodel = self._get_submodel(url_args)
+        submodel.update_from(HTTPApiDecoder.request_body(request, model.Submodel, is_stripped_request(request)))
+        if hasattr(self.object_store, "commit"):
+            self.object_store.commit(submodel)
+        return response_t()
+
+    def patch_submodel_metadata(
+        self, request: Request, url_args: Dict, response_t: Type[APIResponse], **_kwargs
+    ) -> Response:
+        submodel = self._get_submodel(url_args)
+        submodel.update_from(HTTPApiDecoder.request_body(request, model.Submodel, True))
+        if hasattr(self.object_store, "commit"):
+            self.object_store.commit(submodel)
+        return response_t()
+
+    def patch_submodel_value(
+        self, request: Request, url_args: Dict, response_t: Type[APIResponse], **_kwargs
+    ) -> Response:
+        submodel = self._get_submodel(url_args)
+        value_data = json.loads(request.get_data())
+        if not isinstance(value_data, dict):
+            raise BadRequest("ValueOnly body for a submodel must be a JSON object")
+        for id_short, child_value in value_data.items():
+            child = next((e for e in submodel.submodel_element if e.id_short == id_short), None)
+            if child is None:
+                raise BadRequest(f"No submodel element with idShort {id_short!r}")
+            self._apply_value_only(child, child_value)
+        if hasattr(self.object_store, "commit"):
+            self.object_store.commit(submodel)
+        return response_t()
+
+    def patch_submodel_submodel_elements_id_short_path(
+        self, request: Request, url_args: Dict, response_t: Type[APIResponse], **_kwargs
+    ) -> Response:
+        submodel = self._get_submodel(url_args)
+        submodel_element = self._get_submodel_submodel_elements_id_short_path(url_args)
+        new_submodel_element = HTTPApiDecoder.request_body(
+            request, model.SubmodelElement, is_stripped_request(request)  # type: ignore[type-abstract]
+        )
+        submodel_element.update_from(new_submodel_element)
+        if hasattr(self.object_store, "commit"):
+            self.object_store.commit(submodel)
+        return response_t()
+
+    def patch_submodel_submodel_elements_id_short_path_metadata(
+        self, request: Request, url_args: Dict, response_t: Type[APIResponse], **_kwargs
+    ) -> Response:
+        submodel = self._get_submodel(url_args)
+        submodel_element = self._get_submodel_submodel_elements_id_short_path(url_args)
+        new_submodel_element = HTTPApiDecoder.request_body(
+            request, model.SubmodelElement, True  # type: ignore[type-abstract]
+        )
+        submodel_element.update_from(new_submodel_element)
+        if hasattr(self.object_store, "commit"):
+            self.object_store.commit(submodel)
+        return response_t()
+
+    def patch_submodel_submodel_elements_id_short_path_value(
+        self, request: Request, url_args: Dict, response_t: Type[APIResponse], **_kwargs
+    ) -> Response:
+        submodel = self._get_submodel(url_args)
+        submodel_element = self._get_submodel_submodel_elements_id_short_path(url_args)
+        value_data = json.loads(request.get_data())
+        self._apply_value_only(submodel_element, value_data)
+        if hasattr(self.object_store, "commit"):
+            self.object_store.commit(submodel)
+        return response_t()
+
+    def _apply_value_only(self, element: model.SubmodelElement, value_data: Any) -> None:
+        if isinstance(element, model.Property):
+            element.value = (
+                model.datatypes.from_xsd(str(value_data), element.value_type)
+                if value_data is not None else None
+            )
+        elif isinstance(element, model.MultiLanguageProperty):
+            element.value = (
+                model.MultiLanguageTextType({item["language"]: item["text"] for item in value_data})
+                if value_data is not None else None
+            )
+        elif isinstance(element, model.Range):
+            element.min = model.datatypes.from_xsd(str(value_data["min"]), element.value_type)
+            element.max = model.datatypes.from_xsd(str(value_data["max"]), element.value_type)
+        elif isinstance(element, model.Blob):
+            element.value = base64.b64decode(value_data) if value_data is not None else None
+        elif isinstance(element, model.File):
+            element.value = value_data
+        elif isinstance(element, model.SubmodelElementCollection):
+            if not isinstance(value_data, dict):
+                raise BadRequest("ValueOnly for SubmodelElementCollection must be a JSON object")
+            for id_short, child_value in value_data.items():
+                child = next((e for e in element.submodel_element if e.id_short == id_short), None)
+                if child is None:
+                    raise BadRequest(f"No submodel element with idShort {id_short!r} in {element.id_short!r}")
+                self._apply_value_only(child, child_value)
+        elif isinstance(element, model.SubmodelElementList):
+            if not isinstance(value_data, list):
+                raise BadRequest("ValueOnly for SubmodelElementList must be a JSON array")
+            elements = list(element.value)
+            for i, child_value in enumerate(value_data):
+                if i >= len(elements):
+                    raise BadRequest(f"Index {i} out of range for SubmodelElementList {element.id_short!r}")
+                self._apply_value_only(elements[i], child_value)
+        else:
+            raise BadRequest(f"ValueOnly PATCH not supported for {type(element).__name__}")
 
     def delete_submodel_submodel_elements_id_short_path(
         self, request: Request, url_args: Dict, response_t: Type[APIResponse], **_kwargs
