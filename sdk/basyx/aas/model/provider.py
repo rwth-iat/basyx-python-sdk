@@ -59,6 +59,18 @@ class AbstractObjectStore(AbstractObjectProvider[_KEY, _VALUE], MutableSet[_VALU
     def __init__(self):
         pass
 
+    def commit(self, x: _VALUE) -> None:
+        """
+        Persist an in-memory mutation of a stored object back to the underlying storage.
+
+        Persistent backends (e.g. file-based or database-backed stores) must override this to
+        write the updated object back to storage. In-memory stores should override this with an
+        explicit no-op to make the intent clear.
+
+        :param x: The object whose current in-memory state should be persisted
+        """
+        raise NotImplementedError()
+
     def update(self, other: Iterable[_VALUE]) -> None:
         for x in other:
             self.add(x)
@@ -146,6 +158,9 @@ class DictIdentifiableStore(AbstractObjectStore[Identifier, _IDENTIFIABLE]):
                            .format(x.id))
         self._backend[x.id] = x
 
+    def commit(self, x: _IDENTIFIABLE) -> None:
+        pass
+
     def discard(self, x: _IDENTIFIABLE) -> None:
         if self._backend.get(x.id) is x:
             del self._backend[x.id]
@@ -222,6 +237,9 @@ class SetIdentifiableStore(AbstractObjectStore[Identifier, _IDENTIFIABLE]):
             self._backend.add(x)
         else:
             raise KeyError(f"Identifiable object with same id {x.id} is already stored in this store")
+
+    def commit(self, x: _IDENTIFIABLE) -> None:
+        pass
 
     def discard(self, x: _IDENTIFIABLE) -> None:
         self._backend.discard(x)
