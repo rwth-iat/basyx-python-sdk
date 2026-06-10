@@ -65,7 +65,7 @@ class LocalFileBackendTest(TestCase):
         # Delete example submodel
         self.identifiable_store.discard(submodel_restored)
         self.assertNotIn(example_submodel, self.identifiable_store)
-        
+
     def test_check_directory(self) -> None:
         # Erzwinge einen nicht-existierenden Ordner (lösche setUp-Ergebnis)
         if os.path.exists(store_path):
@@ -83,7 +83,7 @@ class LocalFileBackendTest(TestCase):
 
         # Wenn der Ordner existiert, darf create=False keinen Fehler mehr werfen
         self.identifiable_store.check_directory(create=False)
-        
+
     def test_iterating(self) -> None:
         example_data = create_full_example()
 
