@@ -4,6 +4,7 @@
 # the LICENSE file of this project.
 #
 # SPDX-License-Identifier: MIT
+import gc
 import os.path
 import shutil
 
@@ -106,6 +107,59 @@ class LocalFileBackendTest(TestCase):
             self.identifiable_store.discard(retrieved_submodel)
         self.assertEqual("'No AAS object with id https://example.org/Test_Submodel exists in "
                          "local file database'", str(cm.exception))
+
+    def test_add_and_len_consistent(self) -> None:
+        # Each add() must increment len() by exactly 1
+        example_data = list(create_full_example())
+        for i, item in enumerate(example_data):
+            self.identifiable_store.add(item)
+            self.assertEqual(i + 1, len(self.identifiable_store))
+
+        # Stray non-json file must not be counted
+        stray = os.path.join(store_path, ".DS_Store")
+        with open(stray, "w") as f:
+            f.write("stray")
+        self.assertEqual(len(example_data), len(self.identifiable_store))
+        os.remove(stray)
+
+    def test_iter_ignores_non_json_files(self) -> None:
+        example_data = create_full_example()
+        for item in example_data:
+            self.identifiable_store.add(item)
+
+        # Stray files must not crash the iterator or be yielded
+        stray = os.path.join(store_path, ".DS_Store")
+        with open(stray, "w") as f:
+            f.write("stray")
+        items = list(self.identifiable_store)
+        self.assertEqual(5, len(items))
+        os.remove(stray)
+
+    def test_mutation_persistence(self) -> None:
+        submodel = model.Submodel(
+            id_='https://example.org/MutationTest',
+            submodel_element={
+                model.Property(id_short='Prop', value_type=model.datatypes.String, value='before')
+            }
+        )
+        self.identifiable_store.add(submodel)
+
+        retrieved = self.identifiable_store.get_item('https://example.org/MutationTest')
+        assert isinstance(retrieved, model.Submodel)
+        prop = retrieved.get_referable(['Prop'])
+        assert isinstance(prop, model.Property)
+        prop.update_from(model.Property(id_short='Prop', value_type=model.datatypes.String, value='after'))
+        self.identifiable_store.commit(retrieved)
+
+        # Drop all strong references to evict the WeakValueDictionary cache
+        del submodel, retrieved, prop
+        gc.collect()
+
+        fresh = self.identifiable_store.get_item('https://example.org/MutationTest')
+        assert isinstance(fresh, model.Submodel)
+        fresh_prop = fresh.get_referable(['Prop'])
+        assert isinstance(fresh_prop, model.Property)
+        self.assertEqual('after', fresh_prop.value)
 
     def test_reload_discard(self) -> None:
         # Load example submodel
