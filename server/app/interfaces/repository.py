@@ -830,23 +830,25 @@ class WSGIApp(ObjectStoreWSGIApp):
     def put_submodel_submodel_elements_id_short_path(
         self, request: Request, url_args: Dict, response_t: Type[APIResponse], **_kwargs
     ) -> Response:
-        submodel_element = self._get_submodel_submodel_elements_id_short_path(url_args)
+        submodel = self._get_submodel(url_args)
+        submodel_element = self._get_nested_submodel_element(submodel, url_args["id_shorts"])
         # TODO: remove the following type: ignore comment when mypy supports abstract types for Type[T]
         # see https://github.com/python/mypy/issues/5374
         new_submodel_element = HTTPApiDecoder.request_body(
             request, model.SubmodelElement, is_stripped_request(request)  # type: ignore[type-abstract]
         )
         submodel_element.update_from(new_submodel_element)
-        self.object_store.commit(self._get_submodel(url_args))
+        self.object_store.commit(submodel)
         return response_t()
 
     def delete_submodel_submodel_elements_id_short_path(
         self, request: Request, url_args: Dict, response_t: Type[APIResponse], **_kwargs
     ) -> Response:
-        sm_or_se = self._get_submodel_or_nested_submodel_element(url_args)
+        submodel = self._get_submodel(url_args)
+        sm_or_se = self._get_nested_submodel_element(submodel, url_args["id_shorts"])
         parent: model.UniqueIdShortNamespace = self._expect_namespace(sm_or_se.parent, sm_or_se.id_short)
         self._namespace_submodel_element_op(parent, parent.remove_referable, sm_or_se.id_short)
-        self.object_store.commit(self._get_submodel(url_args))
+        self.object_store.commit(submodel)
         return response_t()
 
     def get_submodel_submodel_element_attachment(self, request: Request, url_args: Dict, **_kwargs) -> Response:
