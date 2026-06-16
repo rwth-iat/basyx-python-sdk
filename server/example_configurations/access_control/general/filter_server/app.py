@@ -260,6 +260,11 @@ def _filter_aas_submodel_references(item: Any, allow_all: bool, allowed_ids: set
     return filtered_item
 
 
+def _is_submodel_refs_path(path: str) -> bool:
+    segments = [segment for segment in path.strip("/").split("/") if segment]
+    return len(segments) >= 3 and segments[-3] == "shells" and segments[-1] == "submodel-refs"
+
+
 def _request_query_without_paging() -> list[tuple[str, str]]:
     query_items: list[tuple[str, str]] = []
     for key in request.args:
@@ -434,6 +439,25 @@ def _handle_filtered_collection(path: str, collection: dict[str, Any], access_co
     return jsonify(payload), status_code
 
 
+def _handle_filtered_submodel_refs(path: str, access_control: dict[str, Any]) -> Response:
+    roles = _token_roles()
+    original_payload, items, status_code = _fetch_collection(path)
+    request_path = "/" + path.strip("/")
+    allow_all, allowed_ids = _submodel_reference_access(
+        access_control,
+        roles,
+        request_path,
+    )
+    filtered_items = [
+        reference
+        for reference in items
+        if _submodel_reference_allowed(reference, allow_all, allowed_ids)
+    ]
+
+    payload = _filtered_payload(original_payload, filtered_items)
+    return jsonify(payload), status_code
+
+
 def _proxy_request(path: str, access_control: dict[str, Any]) -> Response:
     upstream_response = requests.request(
         request.method,
@@ -482,6 +506,17 @@ def repository_proxy(path: str) -> Response:
         if collection:
             try:
                 return _handle_filtered_collection(path, collection, access_control)
+            except requests.HTTPError as exc:
+                response = exc.response
+                return Response(
+                    response.content,
+                    status=response.status_code,
+                    headers=_response_headers(response),
+                )
+
+        if _is_submodel_refs_path(normalized_path):
+            try:
+                return _handle_filtered_submodel_refs(path, access_control)
             except requests.HTTPError as exc:
                 response = exc.response
                 return Response(
