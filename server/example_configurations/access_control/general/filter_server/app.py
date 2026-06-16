@@ -79,6 +79,29 @@ def _role_matches(rule: dict[str, Any], roles: set[str]) -> bool:
     return any(role in roles for role in rule.get("roles", []))
 
 
+def _path_prefix_matches(prefix: str, path: str) -> bool:
+    normalized_prefix = prefix.rstrip("/") or "/"
+    normalized_path = path.rstrip("/") or "/"
+    return (
+        normalized_path == normalized_prefix
+        or normalized_path.startswith(f"{normalized_prefix}/")
+    )
+
+
+def _path_allowed_by_rule(access_control: dict[str, Any], path: str, roles: set[str]) -> bool:
+    for rule in access_control.get("rules", []):
+        if not _method_matches(rule, "GET") or not _role_matches(rule, roles):
+            continue
+        path_prefix = rule.get("path_prefix")
+        if (
+            isinstance(path_prefix, str)
+            and path_prefix
+            and _path_prefix_matches(path_prefix, path)
+        ):
+            return True
+    return False
+
+
 def _filtered_collection(path: str, access_control: dict[str, Any]) -> dict[str, Any] | None:
     normalized_path = path.rstrip("/") or "/"
     for collection in access_control.get("filtered_collections", []):
@@ -95,7 +118,6 @@ def _allowed_ids_for_template(
 ) -> tuple[bool, set[str]]:
     allowed_ids: set[str] = set()
     allow_all = False
-
     for rule in access_control.get("resource_rules", []):
         if not _method_matches(rule, "GET") or not _role_matches(rule, roles):
             continue
@@ -114,6 +136,10 @@ def _to_path_id(identifier: str) -> str:
     return base64.urlsafe_b64encode(identifier.encode("utf-8")).decode("ascii").rstrip("=")
 
 
+def _id_allowed(identifier: str, allow_all: bool, allowed_ids: set[str]) -> bool:
+    return allow_all or identifier in allowed_ids or _to_path_id(identifier) in allowed_ids
+
+
 def _item_allowed(item: Any, allow_all: bool, allowed_ids: set[str]) -> bool:
     if allow_all:
         return True
@@ -124,7 +150,114 @@ def _item_allowed(item: Any, allow_all: bool, allowed_ids: set[str]) -> bool:
     if not isinstance(item_id, str) or not item_id:
         return False
 
-    return item_id in allowed_ids or _to_path_id(item_id) in allowed_ids
+    return _id_allowed(item_id, allow_all, allowed_ids)
+
+
+def _submodel_reference_id(reference: Any) -> str | None:
+    if not isinstance(reference, dict):
+        return None
+
+    keys = reference.get("keys")
+    if not isinstance(keys, list):
+        return None
+
+    for key in reversed(keys):
+        if not isinstance(key, dict):
+            continue
+        key_type = key.get("type")
+        value = key.get("value")
+        if (
+            isinstance(key_type, str)
+            and key_type.lower() == "submodel"
+            and isinstance(value, str)
+            and value
+        ):
+            return value
+
+    return None
+
+
+def _submodel_reference_allowed(reference: Any, allow_all: bool, allowed_ids: set[str]) -> bool:
+    if allow_all:
+        return True
+
+    submodel_id = _submodel_reference_id(reference)
+    if not submodel_id:
+        return False
+
+    return _id_allowed(submodel_id, allow_all, allowed_ids)
+
+
+def _configured_submodel_path_templates(access_control: dict[str, Any]) -> set[str]:
+    path_templates = access_control.get("submodel_reference_path_templates", [])
+    if not isinstance(path_templates, list):
+        return set()
+    return {template for template in path_templates if isinstance(template, str)}
+
+
+def _template_targets_submodel(path_template: Any) -> bool:
+    return isinstance(path_template, str) and "{submodel" in path_template.lower()
+
+
+def _rule_targets_submodel(rule: dict[str, Any], configured_templates: set[str]) -> bool:
+    path_templates = rule.get("path_templates", [])
+    if not isinstance(path_templates, list):
+        return False
+    if configured_templates:
+        return any(template in configured_templates for template in path_templates)
+    return any(_template_targets_submodel(template) for template in path_templates)
+
+
+def _resource_rule_submodel_access(
+    access_control: dict[str, Any],
+    roles: set[str],
+) -> tuple[bool, set[str]]:
+    allowed_ids: set[str] = set()
+    allow_all = False
+    configured_templates = _configured_submodel_path_templates(access_control)
+
+    for rule in access_control.get("resource_rules", []):
+        if not _method_matches(rule, "GET") or not _role_matches(rule, roles):
+            continue
+        if not _rule_targets_submodel(rule, configured_templates):
+            continue
+
+        ids = set(rule.get("ids", []))
+        if "*" in ids:
+            allow_all = True
+        allowed_ids.update(ids)
+
+    return allow_all, allowed_ids
+
+
+def _submodel_reference_access(
+    access_control: dict[str, Any],
+    roles: set[str],
+    request_path: str,
+) -> tuple[bool, set[str]]:
+    allow_all, allowed_ids = _resource_rule_submodel_access(access_control, roles)
+    if allow_all or allowed_ids:
+        return allow_all, allowed_ids
+    if _path_allowed_by_rule(access_control, request_path, roles):
+        return True, set()
+    return False, set()
+
+
+def _has_submodel_references(item: Any) -> bool:
+    return isinstance(item, dict) and isinstance(item.get("submodels"), list)
+
+
+def _filter_aas_submodel_references(item: Any, allow_all: bool, allowed_ids: set[str]) -> Any:
+    if not _has_submodel_references(item):
+        return item
+
+    filtered_item = deepcopy(item)
+    filtered_item["submodels"] = [
+        reference
+        for reference in item["submodels"]
+        if _submodel_reference_allowed(reference, allow_all, allowed_ids)
+    ]
+    return filtered_item
 
 
 def _request_query_without_paging() -> list[tuple[str, str]]:
@@ -285,8 +418,14 @@ def _handle_filtered_collection(path: str, collection: dict[str, Any], access_co
         collection.get("item_path_template", ""),
         roles,
     )
+    request_path = "/" + path.strip("/")
+    submodel_allow_all, submodel_allowed_ids = _submodel_reference_access(
+        access_control,
+        roles,
+        request_path,
+    )
     filtered_items = [
-        item
+        _filter_aas_submodel_references(item, submodel_allow_all, submodel_allowed_ids)
         for item in items
         if _item_allowed(item, allow_all, allowed_ids)
     ]
@@ -295,7 +434,7 @@ def _handle_filtered_collection(path: str, collection: dict[str, Any], access_co
     return jsonify(payload), status_code
 
 
-def _proxy_request(path: str) -> Response:
+def _proxy_request(path: str, access_control: dict[str, Any]) -> Response:
     upstream_response = requests.request(
         request.method,
         _upstream_url(path, list(request.args.items(multi=True))),
@@ -303,6 +442,28 @@ def _proxy_request(path: str) -> Response:
         data=request.get_data(),
         timeout=30,
     )
+
+    if request.method == "GET" and upstream_response.status_code < 400:
+        try:
+            payload = upstream_response.json()
+        except ValueError:
+            pass
+        else:
+            if _has_submodel_references(payload):
+                roles = _token_roles()
+                request_path = "/" + path.strip("/")
+                submodel_allow_all, submodel_allowed_ids = _submodel_reference_access(
+                    access_control,
+                    roles,
+                    request_path,
+                )
+                filtered_payload = _filter_aas_submodel_references(
+                    payload,
+                    submodel_allow_all,
+                    submodel_allowed_ids,
+                )
+                return jsonify(filtered_payload), upstream_response.status_code
+
     return Response(
         upstream_response.content,
         status=upstream_response.status_code,
@@ -317,18 +478,19 @@ def repository_proxy(path: str) -> Response:
     normalized_path = f"/{path.strip('/')}"
     collection = _filtered_collection(normalized_path, access_control)
 
-    if request.method == "GET" and collection:
-        try:
-            return _handle_filtered_collection(path, collection, access_control)
-        except requests.HTTPError as exc:
-            response = exc.response
-            return Response(
-                response.content,
-                status=response.status_code,
-                headers=_response_headers(response),
-            )
+    if request.method == "GET":
+        if collection:
+            try:
+                return _handle_filtered_collection(path, collection, access_control)
+            except requests.HTTPError as exc:
+                response = exc.response
+                return Response(
+                    response.content,
+                    status=response.status_code,
+                    headers=_response_headers(response),
+                )
 
-    return _proxy_request(path)
+    return _proxy_request(path, access_control)
 
 
 if __name__ == "__main__":
