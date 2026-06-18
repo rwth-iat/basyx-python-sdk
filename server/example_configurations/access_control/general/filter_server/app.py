@@ -11,6 +11,13 @@ from flask import Flask, Response, jsonify, request
 app = Flask(__name__)
 
 UPSTREAM_REPOSITORY_URL = os.getenv("UPSTREAM_REPOSITORY_URL", "http://repository:80").rstrip("/")
+UPSTREAM_REGISTRY_URL = os.getenv("UPSTREAM_REGISTRY_URL", "http://registry:80").rstrip("/")
+UPSTREAM_DISCOVERY_URL = os.getenv("UPSTREAM_DISCOVERY_URL", "http://discovery:80").rstrip("/")
+UPSTREAM_URLS_BY_PREFIX = {
+    "repository": UPSTREAM_REPOSITORY_URL,
+    "registry": UPSTREAM_REGISTRY_URL,
+    "discovery": UPSTREAM_DISCOVERY_URL,
+}
 POLICY_DATA_PATH = os.getenv("POLICY_DATA_PATH", "/policies/data.json")
 PORT = int(os.getenv("PORT", "8080"))
 UPSTREAM_PAGE_LIMIT = int(os.getenv("UPSTREAM_PAGE_LIMIT", "500"))
@@ -188,15 +195,51 @@ def _submodel_reference_allowed(reference: Any, allow_all: bool, allowed_ids: se
     return _id_allowed(submodel_id, allow_all, allowed_ids)
 
 
+def _configured_path_templates(access_control: dict[str, Any], *keys: str) -> set[str]:
+    configured_templates: set[str] = set()
+    for key in keys:
+        path_templates = access_control.get(key, [])
+        if isinstance(path_templates, list):
+            configured_templates.update(
+                template for template in path_templates if isinstance(template, str)
+            )
+    return configured_templates
+
+
+def _configured_aas_path_templates(access_control: dict[str, Any]) -> set[str]:
+    return _configured_path_templates(
+        access_control,
+        "aas_reference_path_templates",
+        "aas_resource_path_templates",
+    )
+
+
 def _configured_submodel_path_templates(access_control: dict[str, Any]) -> set[str]:
-    path_templates = access_control.get("submodel_reference_path_templates", [])
-    if not isinstance(path_templates, list):
-        return set()
-    return {template for template in path_templates if isinstance(template, str)}
+    return _configured_path_templates(
+        access_control,
+        "submodel_reference_path_templates",
+        "submodel_resource_path_templates",
+    )
+
+
+def _template_targets_aas(path_template: Any) -> bool:
+    if not isinstance(path_template, str):
+        return False
+    lower_template = path_template.lower()
+    return "{aas" in lower_template and "{submodel" not in lower_template
 
 
 def _template_targets_submodel(path_template: Any) -> bool:
     return isinstance(path_template, str) and "{submodel" in path_template.lower()
+
+
+def _rule_targets_aas(rule: dict[str, Any], configured_templates: set[str]) -> bool:
+    path_templates = rule.get("path_templates", [])
+    if not isinstance(path_templates, list):
+        return False
+    if configured_templates:
+        return any(template in configured_templates for template in path_templates)
+    return any(_template_targets_aas(template) for template in path_templates)
 
 
 def _rule_targets_submodel(rule: dict[str, Any], configured_templates: set[str]) -> bool:
@@ -206,6 +249,41 @@ def _rule_targets_submodel(rule: dict[str, Any], configured_templates: set[str])
     if configured_templates:
         return any(template in configured_templates for template in path_templates)
     return any(_template_targets_submodel(template) for template in path_templates)
+
+
+def _resource_rule_aas_access(
+    access_control: dict[str, Any],
+    roles: set[str],
+) -> tuple[bool, set[str]]:
+    allowed_ids: set[str] = set()
+    allow_all = False
+    configured_templates = _configured_aas_path_templates(access_control)
+
+    for rule in access_control.get("resource_rules", []):
+        if not _method_matches(rule, "GET") or not _role_matches(rule, roles):
+            continue
+        if not _rule_targets_aas(rule, configured_templates):
+            continue
+
+        ids = set(rule.get("ids", []))
+        if "*" in ids:
+            allow_all = True
+        allowed_ids.update(ids)
+
+    return allow_all, allowed_ids
+
+
+def _aas_resource_access(
+    access_control: dict[str, Any],
+    roles: set[str],
+    request_path: str,
+) -> tuple[bool, set[str]]:
+    allow_all, allowed_ids = _resource_rule_aas_access(access_control, roles)
+    if allow_all or allowed_ids:
+        return allow_all, allowed_ids
+    if _path_allowed_by_rule(access_control, request_path, roles):
+        return True, set()
+    return False, set()
 
 
 def _resource_rule_submodel_access(
@@ -260,9 +338,44 @@ def _filter_aas_submodel_references(item: Any, allow_all: bool, allowed_ids: set
     return filtered_item
 
 
+def _has_nested_submodel_descriptors(item: Any) -> bool:
+    return isinstance(item, dict) and isinstance(item.get("submodelDescriptors"), list)
+
+
+def _filter_shell_descriptor_submodel_descriptors(
+    item: Any,
+    allow_all: bool,
+    allowed_ids: set[str],
+) -> Any:
+    if not _has_nested_submodel_descriptors(item):
+        return item
+
+    filtered_item = deepcopy(item)
+    filtered_item["submodelDescriptors"] = [
+        descriptor
+        for descriptor in item["submodelDescriptors"]
+        if _item_allowed(descriptor, allow_all, allowed_ids)
+    ]
+    return filtered_item
+
+
+def _path_segments(path: str) -> list[str]:
+    return [segment for segment in path.strip("/").split("/") if segment]
+
+
 def _is_submodel_refs_path(path: str) -> bool:
-    segments = [segment for segment in path.strip("/").split("/") if segment]
+    segments = _path_segments(path)
     return len(segments) >= 3 and segments[-3] == "shells" and segments[-1] == "submodel-refs"
+
+
+def _is_shell_descriptors_path(path: str) -> bool:
+    segments = _path_segments(path)
+    return bool(segments) and segments[-1] == "shell-descriptors"
+
+
+def _is_submodel_descriptors_path(path: str) -> bool:
+    segments = _path_segments(path)
+    return bool(segments) and segments[-1] == "submodel-descriptors"
 
 
 def _request_query_without_paging() -> list[tuple[str, str]]:
@@ -275,8 +388,15 @@ def _request_query_without_paging() -> list[tuple[str, str]]:
     return query_items
 
 
+def _upstream_base_url(path: str) -> str:
+    segments = _path_segments(path)
+    if segments:
+        return UPSTREAM_URLS_BY_PREFIX.get(segments[0], UPSTREAM_REPOSITORY_URL)
+    return UPSTREAM_REPOSITORY_URL
+
+
 def _upstream_url(path: str, query_items: list[tuple[str, str]] | None = None) -> str:
-    url = f"{UPSTREAM_REPOSITORY_URL}/{path.lstrip('/')}"
+    url = f"{_upstream_base_url(path)}/{path.lstrip('/')}"
     if query_items:
         return f"{url}?{urlencode(query_items)}"
     return url
@@ -458,6 +578,53 @@ def _handle_filtered_submodel_refs(path: str, access_control: dict[str, Any]) ->
     return jsonify(payload), status_code
 
 
+def _handle_filtered_shell_descriptors(path: str, access_control: dict[str, Any]) -> Response:
+    roles = _token_roles()
+    original_payload, items, status_code = _fetch_collection(path)
+    request_path = "/" + path.strip("/")
+    aas_allow_all, aas_allowed_ids = _aas_resource_access(
+        access_control,
+        roles,
+        request_path,
+    )
+    submodel_allow_all, submodel_allowed_ids = _submodel_reference_access(
+        access_control,
+        roles,
+        request_path,
+    )
+    filtered_items = [
+        _filter_shell_descriptor_submodel_descriptors(
+            descriptor,
+            submodel_allow_all,
+            submodel_allowed_ids,
+        )
+        for descriptor in items
+        if _item_allowed(descriptor, aas_allow_all, aas_allowed_ids)
+    ]
+
+    payload = _filtered_payload(original_payload, filtered_items)
+    return jsonify(payload), status_code
+
+
+def _handle_filtered_submodel_descriptors(path: str, access_control: dict[str, Any]) -> Response:
+    roles = _token_roles()
+    original_payload, items, status_code = _fetch_collection(path)
+    request_path = "/" + path.strip("/")
+    allow_all, allowed_ids = _submodel_reference_access(
+        access_control,
+        roles,
+        request_path,
+    )
+    filtered_items = [
+        descriptor
+        for descriptor in items
+        if _item_allowed(descriptor, allow_all, allowed_ids)
+    ]
+
+    payload = _filtered_payload(original_payload, filtered_items)
+    return jsonify(payload), status_code
+
+
 def _proxy_request(path: str, access_control: dict[str, Any]) -> Response:
     upstream_response = requests.request(
         request.method,
@@ -488,6 +655,21 @@ def _proxy_request(path: str, access_control: dict[str, Any]) -> Response:
                 )
                 return jsonify(filtered_payload), upstream_response.status_code
 
+            if _has_nested_submodel_descriptors(payload):
+                roles = _token_roles()
+                request_path = "/" + path.strip("/")
+                submodel_allow_all, submodel_allowed_ids = _submodel_reference_access(
+                    access_control,
+                    roles,
+                    request_path,
+                )
+                filtered_payload = _filter_shell_descriptor_submodel_descriptors(
+                    payload,
+                    submodel_allow_all,
+                    submodel_allowed_ids,
+                )
+                return jsonify(filtered_payload), upstream_response.status_code
+
     return Response(
         upstream_response.content,
         status=upstream_response.status_code,
@@ -503,27 +685,25 @@ def repository_proxy(path: str) -> Response:
     collection = _filtered_collection(normalized_path, access_control)
 
     if request.method == "GET":
-        if collection:
-            try:
-                return _handle_filtered_collection(path, collection, access_control)
-            except requests.HTTPError as exc:
-                response = exc.response
-                return Response(
-                    response.content,
-                    status=response.status_code,
-                    headers=_response_headers(response),
-                )
+        try:
+            if _is_shell_descriptors_path(normalized_path):
+                return _handle_filtered_shell_descriptors(path, access_control)
 
-        if _is_submodel_refs_path(normalized_path):
-            try:
+            if _is_submodel_descriptors_path(normalized_path):
+                return _handle_filtered_submodel_descriptors(path, access_control)
+
+            if collection:
+                return _handle_filtered_collection(path, collection, access_control)
+
+            if _is_submodel_refs_path(normalized_path):
                 return _handle_filtered_submodel_refs(path, access_control)
-            except requests.HTTPError as exc:
-                response = exc.response
-                return Response(
-                    response.content,
-                    status=response.status_code,
-                    headers=_response_headers(response),
-                )
+        except requests.HTTPError as exc:
+            response = exc.response
+            return Response(
+                response.content,
+                status=response.status_code,
+                headers=_response_headers(response),
+            )
 
     return _proxy_request(path, access_control)
 
