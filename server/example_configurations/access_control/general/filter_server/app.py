@@ -160,6 +160,10 @@ def _item_allowed(item: Any, allow_all: bool, allowed_ids: set[str]) -> bool:
     return _id_allowed(item_id, allow_all, allowed_ids)
 
 
+def _identifier_allowed(item: Any, allow_all: bool, allowed_ids: set[str]) -> bool:
+    return isinstance(item, str) and bool(item) and _id_allowed(item, allow_all, allowed_ids)
+
+
 def _submodel_reference_id(reference: Any) -> str | None:
     if not isinstance(reference, dict):
         return None
@@ -376,6 +380,15 @@ def _is_shell_descriptors_path(path: str) -> bool:
 def _is_submodel_descriptors_path(path: str) -> bool:
     segments = _path_segments(path)
     return bool(segments) and segments[-1] == "submodel-descriptors"
+
+
+def _is_discovery_shells_path(path: str) -> bool:
+    segments = _path_segments(path)
+    return (
+        len(segments) >= 2
+        and segments[-2] == "lookup"
+        and segments[-1] == "shells"
+    )
 
 
 def _request_query_without_paging() -> list[tuple[str, str]]:
@@ -625,6 +638,28 @@ def _handle_filtered_submodel_descriptors(path: str, access_control: dict[str, A
     return jsonify(payload), status_code
 
 
+def _handle_filtered_discovery_shells(
+    path: str,
+    access_control: dict[str, Any],
+) -> Response:
+    roles = _token_roles()
+    original_payload, items, status_code = _fetch_collection(path)
+    request_path = "/" + path.strip("/")
+    allow_all, allowed_ids = _aas_resource_access(
+        access_control,
+        roles,
+        request_path,
+    )
+    filtered_items = [
+        identifier
+        for identifier in items
+        if _identifier_allowed(identifier, allow_all, allowed_ids)
+    ]
+
+    payload = _filtered_payload(original_payload, filtered_items)
+    return jsonify(payload), status_code
+
+
 def _proxy_request(path: str, access_control: dict[str, Any]) -> Response:
     upstream_response = requests.request(
         request.method,
@@ -684,8 +719,11 @@ def repository_proxy(path: str) -> Response:
     normalized_path = f"/{path.strip('/')}"
     collection = _filtered_collection(normalized_path, access_control)
 
-    if request.method == "GET":
-        try:
+    try:
+        if request.method == "GET":
+            if _is_discovery_shells_path(normalized_path):
+                return _handle_filtered_discovery_shells(path, access_control)
+
             if _is_shell_descriptors_path(normalized_path):
                 return _handle_filtered_shell_descriptors(path, access_control)
 
@@ -697,13 +735,14 @@ def repository_proxy(path: str) -> Response:
 
             if _is_submodel_refs_path(normalized_path):
                 return _handle_filtered_submodel_refs(path, access_control)
-        except requests.HTTPError as exc:
-            response = exc.response
-            return Response(
-                response.content,
-                status=response.status_code,
-                headers=_response_headers(response),
-            )
+
+    except requests.HTTPError as exc:
+        response = exc.response
+        return Response(
+            response.content,
+            status=response.status_code,
+            headers=_response_headers(response),
+        )
 
     return _proxy_request(path, access_control)
 
