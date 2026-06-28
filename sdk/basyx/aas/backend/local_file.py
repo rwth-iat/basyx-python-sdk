@@ -11,7 +11,8 @@ in local files.
 The :class:`~LocalFileIdentifiableStore` handles adding, deleting and otherwise managing
 the AAS objects in a specific Directory.
 """
-from typing import Iterator
+import contextlib
+from typing import Iterator, Generator, TextIO, Optional
 import logging
 import json
 import os
@@ -20,6 +21,7 @@ import tempfile
 import threading
 import warnings
 import weakref
+from pathlib import Path
 
 from ..adapter.json import json_serialization, json_deserialization
 from basyx.aas import model
@@ -28,23 +30,138 @@ from basyx.aas import model
 logger = logging.getLogger(__name__)
 
 
+class DirectoryLock:
+    """
+    Implementation of a Lock on a directory. Uses POSIX ``flock`` on ``<directory>/.lock`` to control which instance
+    holds the lock. Even if the process which holds the lock dies, the lock is released.
+
+    The methods :meth:`acquire` and :meth:`release` are thread-safe and can be called in any state. If :meth:`acquire`
+    is called when the directory is already locked no errors occur. The same holds for calling :meth:`release` in an
+    unlocked state.
+
+    .. note::
+        Directory locking relies on ``fcntl.flock``, which is only available on POSIX platforms. On Windows
+        a warning is logged and the lock is skipped.
+    """
+    def __init__(self, directory_path: str):
+        self.directory_path = Path(directory_path)
+        self.lock_path = self.directory_path / ".lock"
+        self._dir_lock_file: Optional[TextIO] = None
+
+        # We count the number of active accesses to the directory to ensure that
+        # release() is only releasing if all are done
+        self._locking_lock = threading.Condition()
+        self._is_locked_flag = False
+        self._active_accesses = 0
+        self._is_releasing = False
+
+    def _lazy_import_fcntl(self):
+        try:
+            import fcntl as _fcntl
+        except ImportError:
+            _fcntl = None  # Windows: directory locking is unavailable
+        return _fcntl
+
+    def acquire(self) -> None:
+        """
+        Acquires the lock on the directory non-blocking. If the ``<directory>/.lock`` file is already locked
+        it raises a :class:`RuntimeError`.
+
+        .. note::
+            Directory locking relies on ``fcntl.flock``, which is only available on POSIX platforms. On Windows
+            a warning is logged and the lock is skipped.
+
+        :raises RuntimeError: If the directory is already locked by another instance
+        """
+        with self._locking_lock:  # Ensure only one dir_lock is acquired at a time
+            if self._is_locked_flag:
+                return  # Idempotent
+
+            self._dir_lock_file = open(self.lock_path, "a")  # use "a" to not swap the inode as in "w"
+
+            _fcntl = self._lazy_import_fcntl()
+            if _fcntl is None:
+                # Windows does not support locking files. For now, we raise a warning
+                # and continue to assure backwards compatibility
+
+                logger.warning("fcntl unavailable; directory locking is disabled (Windows?)")
+                self._is_locked_flag = True
+                return
+
+            try:
+                _fcntl.flock(self._dir_lock_file.fileno(), _fcntl.LOCK_EX | _fcntl.LOCK_NB)
+            except OSError:
+                # dir_lock already taken by other process
+                self._dir_lock_file.close()
+                self._dir_lock_file = None
+                raise RuntimeError(f"Directory {self.directory_path} is already locked by another DirectoryLock")
+            else:
+                self._is_locked_flag = True
+
+    def release(self) -> None:
+        """
+        If the directory is currently locked, this method waits for all current accesses in :meth:`ensure_locked`
+        to finish and releases the lock afterwards.
+        """
+        with self._locking_lock:
+            if not self._is_locked_flag:
+                return  # Idempotent
+            self._is_releasing = True  # Restrict new ensure_locked() entries
+            while self._active_accesses > 0:  # Wait for all active accesses to finish
+                self._locking_lock.wait()
+
+            # Release flock
+            self._is_locked_flag = False
+            if self._dir_lock_file is not None:
+                self._dir_lock_file.close()  # lock is released by closing fd
+                self._dir_lock_file = None
+
+    @contextlib.contextmanager
+    def ensure_locked(self) -> Generator:
+        """Context Manager for access to the locked directory
+
+        Use this as a context manager when accessing files in the locked directory. This ensures that the directory
+        is locked during the whole execution of the ``with`` block. Fails with a :class:`RuntimeError` if the directory
+        is not locked when entering the ``with`` block.
+
+        :raises RuntimeError: If the directory is not locked on enter
+        """
+        with self._locking_lock:
+            if (not self._is_locked_flag) and (not self._is_releasing):
+                raise RuntimeError(f"Directory {self.directory_path} is not locked!")
+            self._active_accesses += 1
+        try:
+            yield
+        finally:
+            with self._locking_lock:
+                self._active_accesses -= 1
+                self._locking_lock.notify_all()
+
+    def close(self) -> None:
+        self.release()
+
+
 class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, model.Identifiable]):
     """
     An ObjectStore implementation for :class:`~basyx.aas.model.base.Identifiable` BaSyx Python SDK objects backed
-    by a local file based local backend
+    by a local file based local backend.
 
-    .. warning::
-        This backend is intended for development and testing only. It provides no
-        concurrency control across processes: concurrent writes to the same object
-        (e.g. under a multi-worker WSGI server) will silently overwrite each other,
-        with the last writer winning and no error raised. Use a dedicated database
-        backend for any production deployment.
+    At most one instance of this class can manage a directory. To ensure this a
+    :class:`~basyx.aas.backend.local_file.DirectoryLock` is used (with all it limitations on non-POSIX systems).
+    The lock is applied eager (as soon as the directory exists) either in the constructor or after calling
+    :meth:`check_directory`. Unless this is done all further method calls will fail with :class:`RuntimeError`.
+
+    Call :meth:`close` to release the directory lock when done.
+
+    .. note::
+        Directory locking relies on ``fcntl.flock``, which is only available on POSIX platforms. On Windows
+        a warning is logged and the lock is skipped.
     """
     def __init__(self, directory_path: str):
         """
         Initializer of class LocalFileIdentifiableStore
 
-        :param directory_path: Path to the local file backend (the path where you want to store your AAS JSON files)
+        :param directory_path: Path to the local file backend (the path where you want to store your AAS JSON files).
         """
         self.directory_path: str = directory_path.rstrip("/")
 
@@ -56,6 +173,23 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
         self._object_cache: weakref.WeakValueDictionary[model.Identifier, model.Identifiable] \
             = weakref.WeakValueDictionary()
         self._object_cache_lock = threading.Lock()
+
+        # We need to prevent multiple instances of LocalFileIdentifiableStore performing R/W operations on the same
+        # directory in order to ensure cache validity. The directory is locked as soon as it exists.
+        self._dir_lock = DirectoryLock(self.directory_path)
+        if os.path.exists(self.directory_path):
+            self._acquire_dir_lock()
+
+    def _acquire_dir_lock(self) -> None:
+        try:
+            self._dir_lock.acquire()
+        except RuntimeError as ex:
+            raise RuntimeError(f"Directory {self.directory_path} is already in use"
+                               f" by another LocalFileIdentifiableStore instance.") from ex
+
+    def close(self) -> None:
+        """Release the directory lock. Call this when the store is no longer needed."""
+        self._dir_lock.close()
 
     def check_directory(self, create=False):
         """
@@ -69,6 +203,7 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
             # Create directory
             os.mkdir(self.directory_path)
             logger.info("Creating directory {}".format(self.directory_path))
+        self._acquire_dir_lock()
 
     def get_identifiable_by_hash(self, hash_: str) -> model.Identifiable:
         """
@@ -76,12 +211,13 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
 
         :raises KeyError: If the respective file could not be found
         """
-        try:
-            with open("{}/{}.json".format(self.directory_path, hash_), "r") as file:
-                data = json.load(file, cls=json_deserialization.AASFromJsonDecoder)
-                obj = data["data"]
-        except FileNotFoundError as e:
-            raise KeyError("No Identifiable with hash {} found in local file database".format(hash_)) from e
+        with self._dir_lock.ensure_locked():
+            try:
+                with open("{}/{}.json".format(self.directory_path, hash_), "r") as file:
+                    data = json.load(file, cls=json_deserialization.AASFromJsonDecoder)
+                    obj = data["data"]
+            except FileNotFoundError as e:
+                raise KeyError("No Identifiable with hash {} found in local file database".format(hash_)) from e
         with self._object_cache_lock:
             if obj.id in self._object_cache:
                 return self._object_cache[obj.id]
@@ -94,13 +230,14 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
 
         :raises KeyError: If the respective file could not be found
         """
-        with self._object_cache_lock:
-            if identifier in self._object_cache:
-                return self._object_cache[identifier]
-        try:
-            return self.get_identifiable_by_hash(self._transform_id(identifier))
-        except KeyError as e:
-            raise KeyError("No Identifiable with id {} found in local file database".format(identifier)) from e
+        with self._dir_lock.ensure_locked():
+            with self._object_cache_lock:
+                if identifier in self._object_cache:
+                    return self._object_cache[identifier]
+            try:
+                return self.get_identifiable_by_hash(self._transform_id(identifier))
+            except KeyError as e:
+                raise KeyError("No Identifiable with id {} found in local file database".format(identifier)) from e
 
     def _write_atomic(self, x: model.Identifiable) -> None:
         """
@@ -128,9 +265,10 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
         :raises KeyError: If an object with the same id exists already in the object store
         """
         logger.debug("Adding object %s to Local File Store ...", repr(x))
-        if os.path.exists("{}/{}.json".format(self.directory_path, self._transform_id(x.id))):
-            raise KeyError("Identifiable with id {} already exists in local file database".format(x.id))
-        self._write_atomic(x)
+        with self._dir_lock.ensure_locked():
+            if os.path.exists("{}/{}.json".format(self.directory_path, self._transform_id(x.id))):
+                raise KeyError("Identifiable with id {} already exists in local file database".format(x.id))
+            self._write_atomic(x)
         with self._object_cache_lock:
             self._object_cache[x.id] = x
 
@@ -141,9 +279,10 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
         :param x: The object to persist
         :raises KeyError: If the object is not present in the store
         """
-        if not os.path.exists("{}/{}.json".format(self.directory_path, self._transform_id(x.id))):
-            raise KeyError("No AAS object with id {} exists in local file database".format(x.id))
-        self._write_atomic(x)
+        with self._dir_lock.ensure_locked():
+            if not os.path.exists("{}/{}.json".format(self.directory_path, self._transform_id(x.id))):
+                raise KeyError("No AAS object with id {} exists in local file database".format(x.id))
+            self._write_atomic(x)
 
     def discard(self, x: model.Identifiable) -> None:
         """
@@ -153,10 +292,11 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
         :raises KeyError: If the object does not exist in the database
         """
         logger.debug("Deleting object %s from Local File Store database ...", repr(x))
-        try:
-            os.remove("{}/{}.json".format(self.directory_path, self._transform_id(x.id)))
-        except FileNotFoundError as e:
-            raise KeyError("No AAS object with id {} exists in local file database".format(x.id)) from e
+        with self._dir_lock.ensure_locked():
+            try:
+                os.remove("{}/{}.json".format(self.directory_path, self._transform_id(x.id)))
+            except FileNotFoundError as e:
+                raise KeyError("No AAS object with id {} exists in local file database".format(x.id)) from e
         with self._object_cache_lock:
             self._object_cache.pop(x.id, None)
 
@@ -176,7 +316,8 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
         else:
             return False
         logger.debug("Checking existence of object with id %s in database ...", repr(x))
-        return os.path.exists("{}/{}.json".format(self.directory_path, self._transform_id(identifier)))
+        with self._dir_lock.ensure_locked():
+            return os.path.exists("{}/{}.json".format(self.directory_path, self._transform_id(identifier)))
 
     def __len__(self) -> int:
         """
@@ -185,7 +326,8 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
         :return: The number of objects (determined from the number of documents)
         """
         logger.debug("Fetching number of documents from database ...")
-        return sum(1 for f in os.listdir(self.directory_path) if f.lower().endswith(".json"))
+        with self._dir_lock.ensure_locked():
+            return sum(1 for f in os.listdir(self.directory_path) if f.lower().endswith(".json"))
 
     def __iter__(self) -> Iterator[model.Identifiable]:
         """
@@ -195,9 +337,10 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
         the identifiable objects on the fly.
         """
         logger.debug("Iterating over objects in database ...")
-        for name in os.listdir(self.directory_path):
-            if name.lower().endswith(".json"):
-                yield self.get_identifiable_by_hash(name[:-5])
+        with self._dir_lock.ensure_locked():
+            for name in os.listdir(self.directory_path):
+                if name.lower().endswith(".json"):
+                    yield self.get_identifiable_by_hash(name[:-5])
 
     @staticmethod
     def _transform_id(identifier: model.Identifier) -> str:

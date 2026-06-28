@@ -7,6 +7,10 @@
 import gc
 import os.path
 import shutil
+import tempfile
+import threading
+import concurrent.futures
+from typing import Callable
 
 from unittest import TestCase
 
@@ -18,6 +22,106 @@ store_path: str = os.path.dirname(__file__) + "/local_file_test_folder"
 source_core: str = "file://localhost/{}/".format(store_path)
 
 
+def run_threads(fns: list[Callable]):
+    fn_futures: list[concurrent.futures.Future] = []
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        for fn in fns:
+            fn_futures.append(executor.submit(fn))
+
+    concurrent.futures.wait(fn_futures)
+    for future in fn_futures:
+        ex = future.exception()
+        if ex is not None:
+            raise ex
+
+
+class DirectoryLockTest(TestCase):
+
+    def test_double_locking(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            lock = local_file.DirectoryLock(tmpdir)
+            lock.acquire()
+            lock.acquire()
+
+            with self.assertRaises(RuntimeError):
+                lock2 = local_file.DirectoryLock(tmpdir)
+                lock2.acquire()
+
+    def test_releasing(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            lock = local_file.DirectoryLock(tmpdir)
+            lock.acquire()
+            self.assertTrue(lock._is_locked_flag)
+            lock.release()
+            self.assertFalse(lock._is_locked_flag)
+
+    def test_context_manager_fail(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            lock = local_file.DirectoryLock(tmpdir)
+
+            with self.assertRaises(RuntimeError) as cm:
+                with lock.ensure_locked():
+                    pass
+        self.assertIn("is not locked", cm.exception.args[0])
+
+    def test_context_manager_concurrency(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            lock = local_file.DirectoryLock(tmpdir)
+            lock.acquire()
+
+            barrier = threading.Barrier(parties=3, timeout=5)
+
+            def first():
+                with lock.ensure_locked():
+                    barrier.wait()
+                    barrier.wait()
+
+            def second():
+                with lock.ensure_locked():
+                    barrier.wait()
+                    barrier.wait()
+
+            def asserts():
+                barrier.wait()
+                self.assertEqual(2, lock._active_accesses)
+                barrier.wait()
+                lock.release()
+                self.assertEqual(0, lock._active_accesses)
+
+            run_threads([first, second, asserts])
+
+    def test_context_manager_finish_before_release(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            lock = local_file.DirectoryLock(tmpdir)
+            lock.acquire()
+
+            access_barrier = threading.Barrier(parties=2, timeout=5)
+            release_barrier = threading.Barrier(parties=2, timeout=5)
+
+            def access():
+                with lock.ensure_locked():
+                    access_barrier.wait()
+                    access_barrier.wait()
+                access_barrier.wait()
+
+            def release():
+                release_barrier.wait()
+                lock.release()
+                release_barrier.wait()
+
+            def asserts():
+                access_barrier.wait()
+                self.assertTrue(lock._is_locked_flag)  # in ensure_locked()
+                release_barrier.wait()
+                self.assertTrue(lock._is_locked_flag)  # in ensure_locked(), release() started
+                access_barrier.wait()
+                access_barrier.wait()
+                release_barrier.wait()
+                self.assertFalse(lock._is_locked_flag)  # out of ensure_locked(), release() finished
+
+            run_threads([access, release, asserts])
+
+
 class LocalFileBackendTest(TestCase):
     def setUp(self) -> None:
         self.identifiable_store = local_file.LocalFileIdentifiableStore(store_path)
@@ -27,7 +131,39 @@ class LocalFileBackendTest(TestCase):
         try:
             self.identifiable_store.clear()
         finally:
+            self.identifiable_store.close()
             shutil.rmtree(store_path)
+
+    def test_multi_instance_fail_on_init(self):
+        # Create second store for same path and expect it to fail
+        with self.assertRaises(RuntimeError) as cm:
+            local_file.LocalFileIdentifiableStore(store_path)
+
+        self.assertIn("is already in use", cm.exception.args[0])
+
+    def test_multi_instance_fail_on_check(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "localdb")
+
+            store1 = local_file.LocalFileIdentifiableStore(path)
+            store2 = local_file.LocalFileIdentifiableStore(path)
+
+            store1.check_directory(create=True)
+            with self.assertRaises(RuntimeError) as cm:
+                store2.check_directory()
+
+            self.assertIn("is already in use", cm.exception.args[0])
+
+    def test_dir_lock_fail_add(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "localdb")
+            store = local_file.LocalFileIdentifiableStore(path)
+            # store did not acquire dir_lock as path does not exist yet
+
+            with self.assertRaises(RuntimeError) as cm:
+                store.add(create_example_submodel())
+
+            self.assertIn("is not locked", cm.exception.args[0])
 
     def test_identifiable_store_add(self):
         test_object = create_example_submodel()
@@ -166,7 +302,8 @@ class LocalFileBackendTest(TestCase):
         example_submodel = create_example_submodel()
         self.identifiable_store.add(example_submodel)
 
-        # Reload the DictIdentifiableStore and discard the example submodel
+        # Reload the store: release the existing lock before opening a new instance
+        self.identifiable_store.close()
         self.identifiable_store = local_file.LocalFileIdentifiableStore(store_path)
         self.identifiable_store.discard(example_submodel)
         self.assertNotIn(example_submodel, self.identifiable_store)
