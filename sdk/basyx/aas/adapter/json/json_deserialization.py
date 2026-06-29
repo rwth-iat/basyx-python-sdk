@@ -427,7 +427,8 @@ class AASFromJsonDecoder(json.JSONDecoder):
     def _construct_value_reference_pair(cls, dct: Dict[str, object],
                                         object_class=model.ValueReferencePair) -> model.ValueReferencePair:
         return object_class(value=_get_ts(dct, 'value', str),
-                            value_id=cls._construct_reference(_get_ts(dct, 'valueId', dict)))
+                            value_id=cls._construct_reference(_get_ts(dct, 'valueId', dict))
+                            if 'valueId' in dct else None)
 
     # #############################################################################
     # Direct Constructor Methods (for classes with `modelType`) starting from here
@@ -705,6 +706,7 @@ class AASFromJsonDecoder(json.JSONDecoder):
 
     @classmethod
     def _construct_file(cls, dct: Dict[str, object], object_class=model.File) -> model.File:
+        content_type = _get_ts(dct, "contentType", str) if 'contentType' in dct else None
         ret = object_class(id_short=None,
                            value=None,
                            content_type=_get_ts(dct, "contentType", str) if 'contentType' in dct else None)
