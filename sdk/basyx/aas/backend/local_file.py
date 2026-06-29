@@ -112,6 +112,7 @@ class DirectoryLock:
 
             # Release flock
             self._is_locked_flag = False
+            self._is_releasing = False
             if self._dir_lock_file is not None:
                 self._dir_lock_file.close()  # lock is released by closing fd
                 self._dir_lock_file = None
@@ -127,7 +128,7 @@ class DirectoryLock:
         :raises RuntimeError: If the directory is not locked on enter
         """
         with self._locking_lock:
-            if (not self._is_locked_flag) and (not self._is_releasing):
+            if (not self._is_locked_flag) or self._is_releasing:
                 raise RuntimeError(f"Directory {self.directory_path} is not locked!")
             self._active_accesses += 1
         try:

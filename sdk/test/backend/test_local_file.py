@@ -24,7 +24,7 @@ source_core: str = "file://localhost/{}/".format(store_path)
 
 def run_threads(fns: list[Callable]):
     fn_futures: list[concurrent.futures.Future] = []
-    with concurrent.futures.ThreadPoolExecutor() as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(fns)) as executor:
         for fn in fns:
             fn_futures.append(executor.submit(fn))
 
