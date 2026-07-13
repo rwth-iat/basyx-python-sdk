@@ -10,7 +10,7 @@ import shutil
 import tempfile
 import threading
 import concurrent.futures
-from typing import Callable
+from typing import Callable, cast
 
 from unittest import TestCase
 
@@ -307,3 +307,119 @@ class LocalFileBackendTest(TestCase):
         self.identifiable_store = local_file.LocalFileIdentifiableStore(store_path)
         self.identifiable_store.discard(example_submodel)
         self.assertNotIn(example_submodel, self.identifiable_store)
+
+
+class _GatedLocalFileStore(local_file.LocalFileIdentifiableStore):
+    """
+    Patch :meth:`_write_atomic()` to control and enforce concurrent writes.
+    """
+
+    def __init__(self, directory_path: str, *args, **kwargs):
+        super().__init__(directory_path)
+        self._gate = threading.Event()  # gate to run _write_atomic()
+        self._gate.set()
+        self._inside = threading.Event()  # signal _write_atomic() entry
+
+    def _write_atomic(self, x: model.Identifiable) -> None:
+        self._inside.set()
+        self._gate.wait(timeout=5)
+        super()._write_atomic(x)
+
+
+class LocalFileBackendConcurrencyTest(TestCase):
+    def setUp(self):
+        self.store = _GatedLocalFileStore(store_path)
+        self.store.check_directory(create=True)
+
+    def tearDown(self):
+        try:
+            self.store.clear()
+        finally:
+            self.store.close()
+            shutil.rmtree(store_path)
+
+    def _example_submodels(self) -> tuple[model.Submodel, model.Submodel]:
+        first_submodel = model.Submodel(
+            id_='https://example.org/BackendTest',
+            submodel_element={
+                model.Property(id_short='Prop', value_type=model.datatypes.String, value='first')
+            }
+        )
+
+        second_submodel = model.Submodel(
+            id_='https://example.org/BackendTest',
+            submodel_element={
+                model.Property(id_short='Prop', value_type=model.datatypes.String, value='second')
+            }
+        )
+
+        return first_submodel, second_submodel
+
+    def test_concurrent_add(self):
+        """Checks that second add for same ID fails"""
+        first_submodel, second_submodel = self._example_submodels()
+
+        self.store._gate.clear()
+        self.store._inside.clear()
+        barrier = threading.Barrier(2, timeout=5)
+        all_done = threading.Barrier(3, timeout=5)
+
+        def first():
+            self.store.add(first_submodel)
+            all_done.wait()
+
+        def second():
+            self.store._inside.wait()
+            barrier.wait()
+            with self.assertRaises(KeyError) as ex:
+                self.store.add(second_submodel)
+
+            all_done.wait()
+            self.assertIn("already exists", ex.exception.args[0])
+
+        def control():
+            self.store._inside.wait()
+            barrier.wait()
+            self.store._gate.set()
+
+            all_done.wait()
+            submodel = self.store.get_item("https://example.org/BackendTest")
+            self.assertIsInstance(submodel, model.Submodel)
+            sm_property = submodel.get_referable("Prop")
+            self.assertIsInstance(sm_property, model.Property)
+            self.assertEqual(sm_property.value, "first")
+
+        run_threads([first, second, control])
+
+    def test_concurrent_commit_discard(self):
+        """Checks that discard is not overwritten by concurrent commit"""
+        submodel, altered_submodel = self._example_submodels()
+        self.store.add(submodel)
+
+        self.store._gate.clear()
+        self.store._inside.clear()
+        barrier = threading.Barrier(2, timeout=5)
+        all_done = threading.Barrier(3, timeout=5)
+
+        def first():
+            self.store.commit(submodel)
+            all_done.wait()
+
+        def second():
+            self.store._inside.wait()
+            barrier.wait()
+            self.store.discard(submodel)
+            all_done.wait()
+
+        def control():
+            self.store._inside.wait()
+            barrier.wait()
+            self.store._gate.set()
+
+            all_done.wait()
+            with self.assertRaises(KeyError) as ex:
+                self.store.get_item("https://example.org/BackendTest")
+
+            self.assertIn("No Identifiable", ex.exception.args[0])
+
+        run_threads([first, second, control])

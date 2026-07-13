@@ -175,6 +175,9 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
             = weakref.WeakValueDictionary()
         self._object_cache_lock = threading.Lock()
 
+        # Prevent concurrent write operations to avoid TOCTOU problems
+        self._write_lock = threading.Lock()
+
         # We need to prevent multiple instances of LocalFileIdentifiableStore performing R/W operations on the same
         # directory in order to ensure cache validity. The directory is locked as soon as it exists.
         self._dir_lock = DirectoryLock(self.directory_path)
@@ -266,10 +269,11 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
         :raises KeyError: If an object with the same id exists already in the object store
         """
         logger.debug("Adding object %s to Local File Store ...", repr(x))
-        with self._dir_lock.ensure_locked():
-            if os.path.exists("{}/{}.json".format(self.directory_path, self._transform_id(x.id))):
-                raise KeyError("Identifiable with id {} already exists in local file database".format(x.id))
-            self._write_atomic(x)
+        with self._write_lock:
+            with self._dir_lock.ensure_locked():
+                if os.path.exists("{}/{}.json".format(self.directory_path, self._transform_id(x.id))):
+                    raise KeyError("Identifiable with id {} already exists in local file database".format(x.id))
+                self._write_atomic(x)
         with self._object_cache_lock:
             self._object_cache[x.id] = x
 
@@ -280,10 +284,11 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
         :param x: The object to persist
         :raises KeyError: If the object is not present in the store
         """
-        with self._dir_lock.ensure_locked():
-            if not os.path.exists("{}/{}.json".format(self.directory_path, self._transform_id(x.id))):
-                raise KeyError("No AAS object with id {} exists in local file database".format(x.id))
-            self._write_atomic(x)
+        with self._write_lock:
+            with self._dir_lock.ensure_locked():
+                if not os.path.exists("{}/{}.json".format(self.directory_path, self._transform_id(x.id))):
+                    raise KeyError("No AAS object with id {} exists in local file database".format(x.id))
+                self._write_atomic(x)
 
     def discard(self, x: model.Identifiable) -> None:
         """
@@ -293,11 +298,12 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
         :raises KeyError: If the object does not exist in the database
         """
         logger.debug("Deleting object %s from Local File Store database ...", repr(x))
-        with self._dir_lock.ensure_locked():
-            try:
-                os.remove("{}/{}.json".format(self.directory_path, self._transform_id(x.id)))
-            except FileNotFoundError as e:
-                raise KeyError("No AAS object with id {} exists in local file database".format(x.id)) from e
+        with self._write_lock:
+            with self._dir_lock.ensure_locked():
+                try:
+                    os.remove("{}/{}.json".format(self.directory_path, self._transform_id(x.id)))
+                except FileNotFoundError as e:
+                    raise KeyError("No AAS object with id {} exists in local file database".format(x.id)) from e
         with self._object_cache_lock:
             self._object_cache.pop(x.id, None)
 
