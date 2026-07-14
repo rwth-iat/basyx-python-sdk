@@ -212,7 +212,7 @@ class TestDateTimeTypes(unittest.TestCase):
                          model.datatypes.from_xsd("2020-01-24T15:25:17-00:20", model.datatypes.DateTime))
         with self.assertRaises(ValueError) as cm:
             model.datatypes.from_xsd("--2020-01-24T15:25:17-00:20", model.datatypes.DateTime)
-        self.assertEqual("Value is not a valid XSD datetime string", str(cm.exception))
+        self.assertEqual("--2020-01-24T15:25:17-00:20 is not a valid XSD datetime string", str(cm.exception))
         with self.assertRaises(NotImplementedError):
             model.datatypes.from_xsd("-2020-01-24T15:25:17+01:00", model.datatypes.DateTime)
 
@@ -247,6 +247,31 @@ class TestDateTimeTypes(unittest.TestCase):
             datetime.time(15, 25, 17, tzinfo=datetime.timezone.utc)))
         self.assertEqual("15:25:17.250000+01:00", model.datatypes.xsd_repr(
             datetime.time(15, 25, 17, 250000, tzinfo=datetime.timezone(datetime.timedelta(hours=1)))))
+
+    def test_parse_datetime_midnight_24(self) -> None:
+        res = model.datatypes.from_xsd("2020-01-24T24:00:00", model.datatypes.DateTime)
+        self.assertEqual(datetime.datetime(2020, 1, 25, 0, 0, 0), res)
+        res_tz = model.datatypes.from_xsd("2020-01-24T24:00:00Z", model.datatypes.DateTime)
+        self.assertEqual(datetime.datetime(2020, 1, 25, 0, 0, 0, tzinfo=datetime.timezone.utc), res_tz)
+
+    def test_parse_datetime_midnight_24_invalid(self) -> None:
+        with self.assertRaises(ValueError) as cm:
+            model.datatypes.from_xsd("2020-01-24T24:01:00", model.datatypes.DateTime)
+        self.assertEqual(
+            "2020-01-24T24:01:00 is not a valid xsd:datetime.",
+            str(cm.exception))
+
+    def test_parse_time_midnight_24(self) -> None:
+        res = model.datatypes.from_xsd("24:00:00", model.datatypes.Time)
+        self.assertEqual(datetime.time(0, 0, 0), res)
+
+    def test_parse_time_midnight_24_invalid(self) -> None:
+        with self.assertRaises(ValueError) as cm:
+            model.datatypes.from_xsd("24:00:01", model.datatypes.Time)
+        self.assertEqual(
+            "24:00:01 is not a valid xsd:time.",
+            str(cm.exception)
+        )
 
     def test_trivial_cast(self) -> None:
         val = model.datatypes.trivial_cast(datetime.date(2017, 11, 13), model.datatypes.Date)

@@ -607,27 +607,67 @@ def _parse_xsd_date(value: str) -> Date:
     if match[1]:
         raise NotImplementedError("Negative dates are not supported: Python stdlib datetime requires year >= 1. "
                                   "Report at https://github.com/eclipse-basyx/basyx-python-sdk/issues")
-    return Date(int(match[2]), int(match[3]), int(match[4]), _parse_xsd_date_tzinfo(match[5]))
+    return Date(
+        year=int(match[2]),
+        month=int(match[3]),
+        day=int(match[4]),
+        tzinfo=_parse_xsd_date_tzinfo(match[5]),
+    )
 
 
 def _parse_xsd_datetime(value: str) -> DateTime:
     match = DATETIME_RE.match(value)
     if not match:
-        raise ValueError("Value is not a valid XSD datetime string")
+        raise ValueError(f"{value} is not a valid XSD datetime string")
     if match[1]:
         raise NotImplementedError("Negative dates are not supported: Python stdlib datetime requires year >= 1. "
                                   "Report at https://github.com/eclipse-basyx/basyx-python-sdk/issues")
     microseconds = int(float(match[8]) * 1e6) if match[8] else 0
-    return DateTime(int(match[2]), int(match[3]), int(match[4]), int(match[5]), int(match[6]), int(match[7]),
-                    microseconds, _parse_xsd_date_tzinfo(match[9]))
+    hour = int(match[5])
+    # xsd_datetime allows for hour=24 to represent midnight,
+    # Python's datetime.DateTime doesn't.
+    # If we get an hour=24, we accept and parse it as hour=0 of the next day.
+    # See: https://github.com/eclipse-basys/basys-python-sdk/issues/564
+    is_midnight_24 = False
+    if hour == 24:
+        if int(match[6]) != 0 or int(match[7]) != 0 or microseconds != 0:
+            raise ValueError(f"{value} is not a valid xsd:datetime.")
+        hour = 0
+        is_midnight_24 = True
+    res = DateTime(
+        year=int(match[2]),
+        month=int(match[3]),
+        day=int(match[4]),
+        hour=hour,
+        minute=int(match[6]),
+        second=int(match[7]),
+        microsecond=microseconds,
+        tzinfo=_parse_xsd_date_tzinfo(match[9]),
+    )
+    return res + datetime.timedelta(days=1) if is_midnight_24 else res
 
 
 def _parse_xsd_time(value: str) -> Time:
     match = TIME_RE.match(value)
     if not match:
-        raise ValueError("Value is not a valid XSD datetime string")
+        raise ValueError(f"{value} is not a valid XSD time string")
     microseconds = int(float(match[4]) * 1e6) if match[4] else 0
-    return Time(int(match[1]), int(match[2]), int(match[3]), microseconds, _parse_xsd_date_tzinfo(match[5]))
+    hour = int(match[1])
+    # xsd_time allows for hour=24 to represent midnight,
+    # Python's datetime.Time doesn't.
+    # If we get an hour=24, we accept and parse it as hour=0.
+    # See: https://github.com/eclipse-basys/basys-python-sdk/issues/564
+    if hour == 24:
+        if int(match[2]) != 0 or int(match[3]) != 0 or microseconds != 0:
+            raise ValueError(f"{value} is not a valid xsd:time.")
+        hour = 0
+    return Time(
+        hour=hour,
+        minute=int(match[2]),
+        second=int(match[3]),
+        microsecond=microseconds,
+        tzinfo=_parse_xsd_date_tzinfo(match[5]),
+    )
 
 
 def _parse_xsd_bool(value: str) -> Boolean:
