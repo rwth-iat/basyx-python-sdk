@@ -156,10 +156,18 @@ class TestDateTimeTypes(unittest.TestCase):
     def test_parse_partial_dates(self) -> None:
         self.assertEqual(model.datatypes.GYear(2019),
                          model.datatypes.from_xsd("2019", model.datatypes.GYear))
+        self.assertEqual(model.datatypes.GYear(-2001),
+                         model.datatypes.from_xsd("-2001", model.datatypes.GYear))
+        self.assertEqual(model.datatypes.GYear(20000),
+                         model.datatypes.from_xsd("20000", model.datatypes.GYear))
         self.assertEqual(model.datatypes.GMonth(7),
                          model.datatypes.from_xsd("--07", model.datatypes.GMonth))
         self.assertEqual(model.datatypes.GYearMonth(2020, 5),
                          model.datatypes.from_xsd("2020-05", model.datatypes.GYearMonth))
+        self.assertEqual(model.datatypes.GYearMonth(-2001, 10),
+                         model.datatypes.from_xsd("-2001-10", model.datatypes.GYearMonth))
+        self.assertEqual(model.datatypes.GYearMonth(20000, 5),
+                         model.datatypes.from_xsd("20000-05", model.datatypes.GYearMonth))
         self.assertEqual(model.datatypes.GMonthDay(12, 6),
                          model.datatypes.from_xsd("--12-06", model.datatypes.GMonthDay))
         self.assertEqual(model.datatypes.GDay(23),
@@ -179,6 +187,14 @@ class TestDateTimeTypes(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             model.datatypes.from_xsd("10-10", model.datatypes.GYearMonth)
         self.assertEqual("Value is not a valid XSD GYearMonth string", str(cm.exception))
+
+    def test_partial_dates_negative_year_into_date(self) -> None:
+        # Python's `datetime` library does not support negative years. Converting a G-Class with a negative year into a
+        # `Date` must therefore fail with a clear error message instead of the cryptic "year -2001 is out of range".
+        for value in (model.datatypes.GYear(-2001), model.datatypes.GYearMonth(-2001, 5)):
+            with self.assertRaises(ValueError) as cm:
+                value.into_date()
+            self.assertEqual("Negative years are not supported by Python's `datetime` library.", str(cm.exception))
 
     def test_copy_date(self) -> None:
         date = model.datatypes.Date(2020, 1, 24)
