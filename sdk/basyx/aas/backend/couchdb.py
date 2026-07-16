@@ -1,4 +1,4 @@
-# Copyright (c) 2025 the Eclipse BaSyx Authors
+# Copyright (c) 2026 the Eclipse BaSyx Authors
 #
 # This program and the accompanying materials are made available under the terms of the MIT License, available in
 # the LICENSE file of this project.
@@ -8,11 +8,13 @@
 This module adds the functionality of storing and retrieving :class:`~basyx.aas.model.base.Identifiable` objects
 in a CouchDB.
 
-The :class:`~CouchDBObjectStore` handles adding, deleting and otherwise managing the AAS objects in a specific CouchDB.
+The :class:`~CouchDBIdentifiableStore` handles adding, deleting and otherwise managing the AAS objects in a specific
+CouchDB.
 """
 import threading
+import warnings
 import weakref
-from typing import List, Dict, Any, Optional, Iterator, Iterable, Union, Tuple, MutableMapping
+from typing import Dict, Any, Optional, Iterator, Iterable, Tuple, MutableMapping
 import urllib.parse
 import urllib.request
 import urllib.error
@@ -40,7 +42,7 @@ def register_credentials(url: str, username: str, password: str):
     .. Warning::
 
         Do not use this function, while other threads may be accessing the credentials via the
-        :class:`~.CouchDBObjectStore`!
+        :class:`~.CouchDBIdentifiableStore`!
 
     :param url: Toplevel URL
     :param username: Username to that CouchDB instance
@@ -87,18 +89,19 @@ def delete_couchdb_revision(url: str):
         del _revision_store[url]
 
 
-class CouchDBObjectStore(model.AbstractObjectStore):
+class CouchDBIdentifiableStore(model.AbstractObjectStore[model.Identifier, model.Identifiable]):
     """
     An ObjectStore implementation for :class:`~basyx.aas.model.base.Identifiable` BaSyx Python SDK objects backed
     by a CouchDB database server.
 
-    All methods of the ``CouchDBObjectStore`` are blocking, i.e. they stop the current thread's execution until they
-    receive a response from the CouchDB server (or encounter a timeout). However, the ``CouchDBObjectStore`` objects are
-    thread-safe, as long as no CouchDB credentials are added (via ``register_credentials()``) during transactions.
+    All methods of the ``CouchDBIdentifiableStore`` are blocking, i.e. they stop the current thread's execution until
+    they receive a response from the CouchDB server (or encounter a timeout). However, the ``CouchDBIdentifiableStore``
+    objects are thread-safe, as long as no CouchDB credentials are added (via ``register_credentials()``) during
+    transactions.
     """
     def __init__(self, url: str, database: str):
         """
-        Initializer of class CouchDBObjectStore
+        Initializer of class CouchDBIdentifiableStore
 
         :param url: URL to the CouchDB
         :param database: Name of the Database inside the CouchDB
@@ -157,7 +160,6 @@ class CouchDBObjectStore(model.AbstractObjectStore):
                 raise KeyError("No Identifiable with couchdb-id {} found in CouchDB database".format(couchdb_id)) from e
             raise
 
-        # Add CouchDB metadata (for later commits) to object
         obj = data['data']
         if not isinstance(obj, model.Identifiable):
             raise CouchDBResponseError("The CouchDB document with id {} does not contain an identifiable AAS object."
@@ -165,17 +167,13 @@ class CouchDBObjectStore(model.AbstractObjectStore):
         set_couchdb_revision("{}/{}/{}".format(self.url, self.database_name, urllib.parse.quote(couchdb_id, safe='')),
                              data["_rev"])
 
-        # If we still have a local replication of that object (since it is referenced from anywhere else), update that
-        # replication and return it.
         with self._object_cache_lock:
             if obj.id in self._object_cache:
-                old_obj = self._object_cache[obj.id]
-                old_obj.update_from(obj)
-                return old_obj
-        self._object_cache[obj.id] = obj
+                return self._object_cache[obj.id]
+            self._object_cache[obj.id] = obj
         return obj
 
-    def get_identifiable(self, identifier: model.Identifier) -> model.Identifiable:
+    def get_item(self, identifier: model.Identifier) -> model.Identifiable:
         """
         Retrieve an AAS object from the CouchDB by its :class:`~basyx.aas.model.base.Identifier`
 
@@ -183,6 +181,9 @@ class CouchDBObjectStore(model.AbstractObjectStore):
         :raises CouchDBError: If error occur during the request to the CouchDB server
                               (see ``_do_request()`` for details)
         """
+        with self._object_cache_lock:
+            if identifier in self._object_cache:
+                return self._object_cache[identifier]
         try:
             return self.get_identifiable_by_couchdb_id(self._transform_id(identifier, False))
         except KeyError as e:
@@ -216,6 +217,37 @@ class CouchDBObjectStore(model.AbstractObjectStore):
             raise
         with self._object_cache_lock:
             self._object_cache[x.id] = x
+
+    def commit(self, x: model.Identifiable) -> None:
+        """
+        Write the current in-memory state of a stored object back to the CouchDB.
+
+        :param x: The object to persist
+        :raises KeyError: If the object is not present in the store or no revision is known
+        :raises CouchDBConflictError: If the object was modified in the database since it was last fetched
+        :raises CouchDBError: If error occur during the request to the CouchDB server
+                              (see ``_do_request()`` for details)
+        """
+        doc_url = "{}/{}/{}".format(self.url, self.database_name, self._transform_id(x.id))
+        rev = get_couchdb_revision(doc_url)
+        if rev is None:
+            raise KeyError("No revision found for object with id {} — not fetched from this store".format(x.id))
+        data = json.dumps({'data': x}, cls=json_serialization.AASToJsonEncoder)
+        try:
+            response = self._do_request(
+                "{}?rev={}".format(doc_url, rev),
+                'PUT',
+                {'Content-type': 'application/json'},
+                data.encode('utf-8'))
+            set_couchdb_revision(doc_url, response["rev"])
+        except CouchDBServerError as e:
+            if e.code == 404:
+                raise KeyError("No AAS object with id {} exists in CouchDB database".format(x.id)) from e
+            elif e.code == 409:
+                raise CouchDBConflictError(
+                    "Object with id {} has been modified in the database since it was last fetched."
+                    .format(x.id)) from e
+            raise
 
     def discard(self, x: model.Identifiable, safe_delete=False) -> None:
         """
@@ -382,7 +414,7 @@ class CouchDBObjectStore(model.AbstractObjectStore):
         """
         # Iterator class storing the list of ids and fetching Identifiable objects on the fly
         class CouchDBIdentifiableIterator(Iterator[model.Identifiable]):
-            def __init__(self, store: CouchDBObjectStore, ids: Iterable[str]):
+            def __init__(self, store: CouchDBIdentifiableStore, ids: Iterable[str]):
                 self._iter = iter(ids)
                 self._store = store
 
@@ -405,6 +437,29 @@ class CouchDBObjectStore(model.AbstractObjectStore):
         if url_quote:
             identifier = urllib.parse.quote(identifier, safe='')
         return identifier
+
+
+class CouchDBObjectStore(CouchDBIdentifiableStore):
+    """
+    `CouchDBObjectStore` has been renamed to :class:`~.CouchDBIdentifiableStore` and will be removed in a
+    future release. Please migrate to :class:`~.CouchDBIdentifiableStore`.
+    """
+    def __init__(self, url: str, database: str):
+        warnings.warn(
+            "`CouchDBObjectStore` is deprecated and will be removed in a future release. Use "
+            "`CouchDBIdentifiableStore` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(url, database)
+
+    def get_identifiable(self, identifier: model.Identifier) -> model.Identifiable:
+        warnings.warn(
+            "`get_identifiable()` is deprecated. Use `get_item()` from `CouchDBIdentifiableStore` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return super().get_item(identifier)
 
 
 # #################################################################################################

@@ -1,4 +1,4 @@
-# Copyright (c) 2025 the Eclipse BaSyx Authors
+# Copyright (c) 2026 the Eclipse BaSyx Authors
 #
 # This program and the accompanying materials are made available under the terms of the MIT License, available in
 # the LICENSE file of this project.
@@ -28,7 +28,7 @@ ValueList = Set["ValueReferencePair"]
 BlobType = bytes
 
 # The following string aliases are constrained by the decorator functions defined in the string_constraints module,
-# wherever they are used for an instance attributes.
+# wherever they are used for an instance's attributes.
 ContentType = str  # any mimetype as in RFC2046
 Identifier = str
 LabelType = str
@@ -223,7 +223,7 @@ class ModellingKind(Enum):
 @unique
 class AssetKind(Enum):
     """
-    Enumeration for denoting whether an asset is a type asset or an instance asset or whether this kind of
+    Enumeration for denoting whether an asset is a type asset or an instance asset or role asset or whether this kind of
     classification is not applicable.
 
     .. note::
@@ -235,12 +235,14 @@ class AssetKind(Enum):
 
     :cvar TYPE: Type asset
     :cvar INSTANCE: Instance asset
-    :cvar NOT_APPLICABLE: Neither a type asset nor an instance asset
+    :cvar ROLE: Role asset
+    :cvar NOT_APPLICABLE: Neither a type asset nor an instance asset nor a role asset
     """
 
     TYPE = 0
     INSTANCE = 1
     NOT_APPLICABLE = 2
+    ROLE = 3
 
 
 class QualifierKind(Enum):
@@ -291,7 +293,8 @@ class LangStringSet(MutableMapping[str, str]):
     """
     def __init__(self, dict_: Dict[str, str]):
         self._dict: Dict[str, str] = {}
-
+        if not isinstance(dict_, dict):
+            raise TypeError(f"A {self.__class__.__name__} must be initialized with a dict!, got {type(dict_)}")
         if len(dict_) < 1:
             raise ValueError(f"A {self.__class__.__name__} must not be empty!")
         for ltag in dict_:
@@ -300,11 +303,36 @@ class LangStringSet(MutableMapping[str, str]):
 
     @classmethod
     def _check_language_tag_constraints(cls, ltag: str):
-        split = ltag.split("-", 1)
-        lang_code = split[0]
-        if len(lang_code) != 2 or not lang_code.isalpha() or not lang_code.islower():
-            raise ValueError(f"The language code of the language tag must consist of exactly two lower-case letters! "
-                             f"Given language tag and language code: '{ltag}', '{lang_code}'")
+        alphanum = "[a-zA-Z0-9]"
+        singleton = "[0-9A-WY-Za-wy-z]"
+        extension = f"{singleton}(-({alphanum}){{2,8}})+"
+        extlang = "[a-zA-Z]{3}(-[a-zA-Z]{3}){0,2}"
+        irregular = (
+            "(en-GB-oed|i-ami|i-bnn|i-default|i-enochian|i-hak|"
+            "i-klingon|i-lux|i-mingo|i-navajo|i-pwn|i-tao|i-tay|"
+            "i-tsu|sgn-BE-FR|sgn-BE-NL|sgn-CH-DE)"
+        )
+        regular = (
+            "(art-lojban|cel-gaulish|no-bok|no-nyn|zh-guoyu|zh-hakka|"
+            "zh-min|zh-min-nan|zh-xiang)"
+        )
+        grandfathered = f"({irregular}|{regular})"
+        language = f"([a-zA-Z]{{2,3}}(-{extlang})?|[a-zA-Z]{{4}}|[a-zA-Z]{{5,8}})"
+        script = "[a-zA-Z]{4}"
+        region = "([a-zA-Z]{2}|[0-9]{3})"
+        variant = f"(({alphanum}){{5,8}}|[0-9]({alphanum}){{3}})"
+        privateuse = f"[xX](-({alphanum}){{1,8}})+"
+        langtag = (
+            f"{language}(-{script})?(-{region})?(-{variant})*(-{extension})*(-"
+            f"{privateuse})?"
+        )
+        language_tag = f"({langtag}|{privateuse}|{grandfathered})"
+
+        pattern = f"^{language_tag}$"
+
+        if re.match(pattern, ltag) is None:
+            raise ValueError(f"The language tag must follow the format defined in BCP 47. "
+                             f"Given language tag: {ltag}")
 
     def __getitem__(self, item: str) -> str:
         return self._dict[item]
@@ -355,11 +383,11 @@ class ConstrainedLangStringSet(LangStringSet, metaclass=abc.ABCMeta):
 
 class MultiLanguageNameType(ConstrainedLangStringSet):
     """
-    A :class:`~.ConstrainedLangStringSet` where each value is a :class:`ShortNameType`.
-    See also: :func:`basyx.aas.model._string_constraints.check_short_name_type`
+    A :class:`~.ConstrainedLangStringSet` where each value is a :class:`NameType`.
+    See also: :func:`basyx.aas.model._string_constraints.check_name_type`
     """
     def __init__(self, dict_: Dict[str, str]):
-        super().__init__(dict_, _string_constraints.check_short_name_type)
+        super().__init__(dict_, _string_constraints.check_name_type)
 
 
 class MultiLanguageTextType(ConstrainedLangStringSet):
@@ -548,7 +576,7 @@ class HasExtension(Namespace, metaclass=abc.ABCMeta):
 
     <<abstract>>
 
-    **Constraint AASd-077:** The name of an Extension within HasExtensions needs to be unique.
+    **Constraint AASd-077:** The name of an Extension within HasExtensions shall be unique.
 
     :ivar namespace_element_sets: List of :class:`NamespaceSets <basyx.aas.model.base.NamespaceSet>`
     :ivar extension: A :class:`~.NamespaceSet` of :class:`Extensions <.Extension>` of the element.
@@ -596,8 +624,9 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
     **Constraint AASd-001:** In case of a referable element not being an identifiable element the
     idShort is mandatory and used for referring to the element in its name space.
 
-    **Constraint AASd-002:** idShort shall only feature letters, digits, underscore (``_``); starting
-    mandatory with a letter.
+    **Constraint AASd-002:** idShort shall only feature letters, digits, underscore (``_``), hyphen (``-``);
+    starting mandatory with a letter and not ending with a hyphen.
+    I.e. ``^[a-zA-Z]|[a-zA-Z][a-zA-Z0-9_-]*[a-zA-Z0-9_]$``
 
     **Constraint AASd-004:** Add parent in case of non-identifiable elements.
 
@@ -614,9 +643,9 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
     def __init__(self):
         super().__init__()
         self._id_short: Optional[NameType] = None
-        self.display_name: Optional[MultiLanguageNameType] = dict()
+        self._display_name: Optional[MultiLanguageNameType] = None
         self._category: Optional[NameType] = None
-        self.description: Optional[MultiLanguageTextType] = dict()
+        self._description: Optional[MultiLanguageTextType] = None
         # We use a Python reference to the parent Namespace instead of a Reference Object, as specified. This allows
         # simpler and faster navigation/checks and it has no effect in the serialized data formats anyway.
         self.parent: Optional[UniqueIdShortNamespace] = None
@@ -758,8 +787,9 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
         """
         Validates an id_short against Constraint AASd-002 and :class:`NameType` restrictions.
 
-        **Constraint AASd-002:** idShort of Referables shall only feature letters, digits, underscore (``_``); starting
-        mandatory with a letter. I.e. ``[a-zA-Z][a-zA-Z0-9_]+``
+        **Constraint AASd-002:** idShort shall only feature letters, digits, underscore (``_``), hyphen (``-``);
+        starting mandatory with a letter and not ending with a hyphen.
+        I.e. ``^[a-zA-Z]|[a-zA-Z][a-zA-Z0-9_-]*[a-zA-Z0-9_]$``
 
         :param id_short: The id_short to validate
         :raises ValueError: If the id_short doesn't comply to the constraints imposed by :class:`NameType`
@@ -768,15 +798,20 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
         """
         _string_constraints.check_name_type(id_short)
         test_id_short: NameType = str(id_short)
-        if not re.fullmatch("[a-zA-Z0-9_]*", test_id_short):
+        if not re.fullmatch("[A-Za-z0-9_-]*", test_id_short):
             raise AASConstraintViolation(
                 2,
-                "The id_short must contain only letters, digits and underscore"
+                "The id_short must contain only letters, digits underscore and hyphen"
             )
         if not test_id_short[0].isalpha():
             raise AASConstraintViolation(
                 2,
                 "The id_short must start with a letter"
+            )
+        if test_id_short.endswith("-"):
+            raise AASConstraintViolation(
+                2,
+                "The id_short must not end with a hyphen"
             )
 
     category = property(_get_category, _set_category)
@@ -785,8 +820,9 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
         """
         Check the input string
 
-        **Constraint AASd-002:** idShort of Referables shall only feature letters, digits, underscore (``_``); starting
-        mandatory with a letter. I.e. ``[a-zA-Z][a-zA-Z0-9_]+``
+        **Constraint AASd-002:** idShort shall only feature letters, digits, underscore (``_``), hyphen (``-``);
+        starting mandatory with a letter and not ending with a hyphen.
+        I.e. ``^[a-zA-Z]|[a-zA-Z][a-zA-Z0-9_-]*[a-zA-Z0-9_]$``
 
         **Constraint AASd-022:** idShort of non-identifiable referables shall be unique in its namespace
         (case-sensitive)
@@ -808,9 +844,6 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
                 raise AASConstraintViolation(117, f"id_short of {self!r} cannot be unset, since it is already "
                                                   f"contained in {self.parent!r}")
             from .submodel import SubmodelElementList
-            if isinstance(self.parent, SubmodelElementList):
-                raise AASConstraintViolation(120, f"id_short of {self!r} cannot be set, because it is "
-                                                  f"contained in a {self.parent!r}")
             for set_ in self.parent.namespace_element_sets:
                 if set_.contains_id("id_short", id_short):
                     raise AASConstraintViolation(22, "Object with id_short '{}' is already present in the parent "
@@ -826,6 +859,28 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
                 set_.add(self)
         # Redundant to the line above. However, this way, we make sure that we really update the _id_short
         self._id_short = id_short
+
+    @property
+    def display_name(self) -> Optional[MultiLanguageNameType]:
+        """Display name of the element (MultiLanguageNameType)."""
+        return self._display_name
+
+    @display_name.setter
+    def display_name(self, value: Union[MultiLanguageNameType, dict, None]) -> None:
+        if value is not None and not isinstance(value, MultiLanguageNameType):
+            value = MultiLanguageNameType(value)
+        self._display_name = value
+
+    @property
+    def description(self) -> Optional[MultiLanguageTextType]:
+        """Description of the element (MultiLanguageTextType)."""
+        return self._description
+
+    @description.setter
+    def description(self, value: Union[MultiLanguageTextType, dict, None]) -> None:
+        if value is not None and not isinstance(value, MultiLanguageTextType):
+            value = MultiLanguageTextType(value)
+        self._description = value
 
     def update_from(self, other: "Referable"):
         """
@@ -1047,7 +1102,7 @@ class ModelReference(Reference, Generic[_RT]):
             raise AssertionError(f"Retrieving the identifier of the first {self.key[0]!r} failed.")
 
         try:
-            item: Referable = provider_.get_identifiable(identifier)
+            item: Referable = provider_.get_item(identifier)
         except KeyError as e:
             raise KeyError("Could not resolve identifier {}".format(identifier)) from e
 
@@ -1149,7 +1204,7 @@ class DataSpecificationContent:
     **Constraint AASc-3a-050:** If the ``Data_specification_IEC_61360`` is used
     for an element, the value of ``HasDataSpecification.embedded_data_specifications``
     shall contain the external reference to the IRI of the corresponding data specification
-    template ``https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIEC61360/3/0``
+    template ``https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIEC61360/3/1``
     """
     @abc.abstractmethod
     def __init__(self):
@@ -1276,7 +1331,8 @@ class AdministrativeInformation(HasDataSpecification):
 @_string_constraints.constrain_identifier("id")
 class Identifiable(Referable, metaclass=abc.ABCMeta):
     """
-    An element that has a globally unique :class:`Identifier`.
+    Identifiable element with a globally unique :class:`Identifier` and, optionally, additional
+    :class:`~.AdministrativeInformation`.
 
     <<abstract>>
 
@@ -1607,8 +1663,8 @@ class Qualifier(HasSemantics):
     """
     A qualifier is a type-value pair that makes additional statements w.r.t. the value of the element.
 
-    **Constraint AASd-006:** If both, the value and the valueId of a Qualifier are present, the value needs
-    to be identical to the value of the referenced coded value in Qualifier/valueId.
+    **Constraint AASd-006:** If both, the value and the valueId of a Qualifier are present, the value shall
+    be identical to the value of the referenced coded value in Qualifier/valueId.
 
     **Constraint AASd-020:** The value of Qualifier/value shall be consistent with the
     data type as defined in Qualifier/valueType.
@@ -1696,14 +1752,14 @@ class ValueReferencePair:
 
     def __init__(self,
                  value: ValueTypeIEC61360,
-                 value_id: Reference):
+                 value_id: Optional[Reference] = None):
         """
 
 
         TODO: Add instruction what to do after construction
         """
-        self.value_id: Reference = value_id
         self.value: ValueTypeIEC61360 = value
+        self.value_id: Optional[Reference] = value_id
 
     def __repr__(self) -> str:
         return "ValueReferencePair(value={}, value_id={})".format(self.value, self.value_id)
@@ -2021,8 +2077,10 @@ class NamespaceSet(MutableSet[_NSO], Generic[_NSO]):
 
     def pop(self) -> _NSO:
         _, value = next(iter(self._backend.values()))[0].popitem()
+        for key_attr_name, (backend_dict, case_sensitive) in self._backend.items():
+            key_attr_value = self._get_attribute(value, key_attr_name, case_sensitive)
+            backend_dict.pop(key_attr_value, None)
         self._execute_item_del_hook(value)
-        value.parent = None
         return value
 
     def clear(self) -> None:
@@ -2183,9 +2241,15 @@ class OrderedNamespaceSet(NamespaceSet[_NSO], MutableSequence[_NSO], Generic[_NS
 
     def __setitem__(self, s, o) -> None:
         if isinstance(s, int):
-            deleted_items = [self._order[s]]
-            super().add(o)
+            old_item = self._order[s]
+            super().remove(old_item)
+            try:
+                super().add(o)
+            except Exception:
+                super().add(old_item)
+                raise
             self._order[s] = o
+            return
         else:
             deleted_items = self._order[s]
             new_items = itertools.islice(o, len(deleted_items))
@@ -2199,7 +2263,7 @@ class OrderedNamespaceSet(NamespaceSet[_NSO], MutableSequence[_NSO], Generic[_NS
                 for i in successful_new_items:
                     super().remove(i)
                 raise
-            self._order[s] = new_items
+            self._order[s] = successful_new_items
         for i in deleted_items:
             super().remove(i)
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2025 the Eclipse BaSyx Authors
+# Copyright (c) 2026 the Eclipse BaSyx Authors
 #
 # This program and the accompanying materials are made available under the terms of the MIT License, available in
 # the LICENSE file of this project.
@@ -100,10 +100,15 @@ class ReferableTest(unittest.TestCase):
         test_object = ExampleReferable()
         test_object.id_short = "Test"
         self.assertEqual("Test", test_object.id_short)
-        test_object.id_short = "asdASd123_"
-        self.assertEqual("asdASd123_", test_object.id_short)
+        test_object.id_short = "asdASd-123_"
+        self.assertEqual("asdASd-123_", test_object.id_short)
         test_object.id_short = "AAs12_"
         self.assertEqual("AAs12_", test_object.id_short)
+        test_object.id_short = "A"
+        self.assertEqual("A", test_object.id_short)
+        with self.assertRaises(model.AASConstraintViolation) as cm:
+            test_object.id_short = "Test-"
+        self.assertEqual("The id_short must not end with a hyphen (Constraint AASd-002)", str(cm.exception))
         with self.assertRaises(model.AASConstraintViolation) as cm:
             test_object.id_short = "98sdsfdAS"
         self.assertEqual("The id_short must start with a letter (Constraint AASd-002)", str(cm.exception))
@@ -113,12 +118,12 @@ class ReferableTest(unittest.TestCase):
         with self.assertRaises(model.AASConstraintViolation) as cm:
             test_object.id_short = "asdlujSAD8348@S"
         self.assertEqual(
-            "The id_short must contain only letters, digits and underscore (Constraint AASd-002)",
+            "The id_short must contain only letters, digits underscore and hyphen (Constraint AASd-002)",
             str(cm.exception))
         with self.assertRaises(model.AASConstraintViolation) as cm:
             test_object.id_short = "abc\n"
         self.assertEqual(
-            "The id_short must contain only letters, digits and underscore (Constraint AASd-002)",
+            "The id_short must contain only letters, digits underscore and hyphen (Constraint AASd-002)",
             str(cm.exception))
 
     def test_representation(self):
@@ -247,7 +252,7 @@ class ReferableTest(unittest.TestCase):
         self.assertIs(example_relel.parent, example_submodel)
 
     def test_update_commit_qualifier_extension_semantic_id(self):
-        submodel = model.Submodel("https://acplt.org/Test_Submodel")
+        submodel = model.Submodel("https://example.org/Test_Submodel")
         qualifier = model.Qualifier("test", model.datatypes.String)
         extension = model.Extension("test")
         collection = model.SubmodelElementCollection("test")
@@ -308,11 +313,11 @@ class ModelNamespaceTest(unittest.TestCase):
 
     def setUp(self):
         self.propSemanticID = model.ExternalReference((model.Key(type_=model.KeyTypes.GLOBAL_REFERENCE,
-                                                                 value='http://acplt.org/Test1'),))
+                                                                 value='http://example.org/Test1'),))
         self.propSemanticID2 = model.ExternalReference((model.Key(type_=model.KeyTypes.GLOBAL_REFERENCE,
-                                                                  value='http://acplt.org/Test2'),))
+                                                                  value='http://example.org/Test2'),))
         self.propSemanticID3 = model.ExternalReference((model.Key(type_=model.KeyTypes.GLOBAL_REFERENCE,
-                                                                  value='http://acplt.org/Test3'),))
+                                                                  value='http://example.org/Test3'),))
         self.prop1 = model.Property("Prop1", model.datatypes.Int, semantic_id=self.propSemanticID)
         self.prop2 = model.Property("Prop2", model.datatypes.Int, semantic_id=self.propSemanticID)
         self.prop3 = model.Property("Prop2", model.datatypes.Int, semantic_id=self.propSemanticID2)
@@ -333,6 +338,18 @@ class ModelNamespaceTest(unittest.TestCase):
         self.namespace = self._namespace_class()
         self.namespace3 = self._namespace_class_qualifier()
 
+    def test_namespaceset_pop_removes_from_all_backends(self) -> None:
+        # set1 has two backends: id_short and semantic_id
+        self.namespace.set1.add(self.prop1)
+        popped = self.namespace.set1.pop()
+        self.assertIs(self.prop1, popped)
+        self.assertEqual(0, len(self.namespace.set1))
+        # After pop, adding a new item with the same semantic_id must NOT raise AASConstraintViolation —
+        # it would if the popped item's semantic_id entry were still in the backend
+        new_prop = model.Property("NewProp", model.datatypes.Int, semantic_id=self.propSemanticID)
+        self.namespace.set1.add(new_prop)
+        self.assertEqual(1, len(self.namespace.set1))
+
     def test_NamespaceSet(self) -> None:
         self.namespace.set1.add(self.prop1)
         self.assertEqual(1, len(self.namespace.set1))
@@ -340,7 +357,7 @@ class ModelNamespaceTest(unittest.TestCase):
             self.namespace.set1.add(self.prop2)
         self.assertEqual(
             "Object with attribute (name='semantic_id', value='ExternalReference(key=(Key("
-            "type=GLOBAL_REFERENCE, value=http://acplt.org/Test1),))') is already present in this set of objects "
+            "type=GLOBAL_REFERENCE, value=http://example.org/Test1),))') is already present in this set of objects "
             "(Constraint AASd-000)",
             str(cm.exception))
         self.namespace.set2.add(self.prop5)
@@ -355,7 +372,7 @@ class ModelNamespaceTest(unittest.TestCase):
             self.namespace.set2.add(self.prop4)
         self.assertEqual(
             "Object with attribute (name='semantic_id', value='"
-            "ExternalReference(key=(Key(type=GLOBAL_REFERENCE, value=http://acplt.org/Test1),))')"
+            "ExternalReference(key=(Key(type=GLOBAL_REFERENCE, value=http://example.org/Test1),))')"
             " is already present in another set in the same namespace (Constraint AASd-000)",
             str(cm.exception))
 
@@ -722,6 +739,62 @@ class ModelOrderedNamespaceTest(ModelNamespaceTest):
                          f"{self._namespace_class.__name__}[{self.namespace.id}]'",  # type: ignore[has-type]
                          str(cm2.exception))
 
+    def test_ordered_namespaceset_int_setitem_preserves_index(self) -> None:
+        # __setitem__ int must place the new item at the exact index of the replaced item.
+        # Items before and after the replaced index must not shift.
+        ns = ExampleOrderedNamespace()
+        sid1 = model.ExternalReference((model.Key(model.KeyTypes.GLOBAL_REFERENCE, "http://example.org/s1"),))
+        sid2 = model.ExternalReference((model.Key(model.KeyTypes.GLOBAL_REFERENCE, "http://example.org/s2"),))
+        sid3 = model.ExternalReference((model.Key(model.KeyTypes.GLOBAL_REFERENCE, "http://example.org/s3"),))
+        sid4 = model.ExternalReference((model.Key(model.KeyTypes.GLOBAL_REFERENCE, "http://example.org/s4"),))
+        p0 = model.Property("PA", model.datatypes.Int, semantic_id=sid1)
+        old = model.Property("PB", model.datatypes.Int, semantic_id=sid2)
+        p2 = model.Property("PC", model.datatypes.Int, semantic_id=sid3)
+        new = model.Property("PB", model.datatypes.Int, semantic_id=sid4)  # same id_short as old
+        ns.set1.add(p0)
+        ns.set1.add(old)
+        ns.set1.add(p2)
+        # set1 is [p0, old, p2] at indices [0, 1, 2]
+
+        # Replace middle item (index 1) — same id_short must not raise AASConstraintViolation
+        ns.set1[1] = new
+
+        # p0 stays at 0, new is at 1, p2 stays at 2 — no index shift
+        self.assertIs(p0, ns.set1[0])
+        self.assertIs(new, ns.set1[1])
+        self.assertIs(p2, ns.set1[2])
+        self.assertIs(ns, new.parent)
+        self.assertIsNone(old.parent)
+
+    def test_ordered_namespaceset_slice_setitem_preserves_order(self) -> None:
+        # Replace a slice of items; the new items must appear in the correct positions after replacement
+        ns = ExampleOrderedNamespace()
+        sid1 = model.ExternalReference((model.Key(model.KeyTypes.GLOBAL_REFERENCE, "http://example.org/sid1"),))
+        sid2 = model.ExternalReference((model.Key(model.KeyTypes.GLOBAL_REFERENCE, "http://example.org/sid2"),))
+        sid3 = model.ExternalReference((model.Key(model.KeyTypes.GLOBAL_REFERENCE, "http://example.org/sid3"),))
+        sid4 = model.ExternalReference((model.Key(model.KeyTypes.GLOBAL_REFERENCE, "http://example.org/sid4"),))
+        sid5 = model.ExternalReference((model.Key(model.KeyTypes.GLOBAL_REFERENCE, "http://example.org/sid5"),))
+        p1 = model.Property("PA", model.datatypes.Int, semantic_id=sid1)
+        p2 = model.Property("PB", model.datatypes.Int, semantic_id=sid2)
+        p3 = model.Property("PC", model.datatypes.Int, semantic_id=sid3)
+        ns.set1.add(p1)
+        ns.set1.add(p2)
+        ns.set1.add(p3)
+        self.assertEqual([p1, p2, p3], list(ns.set1))
+
+        # Replace slice [0:2] (p1, p2) with two new items
+        new1 = model.Property("PX", model.datatypes.Int, semantic_id=sid4)
+        new2 = model.Property("PY", model.datatypes.Int, semantic_id=sid5)
+        ns.set1[0:2] = [new1, new2]
+
+        # After replacement: [new1, new2, p3]
+        result = list(ns.set1)
+        self.assertEqual([new1, new2, p3], result)
+        self.assertIsNone(p1.parent)
+        self.assertIsNone(p2.parent)
+        self.assertIs(ns, new1.parent)
+        self.assertIs(ns, new2.parent)
+
 
 class ExternalReferenceTest(unittest.TestCase):
     def test_constraints(self):
@@ -854,12 +927,12 @@ class ModelReferenceTest(unittest.TestCase):
     def test_reference_typing(self) -> None:
         dummy_submodel = model.Submodel("urn:x-test:x")
 
-        class DummyObjectProvider(model.AbstractObjectProvider):
-            def get_identifiable(self, identifier: Identifier) -> Identifiable:
+        class DummyIdentifiableProvider(model.AbstractObjectProvider[model.Identifier, model.Identifiable]):
+            def get_item(self, identifier: Identifier) -> Identifiable:
                 return dummy_submodel
 
         x = model.ModelReference((model.Key(model.KeyTypes.SUBMODEL, "urn:x-test:x"),), model.Submodel)
-        submodel: model.Submodel = x.resolve(DummyObjectProvider())
+        submodel: model.Submodel = x.resolve(DummyIdentifiableProvider())
         self.assertIs(submodel, submodel)
 
     def test_resolve(self) -> None:
@@ -868,8 +941,8 @@ class ModelReferenceTest(unittest.TestCase):
         list_ = model.SubmodelElementList("list", model.SubmodelElementCollection, {collection})
         submodel = model.Submodel("urn:x-test:submodel", {list_})
 
-        class DummyObjectProvider(model.AbstractObjectProvider):
-            def get_identifiable(self, identifier: Identifier) -> Identifiable:
+        class DummyIdentifiableProvider(model.AbstractObjectProvider[model.Identifier, model.Identifiable]):
+            def get_item(self, identifier: Identifier) -> Identifiable:
                 if identifier == submodel.id:
                     return submodel
                 else:
@@ -881,7 +954,7 @@ class ModelReferenceTest(unittest.TestCase):
                                      model.Key(model.KeyTypes.PROPERTY, "prop")),
                                     model.Property)
         with self.assertRaises(KeyError) as cm:
-            ref1.resolve(DummyObjectProvider())
+            ref1.resolve(DummyIdentifiableProvider())
         self.assertEqual("'Referable with id_short lst not found in Submodel[urn:x-test:submodel]'", str(cm.exception))
 
         ref2 = model.ModelReference((model.Key(model.KeyTypes.SUBMODEL, "urn:x-test:submodel"),
@@ -890,7 +963,7 @@ class ModelReferenceTest(unittest.TestCase):
                                      model.Key(model.KeyTypes.PROPERTY, "prop")),
                                     model.Property)
         with self.assertRaises(KeyError) as cm_2:
-            ref2.resolve(DummyObjectProvider())
+            ref2.resolve(DummyIdentifiableProvider())
         self.assertEqual("'Referable with index 99 not found in SubmodelElementList[urn:x-test:submodel / list]'",
                          str(cm_2.exception))
 
@@ -899,7 +972,7 @@ class ModelReferenceTest(unittest.TestCase):
                                      model.Key(model.KeyTypes.SUBMODEL_ELEMENT_COLLECTION, "0"),
                                      model.Key(model.KeyTypes.PROPERTY, "prop")),
                                     model.Property)
-        self.assertIs(prop, ref3.resolve(DummyObjectProvider()))
+        self.assertIs(prop, ref3.resolve(DummyIdentifiableProvider()))
 
         ref4 = model.ModelReference((model.Key(model.KeyTypes.SUBMODEL, "urn:x-test:submodel"),
                                      model.Key(model.KeyTypes.SUBMODEL_ELEMENT_LIST, "list"),
@@ -908,7 +981,7 @@ class ModelReferenceTest(unittest.TestCase):
                                      model.Key(model.KeyTypes.PROPERTY, "prop")),
                                     model.Property)
         with self.assertRaises(TypeError) as cm_3:
-            ref4.resolve(DummyObjectProvider())
+            ref4.resolve(DummyIdentifiableProvider())
         self.assertEqual("Cannot resolve id_short or index 'prop' at Property[urn:x-test:submodel / list[0].prop], "
                          "because it is not a UniqueIdShortNamespace!", str(cm_3.exception))
 
@@ -919,14 +992,14 @@ class ModelReferenceTest(unittest.TestCase):
         ref5 = model.ModelReference((model.Key(model.KeyTypes.SUBMODEL, "urn:x-test:sub"),), model.Property)
         # Oh no, yet another typo!
         with self.assertRaises(KeyError) as cm_5:
-            ref5.resolve(DummyObjectProvider())
+            ref5.resolve(DummyIdentifiableProvider())
         self.assertEqual("'Could not resolve identifier urn:x-test:sub'", str(cm_5.exception))
 
         ref6 = model.ModelReference((model.Key(model.KeyTypes.SUBMODEL, "urn:x-test:submodel"),), model.Property)
         # Okay, typo is fixed, but the type is not what we expect. However, we should get the submodel via the
         # exception's value attribute
         with self.assertRaises(model.UnexpectedTypeError) as cm_6:
-            ref6.resolve(DummyObjectProvider())
+            ref6.resolve(DummyIdentifiableProvider())
         self.assertIs(submodel, cm_6.exception.value)
 
         with self.assertRaises(ValueError) as cm_7:
@@ -939,7 +1012,7 @@ class ModelReferenceTest(unittest.TestCase):
                                      model.Key(model.KeyTypes.PROPERTY, "prop_false")), model.Property)
 
         with self.assertRaises(KeyError) as cm_8:
-            ref8.resolve(DummyObjectProvider())
+            ref8.resolve(DummyIdentifiableProvider())
         self.assertEqual("'Referable with id_short prop_false not found in "
                          "SubmodelElementCollection[urn:x-test:submodel / list[0]]'", str(cm_8.exception))
 
@@ -949,7 +1022,7 @@ class ModelReferenceTest(unittest.TestCase):
                                     model.SubmodelElementCollection)
 
         with self.assertRaises(ValueError) as cm_9:
-            ref9.resolve(DummyObjectProvider())
+            ref9.resolve(DummyIdentifiableProvider())
         self.assertEqual("Cannot resolve 'collection' at SubmodelElementList[urn:x-test:submodel / list], "
                          "because it is not a numeric index!", str(cm_9.exception))
 
@@ -1230,20 +1303,28 @@ class ConstrainedListTest(unittest.TestCase):
 
 class LangStringSetTest(unittest.TestCase):
     def test_language_tag_constraints(self) -> None:
+        with self.assertRaises(ValueError):
+            model.LangStringSet({"": "bar"})
+
         with self.assertRaises(ValueError) as cm:
-            model.LangStringSet({"foo": "bar"})
-        self.assertEqual("The language code of the language tag must consist of exactly two lower-case letters! "
-                         "Given language tag and language code: 'foo', 'foo'", str(cm.exception))
+            model.LangStringSet({"x": "bar"})
+        self.assertEqual(f"The language tag must follow the format defined in BCP 47. "
+                         f"Given language tag: x", cm.exception.args[0])
+
+        with self.assertRaises(ValueError) as cm:
+            model.LangStringSet({"foo-oo1": "bar"})
+        self.assertEqual(f"The language tag must follow the format defined in BCP 47. "
+                         f"Given language tag: foo-oo1", cm.exception.args[0])
 
         lss = model.LangStringSet({"fo-OO": "bar"})
-        with self.assertRaises(ValueError) as cm:
-            lss["foo"] = "bar"
-        self.assertEqual("The language code of the language tag must consist of exactly two lower-case letters! "
-                         "Given language tag and language code: 'foo', 'foo'", str(cm.exception))
-        self.assertNotIn("foo", lss)
-        self.assertNotIn("fo", lss)
-        lss["fo"] = "bar"
-        self.assertIn("fo", lss)
+        self.assertIn("fo-OO", lss)
+        with self.assertRaises(ValueError):
+            lss["foo-oo1"] = "bar"
+        self.assertNotIn("foo-oo1", lss)
+
+        self.assertNotIn("foo-ASDF-OO", lss)
+        lss["foo-ASDF-OO"] = "bar"
+        self.assertIn("foo-ASDF-OO", lss)
 
     def test_empty(self) -> None:
         lss = model.LangStringSet({"fo": "bar", "fo-OO": "baz"})
@@ -1261,15 +1342,15 @@ class LangStringSetTest(unittest.TestCase):
 
     def test_text_constraints(self) -> None:
         with self.assertRaises(ValueError) as cm:
-            model.MultiLanguageNameType({"fo": "o" * 65})
+            model.MultiLanguageNameType({"fo": "o" * 129})
         self.assertEqual("The text for the language tag 'fo' is invalid: MultiLanguageNameType has a maximum length of "
-                         "64! (length: 65)", str(cm.exception))
-        mlnt = model.MultiLanguageNameType({"fo": "o" * 64})
+                         "128! (length: 129)", str(cm.exception))
+        mlnt = model.MultiLanguageNameType({"fo": "o" * 128})
         with self.assertRaises(ValueError) as cm:
             mlnt["fo"] = ""
         self.assertEqual("The text for the language tag 'fo' is invalid: MultiLanguageNameType has a minimum length of "
                          "1! (length: 0)", str(cm.exception))
-        self.assertEqual(mlnt["fo"], "o" * 64)
+        self.assertEqual(mlnt["fo"], "o" * 128)
         mlnt["fo"] = "o"
         self.assertEqual(mlnt["fo"], "o")
 

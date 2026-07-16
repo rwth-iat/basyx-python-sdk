@@ -8,7 +8,6 @@ for Industry 4.0 Systems.
 ## Features
 
 * Modelling of AASs as Python objects
-    * **except for**: *HasDataSpecification*
 * Reading and writing of AASX package files
 * (De-)serialization of AAS objects into/from JSON and XML
 * Storing of AAS objects in CouchDB, Backend infrastructure for easy expansion 
@@ -17,7 +16,7 @@ for Industry 4.0 Systems.
 
 ### Project Structure
 
-The BaSyx Python SDK project provides the `basax.aas` Python package with 6 submodules:
+The BaSyx Python SDK project provides the `basyx.aas` Python package with 5 submodules:
 
 * `basyx.aas.model`: The AAS metamodel implemented in python
 * `basyx.aas.adapter`: Adapters for various file formats 
@@ -55,7 +54,7 @@ Development/testing/documentation/example dependencies:
 * `lxml-stubs` (Apache License)
 * `types-python-dateutil` (Apache License v2.0)
 
-Dependencies for building the documentation (see `docs/add-requirements.txt`):
+Dependencies for building the documentation (see the `docs` extra in `pyproject.toml`):
 * `Sphinx` and its dependencies (BSD 2-clause License, MIT License, Apache License)
 * `sphinx-rtd-theme` and its dependencies (MIT License, PSF License)
 * `sphinx-argparse` (MIT License)
@@ -87,7 +86,7 @@ Create a `Submodel`:
 ```python
 from basyx.aas import model  # Import all BaSyx Python SDK classes from the model package
 
-identifier = 'https://acplt.org/Simple_Submodel'
+identifier = 'https://example.org/Simple_Submodel'
 submodel = model.Submodel(identifier)
 ```
 
@@ -97,7 +96,7 @@ Create a `Property` and add it to the `Submodel`:
 semantic_reference = model.ExternalReference(
     (model.Key(
         type_=model.KeyTypes.GLOBAL_REFERENCE,
-        value='http://acplt.org/Properties/SimpleProperty'
+        value='http://example.org/Properties/SimpleProperty'
     ),)
 )
 property = model.Property(
@@ -113,7 +112,7 @@ Serialize the `Submodel` to XML:
 ```python
 from basyx.aas.adapter.xml import write_aas_xml_file
 
-data: model.DictObjectStore[model.Identifiable] = model.DictObjectStore()
+data: model.DictIdentifiableStore[model.Identifiable] = model.DictIdentifiableStore()
 data.add(submodel)
 write_aas_xml_file(file='Simple_Submodel.xml', data=data)
 ```
@@ -124,10 +123,11 @@ write_aas_xml_file(file='Simple_Submodel.xml', data=data)
 For further examples and tutorials, check out the `basyx.aas.examples`-package. Here is a quick overview:
 
 * [`tutorial_create_simple_aas`](./basyx/aas/examples/tutorial_create_simple_aas.py): Create an Asset Administration Shell, including an Asset object and a Submodel
+* [`tutorial_navigate_aas`](./basyx/aas/examples/tutorial_navigate_aas.py): Navigate Asset Administration Shell Submodels using IdShorts and IdShortPaths
 * [`tutorial_storage`](./basyx/aas/examples/tutorial_storage.py): Manage a larger number of Asset Administration Shells in an ObjectStore and resolve references
 * [`tutorial_serialization_deserialization`](./basyx/aas/examples/tutorial_serialization_deserialization.py): Use the JSON and XML serialization/deserialization for single objects or full standard-compliant files
 * [`tutorial_aasx`](./basyx/aas/examples/tutorial_aasx.py): Export Asset Administration Shells with related objects and auxiliary files to AASX package files
-* [`tutorial_backend_couchdb`](./basyx/aas/examples/tutorial_backend_couchdb.py): Use the *CouchDBObjectStore* to manage and retrieve AAS objects in a CouchDB document database
+* [`tutorial_backend_couchdb`](./basyx/aas/examples/tutorial_backend_couchdb.py): Use the *CouchDBIdentifiableStore* to manage and retrieve AAS objects in a CouchDB document database
 
 
 ### Documentation

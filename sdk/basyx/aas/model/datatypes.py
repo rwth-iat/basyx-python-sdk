@@ -1,4 +1,4 @@
-# Copyright (c) 2025 the Eclipse BaSyx Authors
+# Copyright (c) 2026 the Eclipse BaSyx Authors
 #
 # This program and the accompanying materials are made available under the terms of the MIT License, available in
 # the LICENSE file of this project.
@@ -106,7 +106,12 @@ class GYearMonth:
         self.tzinfo: Optional[datetime.tzinfo] = tzinfo
 
     def into_date(self, day: int = 1) -> Date:
-        return Date(self.year, self.month, day, self.tzinfo)
+        try:
+            return Date(self.year, self.month, day, self.tzinfo)
+        except ValueError as e:
+            if self.year < 0:
+                raise ValueError("Negative years are not supported by Python's `datetime` library.") from e
+            raise e
 
     @classmethod
     def from_date(cls, date: datetime.date) -> "GYearMonth":
@@ -131,7 +136,12 @@ class GYear:
         self.tzinfo: Optional[datetime.tzinfo] = tzinfo
 
     def into_date(self, month: int = 1, day: int = 1) -> Date:
-        return Date(self.year, month, day, self.tzinfo)
+        try:
+            return Date(self.year, month, day, self.tzinfo)
+        except ValueError as e:
+            if self.year < 0:
+                raise ValueError("Negative years are not supported by Python's `datetime` library.") from e
+            raise e
 
     @classmethod
     def from_date(cls, date: datetime.date) -> "GYear":
@@ -166,7 +176,7 @@ class GMonthDay:
     @classmethod
     def from_date(cls, date: datetime.date) -> "GMonthDay":
         tzinfo = date.tzinfo if hasattr(date, 'tzinfo') else None  # type: ignore
-        return cls(date.month, date.year, tzinfo)
+        return cls(date.month, date.day, tzinfo)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, GMonthDay):
@@ -398,7 +408,8 @@ XSD_TYPE_NAMES: Dict[Type[AnyXSDType], str] = {k: "xs:" + v for k, v in {
     PositiveInteger: "positiveInteger",
     UnsignedLong: "unsignedLong",
     UnsignedShort: "unsignedShort",
-    UnsignedInt: "unsignedByte",
+    UnsignedInt: "unsignedInt",
+    UnsignedByte: "unsignedByte",
     AnyURI: "anyURI",
     String: "string",
     NormalizedString: "normalizedString",
@@ -604,27 +615,69 @@ def _parse_xsd_date(value: str) -> Date:
     if not match:
         raise ValueError("Value is not a valid XSD date string")
     if match[1]:
-        raise ValueError("Negative Dates are not supported by Python")
-    return Date(int(match[2]), int(match[3]), int(match[4]), _parse_xsd_date_tzinfo(match[5]))
+        raise NotImplementedError("Negative dates are not supported: Python stdlib datetime requires year >= 1. "
+                                  "Report at https://github.com/eclipse-basyx/basyx-python-sdk/issues")
+    return Date(
+        year=int(match[2]),
+        month=int(match[3]),
+        day=int(match[4]),
+        tzinfo=_parse_xsd_date_tzinfo(match[5]),
+    )
 
 
 def _parse_xsd_datetime(value: str) -> DateTime:
     match = DATETIME_RE.match(value)
     if not match:
-        raise ValueError("Value is not a valid XSD datetime string")
+        raise ValueError(f"{value} is not a valid XSD datetime string")
     if match[1]:
-        raise ValueError("Negative Dates are not supported by Python")
+        raise NotImplementedError("Negative dates are not supported: Python stdlib datetime requires year >= 1. "
+                                  "Report at https://github.com/eclipse-basyx/basyx-python-sdk/issues")
     microseconds = int(float(match[8]) * 1e6) if match[8] else 0
-    return DateTime(int(match[2]), int(match[3]), int(match[4]), int(match[5]), int(match[6]), int(match[7]),
-                    microseconds, _parse_xsd_date_tzinfo(match[9]))
+    hour = int(match[5])
+    # xsd_datetime allows for hour=24 to represent midnight,
+    # Python's datetime.DateTime doesn't.
+    # If we get an hour=24, we accept and parse it as hour=0 of the next day.
+    # See: https://github.com/eclipse-basys/basys-python-sdk/issues/564
+    is_midnight_24 = False
+    if hour == 24:
+        if int(match[6]) != 0 or int(match[7]) != 0 or microseconds != 0:
+            raise ValueError(f"{value} is not a valid xsd:datetime.")
+        hour = 0
+        is_midnight_24 = True
+    res = DateTime(
+        year=int(match[2]),
+        month=int(match[3]),
+        day=int(match[4]),
+        hour=hour,
+        minute=int(match[6]),
+        second=int(match[7]),
+        microsecond=microseconds,
+        tzinfo=_parse_xsd_date_tzinfo(match[9]),
+    )
+    return res + datetime.timedelta(days=1) if is_midnight_24 else res
 
 
 def _parse_xsd_time(value: str) -> Time:
     match = TIME_RE.match(value)
     if not match:
-        raise ValueError("Value is not a valid XSD datetime string")
+        raise ValueError(f"{value} is not a valid XSD time string")
     microseconds = int(float(match[4]) * 1e6) if match[4] else 0
-    return Time(int(match[1]), int(match[2]), int(match[3]), microseconds, _parse_xsd_date_tzinfo(match[5]))
+    hour = int(match[1])
+    # xsd_time allows for hour=24 to represent midnight,
+    # Python's datetime.Time doesn't.
+    # If we get an hour=24, we accept and parse it as hour=0.
+    # See: https://github.com/eclipse-basys/basys-python-sdk/issues/564
+    if hour == 24:
+        if int(match[2]) != 0 or int(match[3]) != 0 or microseconds != 0:
+            raise ValueError(f"{value} is not a valid xsd:time.")
+        hour = 0
+    return Time(
+        hour=hour,
+        minute=int(match[2]),
+        second=int(match[3]),
+        microsecond=microseconds,
+        tzinfo=_parse_xsd_date_tzinfo(match[5]),
+    )
 
 
 def _parse_xsd_bool(value: str) -> Boolean:
@@ -636,10 +689,10 @@ def _parse_xsd_bool(value: str) -> Boolean:
         raise ValueError("Invalid literal for XSD bool type")
 
 
-GYEAR_RE = re.compile(r'^(\d\d\d\d)([+\-]\d\d:\d\d|Z)?$')
+GYEAR_RE = re.compile(r'^(-?)(\d{4,})([+\-]\d\d:\d\d|Z)?$')
 GMONTH_RE = re.compile(r'^--(\d\d)([+\-]\d\d:\d\d|Z)?$')
 GDAY_RE = re.compile(r'^---(\d\d)([+\-]\d\d:\d\d|Z)?$')
-GYEARMONTH_RE = re.compile(r'^(\d\d\d\d)-(\d\d)([+\-]\d\d:\d\d|Z)?$')
+GYEARMONTH_RE = re.compile(r'^(-?)(\d{4,})-(\d\d)([+\-]\d\d:\d\d|Z)?$')
 GMONTHDAY_RE = re.compile(r'^--(\d\d)-(\d\d)([+\-]\d\d:\d\d|Z)?$')
 
 
@@ -647,7 +700,10 @@ def _parse_xsd_gyear(value: str) -> GYear:
     match = GYEAR_RE.match(value)
     if not match:
         raise ValueError("Value is not a valid XSD GYear string")
-    return GYear(int(match[1]), _parse_xsd_date_tzinfo(match[2]))
+    year = int(match[2])
+    if match[1]:
+        year = -year
+    return GYear(year, _parse_xsd_date_tzinfo(match[3]))
 
 
 def _parse_xsd_gmonth(value: str) -> GMonth:
@@ -668,7 +724,10 @@ def _parse_xsd_gyearmonth(value: str) -> GYearMonth:
     match = GYEARMONTH_RE.match(value)
     if not match:
         raise ValueError("Value is not a valid XSD GYearMonth string")
-    return GYearMonth(int(match[1]), int(match[2]), _parse_xsd_date_tzinfo(match[3]))
+    year = int(match[2])
+    if match[1]:
+        year = -year
+    return GYearMonth(year, int(match[3]), _parse_xsd_date_tzinfo(match[4]))
 
 
 def _parse_xsd_gmonthday(value: str) -> GMonthDay:

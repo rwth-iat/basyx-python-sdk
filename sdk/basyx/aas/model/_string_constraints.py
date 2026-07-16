@@ -1,4 +1,4 @@
-# Copyright (c) 2025 the Eclipse BaSyx Authors
+# Copyright (c) 2026 the Eclipse BaSyx Authors
 #
 # This program and the accompanying materials are made available under the terms of the MIT License, available in
 # the LICENSE file of this project.
@@ -21,7 +21,6 @@ The following types aliased in the :mod:`~basyx.aas.model.base` module are const
 - :class:`~basyx.aas.model.base.NameType`
 - :class:`~basyx.aas.model.base.PathType`
 - :class:`~basyx.aas.model.base.RevisionType`
-- :class:`~basyx.aas.model.base.ShortNameType`
 - :class:`~basyx.aas.model.base.QualifierType`
 - :class:`~basyx.aas.model.base.VersionType`
 - :class:`~basyx.aas.model.base.ValueTypeIEC61360`
@@ -64,11 +63,11 @@ def check(value: str, type_name: str, min_length: int = 0, max_length: Optional[
 
 
 def check_content_type(value: str, type_name: str = "ContentType") -> None:
-    return check(value, type_name, 1, 100)
+    return check(value, type_name, 1, 128)
 
 
 def check_identifier(value: str, type_name: str = "Identifier") -> None:
-    return check(value, type_name, 1, 2000)
+    return check(value, type_name, 1, 2048)
 
 
 def check_label_type(value: str, type_name: str = "LabelType") -> None:
@@ -84,7 +83,7 @@ def check_name_type(value: str, type_name: str = "NameType") -> None:
 
 
 def check_path_type(value: str, type_name: str = "PathType") -> None:
-    return check(value, type_name, 1, 2000)
+    return check(value, type_name, 1, 2048)
 
 
 def check_qualifier_type(value: str, type_name: str = "QualifierType") -> None:
@@ -95,12 +94,8 @@ def check_revision_type(value: str, type_name: str = "RevisionType") -> None:
     return check(value, type_name, 1, 4, re.compile(r"([0-9]|[1-9][0-9]*)"))
 
 
-def check_short_name_type(value: str, type_name: str = "ShortNameType") -> None:
-    return check(value, type_name, 1, 64)
-
-
 def check_value_type_iec61360(value: str, type_name: str = "ValueTypeIEC61360") -> None:
-    return check(value, type_name, 1, 2000)
+    return check(value, type_name, 1, 2048)
 
 
 def check_version_type(value: str, type_name: str = "VersionType") -> None:
@@ -110,14 +105,12 @@ def check_version_type(value: str, type_name: str = "VersionType") -> None:
 def create_check_function(min_length: int = 0, max_length: Optional[int] = None, pattern: Optional[re.Pattern] = None) \
         -> Callable[[str, str], None]:
     """
-    Returns a new ``check_type`` function with mandatory ``type_name`` for the given min_length, max_length and pattern
-    constraints.
+     Returns a ``check_type`` function for the given constraints.
 
-    This is the type-independent alternative to :func:`~.check_content_type`, :func:`~.check_identifier`, etc. It is
-    used for the definition of the :class:`ConstrainedLangStringSets <basyx.aas.model.base.ConstrainedLangStringSet>`,
-    as a "Basic" constrained string type only exists for :class:`~basyx.aas.model.base.MultiLanguageNameType`, where all
-    values are :class:`ShortNames <basyx.aas.model.base.ShortNameType>`. All other
-    :class:`:class:`ConstrainedLangStringSets <basyx.aas.model.base.ConstrainedLangStringSet>` use custom constraints.
+    Use this instead of the named :func:`~.check_content_type`, :func:`~.check_identifier`, etc. when the
+    constraints do not correspond to a predefined constrained string type — for example, in
+    :class:`ConstrainedLangStringSets <basyx.aas.model.base.ConstrainedLangStringSet>` that define their own
+    length and pattern rules.
     """
     def check_fn(value: str, type_name: str) -> None:
         return check(value, type_name, min_length, max_length, pattern)
@@ -175,10 +168,6 @@ def constrain_qualifier_type(pub_attr_name: str) -> Callable[[Type[_T]], Type[_T
 
 def constrain_revision_type(pub_attr_name: str) -> Callable[[Type[_T]], Type[_T]]:
     return constrain_attr(pub_attr_name, check_revision_type)
-
-
-def constrain_short_name_type(pub_attr_name: str) -> Callable[[Type[_T]], Type[_T]]:
-    return constrain_attr(pub_attr_name, check_short_name_type)
 
 
 def constrain_version_type(pub_attr_name: str) -> Callable[[Type[_T]], Type[_T]]:

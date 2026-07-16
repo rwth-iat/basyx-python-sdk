@@ -1,4 +1,4 @@
-# Copyright (c) 2025 the Eclipse BaSyx Authors
+# Copyright (c) 2026 the Eclipse BaSyx Authors
 #
 # This program and the accompanying materials are made available under the terms of the MIT License, available in
 # the LICENSE file of this project.
@@ -143,6 +143,8 @@ class TestDateTimeTypes(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             model.datatypes.from_xsd("2020-01-24+11", model.datatypes.Date)
         self.assertEqual("Value is not a valid XSD date string", str(cm.exception))
+        with self.assertRaises(NotImplementedError):
+            model.datatypes.from_xsd("-2020-01-24", model.datatypes.Date)
 
     def test_serialize_date(self) -> None:
         self.assertEqual("2020-01-24", model.datatypes.xsd_repr(model.datatypes.Date(2020, 1, 24)))
@@ -154,10 +156,18 @@ class TestDateTimeTypes(unittest.TestCase):
     def test_parse_partial_dates(self) -> None:
         self.assertEqual(model.datatypes.GYear(2019),
                          model.datatypes.from_xsd("2019", model.datatypes.GYear))
+        self.assertEqual(model.datatypes.GYear(-2001),
+                         model.datatypes.from_xsd("-2001", model.datatypes.GYear))
+        self.assertEqual(model.datatypes.GYear(20000),
+                         model.datatypes.from_xsd("20000", model.datatypes.GYear))
         self.assertEqual(model.datatypes.GMonth(7),
                          model.datatypes.from_xsd("--07", model.datatypes.GMonth))
         self.assertEqual(model.datatypes.GYearMonth(2020, 5),
                          model.datatypes.from_xsd("2020-05", model.datatypes.GYearMonth))
+        self.assertEqual(model.datatypes.GYearMonth(-2001, 10),
+                         model.datatypes.from_xsd("-2001-10", model.datatypes.GYearMonth))
+        self.assertEqual(model.datatypes.GYearMonth(20000, 5),
+                         model.datatypes.from_xsd("20000-05", model.datatypes.GYearMonth))
         self.assertEqual(model.datatypes.GMonthDay(12, 6),
                          model.datatypes.from_xsd("--12-06", model.datatypes.GMonthDay))
         self.assertEqual(model.datatypes.GDay(23),
@@ -177,6 +187,14 @@ class TestDateTimeTypes(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             model.datatypes.from_xsd("10-10", model.datatypes.GYearMonth)
         self.assertEqual("Value is not a valid XSD GYearMonth string", str(cm.exception))
+
+    def test_partial_dates_negative_year_into_date(self) -> None:
+        # Python's `datetime` library does not support negative years. Converting a G-Class with a negative year into a
+        # `Date` must therefore fail with a clear error message instead of the cryptic "year -2001 is out of range".
+        for value in (model.datatypes.GYear(-2001), model.datatypes.GYearMonth(-2001, 5)):
+            with self.assertRaises(ValueError) as cm:
+                value.into_date()
+            self.assertEqual("Negative years are not supported by Python's `datetime` library.", str(cm.exception))
 
     def test_copy_date(self) -> None:
         date = model.datatypes.Date(2020, 1, 24)
@@ -210,7 +228,9 @@ class TestDateTimeTypes(unittest.TestCase):
                          model.datatypes.from_xsd("2020-01-24T15:25:17-00:20", model.datatypes.DateTime))
         with self.assertRaises(ValueError) as cm:
             model.datatypes.from_xsd("--2020-01-24T15:25:17-00:20", model.datatypes.DateTime)
-        self.assertEqual("Value is not a valid XSD datetime string", str(cm.exception))
+        self.assertEqual("--2020-01-24T15:25:17-00:20 is not a valid XSD datetime string", str(cm.exception))
+        with self.assertRaises(NotImplementedError):
+            model.datatypes.from_xsd("-2020-01-24T15:25:17+01:00", model.datatypes.DateTime)
 
     def test_serialize_datetime(self) -> None:
         self.assertEqual("2020-01-24T15:25:17",
@@ -243,6 +263,31 @@ class TestDateTimeTypes(unittest.TestCase):
             datetime.time(15, 25, 17, tzinfo=datetime.timezone.utc)))
         self.assertEqual("15:25:17.250000+01:00", model.datatypes.xsd_repr(
             datetime.time(15, 25, 17, 250000, tzinfo=datetime.timezone(datetime.timedelta(hours=1)))))
+
+    def test_parse_datetime_midnight_24(self) -> None:
+        res = model.datatypes.from_xsd("2020-01-24T24:00:00", model.datatypes.DateTime)
+        self.assertEqual(datetime.datetime(2020, 1, 25, 0, 0, 0), res)
+        res_tz = model.datatypes.from_xsd("2020-01-24T24:00:00Z", model.datatypes.DateTime)
+        self.assertEqual(datetime.datetime(2020, 1, 25, 0, 0, 0, tzinfo=datetime.timezone.utc), res_tz)
+
+    def test_parse_datetime_midnight_24_invalid(self) -> None:
+        with self.assertRaises(ValueError) as cm:
+            model.datatypes.from_xsd("2020-01-24T24:01:00", model.datatypes.DateTime)
+        self.assertEqual(
+            "2020-01-24T24:01:00 is not a valid xsd:datetime.",
+            str(cm.exception))
+
+    def test_parse_time_midnight_24(self) -> None:
+        res = model.datatypes.from_xsd("24:00:00", model.datatypes.Time)
+        self.assertEqual(datetime.time(0, 0, 0), res)
+
+    def test_parse_time_midnight_24_invalid(self) -> None:
+        with self.assertRaises(ValueError) as cm:
+            model.datatypes.from_xsd("24:00:01", model.datatypes.Time)
+        self.assertEqual(
+            "24:00:01 is not a valid xsd:time.",
+            str(cm.exception)
+        )
 
     def test_trivial_cast(self) -> None:
         val = model.datatypes.trivial_cast(datetime.date(2017, 11, 13), model.datatypes.Date)

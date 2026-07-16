@@ -1,4 +1,4 @@
-# Copyright (c) 2025 the Eclipse BaSyx Authors
+# Copyright (c) 2026 the Eclipse BaSyx Authors
 #
 # This program and the accompanying materials are made available under the terms of the MIT License, available in
 # the LICENSE file of this project.
@@ -17,7 +17,7 @@ Each class contains a custom :meth:`~.AASToJsonEncoder.default` function which c
 simple python types for an automatic JSON serialization.
 To simplify the usage of this module, the :meth:`write_aas_json_file` and :meth:`object_store_to_json` are provided.
 The former is used to serialize a given :class:`~basyx.aas.model.provider.AbstractObjectStore` to a file, while the
-latter serializes the object store to a string and returns it.
+latter serializes the ObjectStore to a string and returns it.
 
 The serialization is performed in an iterative approach: The :meth:`~.AASToJsonEncoder.default` function gets called for
 every object and checks if an object is an BaSyx Python SDK object. In this case, it calls a special function for the
@@ -476,7 +476,8 @@ class AASToJsonEncoder(json.JSONEncoder):
         :return: dict with the serialized attributes of this object
         """
         data = cls._abstract_classes_to_json(obj)
-        data['contentType'] = obj.content_type
+        if obj.content_type is not None:
+            data['contentType'] = obj.content_type
         if obj.value is not None:
             data['value'] = base64.b64encode(obj.value).decode()
         return data
@@ -490,7 +491,8 @@ class AASToJsonEncoder(json.JSONEncoder):
         :return: dict with the serialized attributes of this object
         """
         data = cls._abstract_classes_to_json(obj)
-        data['contentType'] = obj.content_type
+        if obj.content_type is not None:
+            data['contentType'] = obj.content_type
         if obj.value is not None:
             data['value'] = obj.value
         return data
@@ -565,7 +567,10 @@ class AASToJsonEncoder(json.JSONEncoder):
         :return: dict with the serialized attributes of this object
         """
         data = cls._abstract_classes_to_json(obj)
-        data.update({'first': obj.first, 'second': obj.second})
+        if obj.first is not None:
+            data.update({'first': obj.first})
+        if obj.second is not None:
+            data.update({'second': obj.second})
         return data
 
     @classmethod
@@ -576,8 +581,7 @@ class AASToJsonEncoder(json.JSONEncoder):
         :param obj: object of class AnnotatedRelationshipElement
         :return: dict with the serialized attributes of this object
         """
-        data = cls._abstract_classes_to_json(obj)
-        data.update({'first': obj.first, 'second': obj.second})
+        data = cls._relationship_element_to_json(obj)
         if not cls.stripped and obj.annotation:
             data['annotations'] = list(obj.annotation)
         return data
@@ -635,10 +639,11 @@ class AASToJsonEncoder(json.JSONEncoder):
         data = cls._abstract_classes_to_json(obj)
         if not cls.stripped and obj.statement:
             data['statements'] = list(obj.statement)
-        data['entityType'] = _generic.ENTITY_TYPES[obj.entity_type]
-        if obj.global_asset_id:
+        if obj.entity_type is not None:
+            data['entityType'] = _generic.ENTITY_TYPES[obj.entity_type]
+        if obj.global_asset_id is not None:
             data['globalAssetId'] = obj.global_asset_id
-        if obj.specific_asset_id:
+        if obj.specific_asset_id is not None:
             data['specificAssetIds'] = list(obj.specific_asset_id)
         return data
 

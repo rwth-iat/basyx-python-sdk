@@ -7,13 +7,14 @@ for Industry 4.0 Systems.
 
 These are the implemented AAS specifications of the [current SDK release](https://github.com/eclipse-basyx/basyx-python-sdk/releases/latest), which can be also found on [PyPI](https://pypi.org/project/basyx-python-sdk/):
 
-| Specification                         | Version                                                                                                                                                                         |
-|---------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Part 1: Metamodel                     | [v3.0.1 (01001-3-0-1)](https://industrialdigitaltwin.org/wp-content/uploads/2024/06/IDTA-01001-3-0-1_SpecificationAssetAdministrationShell_Part1_Metamodel.pdf)                   |
-| Schemata (JSONSchema, XSD)            | [v3.0.8 (IDTA-01001-3-0-1_schemasV3.0.8)](https://github.com/admin-shell-io/aas-specs/releases/tag/IDTA-01001-3-0-1_schemasV3.0.8)                                              |
-| Part 2: API                           | [v3.0 (01002-3-0)](https://industrialdigitaltwin.org/en/wp-content/uploads/sites/2/2023/06/IDTA-01002-3-0_SpecificationAssetAdministrationShell_Part2_API_.pdf)                 |
-| Part 3a: Data Specification IEC 61360 | [v3.0 (01003-a-3-0)](https://industrialdigitaltwin.org/wp-content/uploads/2023/04/IDTA-01003-a-3-0_SpecificationAssetAdministrationShell_Part3a_DataSpecification_IEC61360.pdf) |
-| Part 5: Package File Format (AASX)    | [v3.0 (01005-3-0)](https://industrialdigitaltwin.org/wp-content/uploads/2023/04/IDTA-01005-3-0_SpecificationAssetAdministrationShell_Part5_AASXPackageFileFormat.pdf)           |
+| Specification                         | Version                                                                                                                                            |
+|---------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
+| Part 1: Metamodel                     | [v3.1.2 (01001-3-1-2)](https://industrialdigitaltwin.io/aas-specifications/IDTA-01001/v3.1.2/index.html)                                           |
+| Schemata (JSONSchema, XSD)            | [v3.1.2 (IDTA-01001-3-1-2)](https://github.com/admin-shell-io/aas-specs-metamodel/releases/tag/v3.1.2)                                             |
+| Part 2: API                           | [v3.1.1 (01002)](https://industrialdigitaltwin.org/en/wp-content/uploads/sites/2/2025/08/IDTA-01002-3-1-1_AAS-Specification_Part2_API.pdf)         |
+| Part 3a: Data Specification IEC 61360 | [v3.1.1 (01003-a)](https://industrialdigitaltwin.org/wp-content/uploads/2025/08/IDTA-01003-a-3-1-1_AAS-Specification_Part3a_DataSpecification.pdf) |
+| Part 5: Package File Format (AASX)    | [v3.1 (01005)](https://industrialdigitaltwin.org/wp-content/uploads/2025/06/IDTA_01005-25-01_AAS-Specification_Part5_AASXPackageFileFormat.pdf)    |
+
 
 If you need support to an older version of the specifications, please refer to our [prior releases](https://github.com/eclipse-basyx/basyx-python-sdk/releases). 
 Each of them has a similar table at the top of the release notes.
@@ -22,7 +23,7 @@ Each of them has a similar table at the top of the release notes.
 This repository is structured into separate packages. 
 The `sdk` directory provides the AAS metamodel as Python objects and fundamental functionalities to handle AAS.
 The `server` implements a specification-compliant Docker HTTP server for AASs.
-The `compliance_tool` is to be determined.
+The `compliance_tool` is a command-line tool for checking whether JSON and XML files comply with the AAS specification.
 
 * [SDK](./sdk/README.md):
   * Modelling of AASs as Python objects
@@ -35,6 +36,9 @@ The `compliance_tool` is to be determined.
 * [Server](./server/README.md): Docker Image of a specification compliant HTTP Server implementing the interfaces:
   * Asset Administration Shell Repository
   * Submodel Repository
+  * Asset Administration Shell Registry Service
+  * Submodel Registry Service
+  * Discovery
 * [Compliance Tool](./compliance_tool/README.md): A command-line tool for checking compliance of JSON and XML files
   to the specification of the AAS
 

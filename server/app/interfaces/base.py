@@ -1,4 +1,4 @@
-# Copyright (c) 2025 the Eclipse BaSyx Authors
+# Copyright (c) 2026 the Eclipse BaSyx Authors
 #
 # This program and the accompanying materials are made available under the terms of the MIT License, available in
 # the LICENSE file of this project.
@@ -10,23 +10,34 @@ import enum
 import io
 import itertools
 import json
-from typing import Iterable, Type, Iterator, Tuple, Optional, List, Union, Dict, Callable, TypeVar, Any
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Type, TypeVar, Union
 
 import werkzeug.exceptions
 import werkzeug.routing
 import werkzeug.utils
-from lxml import etree
-from werkzeug import Response, Request
-from werkzeug.exceptions import NotFound, BadRequest
-from werkzeug.routing import MapAdapter
-
 from basyx.aas import model
 from basyx.aas.adapter._generic import XML_NS_MAP
-from basyx.aas.adapter.json import StrictStrippedAASFromJsonDecoder, StrictAASFromJsonDecoder, AASToJsonEncoder
-from basyx.aas.adapter.xml import xml_serialization, XMLConstructables, read_aas_xml_element
+from basyx.aas.adapter.xml import XMLConstructables, read_aas_xml_element, xml_serialization
 from basyx.aas.model import AbstractObjectStore
-from util.converters import base64url_decode
+from basyx.aas.model.datatypes import NonNegativeInteger
+from lxml import etree
+from werkzeug import Request, Response
+from werkzeug.exceptions import BadRequest, NotFound
+from werkzeug.routing import MapAdapter
 
+import app.model
+from app.adapter import ServerAASToJsonEncoder, ServerStrictAASFromJsonDecoder, ServerStrictStrippedAASFromJsonDecoder
+from app.model import AssetAdministrationShellDescriptor, AssetLink, SubmodelDescriptor
+from app.util.converters import base64url_decode
+from . import _string_constraints
+
+# The following string aliases are constrained by the decorator functions defined in the string_constraints module,
+# wherever they are used for an instances attributes.
+CodeType = str
+ShortIdType = str
+LocatorType = str
+TextType = str
+SchemeType = str
 
 T = TypeVar("T")
 
@@ -43,14 +54,21 @@ class MessageType(enum.Enum):
         return self.name.capitalize()
 
 
+@_string_constraints.constrain_code_type("code")
 class Message:
-    def __init__(self, code: str, text: str, message_type: MessageType = MessageType.UNDEFINED,
-                 timestamp: Optional[datetime.datetime] = None):
-        self.code: str = code
+    def __init__(
+        self,
+        code: CodeType,
+        text: str,
+        message_type: MessageType = MessageType.UNDEFINED,
+        timestamp: Optional[datetime.datetime] = None,
+    ):
+        self.code: CodeType = code
         self.text: str = text
         self.message_type: MessageType = message_type
-        self.timestamp: datetime.datetime = timestamp if timestamp is not None \
-            else datetime.datetime.now(datetime.timezone.utc)
+        self.timestamp: datetime.datetime = (
+            timestamp if timestamp is not None else datetime.datetime.now(datetime.timezone.utc)
+        )
 
 
 class Result:
@@ -64,18 +82,25 @@ class Result:
 ResponseData = Union[Result, object, List[object]]
 
 
+class PagingMetadata:
+    def __init__(self, cursor: Optional[str] = None):
+        self.cursor = cursor
+
+
 class APIResponse(abc.ABC, Response):
     @abc.abstractmethod
-    def __init__(self, obj: Optional[ResponseData] = None, cursor: Optional[int] = None,
-                 stripped: bool = False, *args, **kwargs):
+    def __init__(
+            self, obj: Optional[ResponseData] = None, paging_metadata: Optional[PagingMetadata] = None,
+            stripped: bool = False, *args, **kwargs
+    ):
         super().__init__(*args, **kwargs)
         if obj is None:
             self.status_code = 204
         else:
-            self.data = self.serialize(obj, cursor, stripped)
+            self.data = self.serialize(obj, paging_metadata, stripped)
 
     @abc.abstractmethod
-    def serialize(self, obj: ResponseData, cursor: Optional[int], stripped: bool) -> str:
+    def serialize(self, obj: ResponseData, paging_metadata: Optional[PagingMetadata], stripped: bool) -> str:
         pass
 
 
@@ -83,18 +108,13 @@ class JsonResponse(APIResponse):
     def __init__(self, *args, content_type="application/json", **kwargs):
         super().__init__(*args, **kwargs, content_type=content_type)
 
-    def serialize(self, obj: ResponseData, cursor: Optional[int], stripped: bool) -> str:
-        if cursor is None:
+    def serialize(self, obj: ResponseData, paging_metadata: Optional[PagingMetadata], stripped: bool) -> str:
+        if paging_metadata is None:
             data = obj
         else:
-            data = {
-                "paging_metadata": {"cursor": str(cursor)},
-                "result": obj
-            }
+            data = {"paging_metadata": paging_metadata, "result": obj}
         return json.dumps(
-            data,
-            cls=StrippedResultToJsonEncoder if stripped else ResultToJsonEncoder,
-            separators=(",", ":")
+            data, cls=StrippedResultToJsonEncoder if stripped else ResultToJsonEncoder, separators=(",", ":")
         )
 
 
@@ -102,10 +122,10 @@ class XmlResponse(APIResponse):
     def __init__(self, *args, content_type="application/xml", **kwargs):
         super().__init__(*args, **kwargs, content_type=content_type)
 
-    def serialize(self, obj: ResponseData, cursor: Optional[int], stripped: bool) -> str:
+    def serialize(self, obj: ResponseData, paging_metadata: Optional[PagingMetadata], stripped: bool) -> str:
         root_elem = etree.Element("response", nsmap=XML_NS_MAP)
-        if cursor is not None:
-            root_elem.set("cursor", str(cursor))
+        if paging_metadata is not None:
+            root_elem.set("cursor", str(paging_metadata.cursor))
         if isinstance(obj, Result):
             result_elem = self.result_to_xml(obj, **XML_NS_MAP)
             for child in result_elem:
@@ -159,13 +179,10 @@ class XmlResponseAlt(XmlResponse):
         super().__init__(*args, **kwargs, content_type=content_type)
 
 
-class ResultToJsonEncoder(AASToJsonEncoder):
+class ResultToJsonEncoder(ServerAASToJsonEncoder):
     @classmethod
     def _result_to_json(cls, result: Result) -> Dict[str, object]:
-        return {
-            "success": result.success,
-            "messages": result.messages
-        }
+        return {"success": result.success, "messages": result.messages}
 
     @classmethod
     def _message_to_json(cls, message: Message) -> Dict[str, object]:
@@ -173,8 +190,15 @@ class ResultToJsonEncoder(AASToJsonEncoder):
             "messageType": message.message_type,
             "text": message.text,
             "code": message.code,
-            "timestamp": message.timestamp.isoformat()
+            "timestamp": message.timestamp.isoformat(),
         }
+
+    @classmethod
+    def _paging_metadata_to_json(cls, metadata: PagingMetadata) -> Dict[str, object]:
+        json_result: Dict[str, object] = dict()
+        if metadata.cursor is not None:
+            json_result["cursor"] = str(metadata.cursor)
+        return json_result
 
     def default(self, obj: object) -> object:
         if isinstance(obj, Result):
@@ -183,6 +207,8 @@ class ResultToJsonEncoder(AASToJsonEncoder):
             return self._message_to_json(obj)
         if isinstance(obj, MessageType):
             return str(obj)
+        if isinstance(obj, PagingMetadata):
+            return self._paging_metadata_to_json(obj)
         return super().default(obj)
 
 
@@ -199,19 +225,23 @@ class BaseWSGIApp:
         return response(environ, start_response)
 
     @classmethod
-    def _get_slice(cls, request: Request, iterator: Iterable[T]) -> Tuple[Iterator[T], int]:
-        limit_str = request.args.get('limit', default="10")
-        cursor_str = request.args.get('cursor', default="1")
+    def _get_slice(cls, request: Request, iterator: Iterable[T]) -> Tuple[Iterator[T], Optional[PagingMetadata]]:
+        limit_str = request.args.get("limit", default="100")
+        cursor_str = request.args.get("cursor", default="1")
         try:
-            limit, cursor = int(limit_str), int(cursor_str) - 1  # cursor is 1-indexed
-            if limit < 0 or cursor < 0:
-                raise ValueError
+            limit, cursor = (NonNegativeInteger(int(limit_str)),
+                             NonNegativeInteger(int(cursor_str) - 1))  # cursor is 1-indexed
         except ValueError:
             raise BadRequest("Limit can not be negative, cursor must be positive!")
         start_index = cursor
         end_index = cursor + limit
-        paginated_slice = itertools.islice(iterator, start_index, end_index)
-        return paginated_slice, end_index
+        items = list(itertools.islice(iterator, start_index, end_index + 1))
+        has_more = len(items) > limit
+        paginated_slice = iter(items[:limit])
+        next_cursor = str(cursor + limit + 1) if has_more else None
+
+        paging_metadata = PagingMetadata(cursor=next_cursor)
+        return paginated_slice, paging_metadata
 
     def handle_request(self, request: Request):
         map_adapter: MapAdapter = self.url_map.bind_to_environ(request.environ)
@@ -234,27 +264,31 @@ class BaseWSGIApp:
         response_types: Dict[str, Type[APIResponse]] = {
             "application/json": JsonResponse,
             "application/xml": XmlResponse,
-            "text/xml": XmlResponseAlt
+            "text/xml": XmlResponseAlt,
         }
         if len(request.accept_mimetypes) == 0 or request.accept_mimetypes.best in (None, "*/*"):
             return JsonResponse
         mime_type = request.accept_mimetypes.best_match(response_types)
         if mime_type is None:
-            raise werkzeug.exceptions.NotAcceptable("This server supports the following content types: "
-                                                    + ", ".join(response_types.keys()))
+            raise werkzeug.exceptions.NotAcceptable(
+                "This server supports the following content types: " + ", ".join(response_types.keys())
+            )
         return response_types[mime_type]
 
     @staticmethod
-    def http_exception_to_response(exception: werkzeug.exceptions.HTTPException, response_type: Type[APIResponse]) \
-            -> APIResponse:
+    def http_exception_to_response(
+        exception: werkzeug.exceptions.HTTPException, response_type: Type[APIResponse]
+    ) -> APIResponse:
         headers = exception.get_headers()
         location = exception.get_response().location
         if location is not None:
             headers.append(("Location", location))
         if exception.code and exception.code >= 400:
-            message = Message(type(exception).__name__,
-                              exception.description if exception.description is not None else "",
-                              MessageType.ERROR)
+            message = Message(
+                type(exception).__name__,
+                exception.description if exception.description is not None else "",
+                MessageType.ERROR,
+            )
             result = Result(False, [message])
         else:
             result = Result(False)
@@ -264,12 +298,12 @@ class BaseWSGIApp:
 class ObjectStoreWSGIApp(BaseWSGIApp):
     object_store: AbstractObjectStore
 
-    def _get_all_obj_of_type(self, type_: Type[model.provider._IT]) -> Iterator[model.provider._IT]:
+    def _get_all_obj_of_type(self, type_: Type[T]) -> Iterator[T]:
         for obj in self.object_store:
             if isinstance(obj, type_):
                 yield obj
 
-    def _get_obj_ts(self, identifier: model.Identifier, type_: Type[model.provider._IT]) -> model.provider._IT:
+    def _get_obj_ts(self, identifier: model.Identifier, type_: Type[T]) -> T:
         identifiable = self.object_store.get(identifier)
         if not isinstance(identifiable, type_):
             raise NotFound(f"No {type_.__name__} with {identifier} found!")
@@ -292,7 +326,12 @@ class HTTPApiDecoder:
 
     @classmethod
     def check_type_support(cls, type_: type):
-        if type_ not in cls.type_constructables_map:
+        tolerated_types = (
+            AssetAdministrationShellDescriptor,
+            SubmodelDescriptor,
+            AssetLink,
+        )
+        if type_ not in cls.type_constructables_map and type_ not in tolerated_types:
             raise TypeError(f"Parsing {type_} is not supported!")
 
     @classmethod
@@ -304,8 +343,9 @@ class HTTPApiDecoder:
     @classmethod
     def json_list(cls, data: Union[str, bytes], expect_type: Type[T], stripped: bool, expect_single: bool) -> List[T]:
         cls.check_type_support(expect_type)
-        decoder: Type[StrictAASFromJsonDecoder] = StrictStrippedAASFromJsonDecoder if stripped \
-            else StrictAASFromJsonDecoder
+        decoder: Type[ServerStrictAASFromJsonDecoder] = (
+            ServerStrictStrippedAASFromJsonDecoder if stripped else ServerStrictAASFromJsonDecoder
+        )
         try:
             parsed = json.loads(data, cls=decoder)
             if isinstance(parsed, list) and expect_single:
@@ -324,6 +364,9 @@ class HTTPApiDecoder:
                 model.SpecificAssetId: decoder._construct_specific_asset_id,
                 model.Reference: decoder._construct_reference,
                 model.Qualifier: decoder._construct_qualifier,
+                app.model.AssetAdministrationShellDescriptor: decoder._construct_asset_administration_shell_descriptor,
+                app.model.SubmodelDescriptor: decoder._construct_submodel_descriptor,
+                app.model.AssetLink: decoder._construct_asset_link,
             }
 
             constructor: Optional[Callable[..., T]] = mapping.get(expect_type)  # type: ignore[assignment]
@@ -359,8 +402,9 @@ class HTTPApiDecoder:
         cls.check_type_support(expect_type)
         try:
             xml_data = io.BytesIO(data)
-            rv = read_aas_xml_element(xml_data, cls.type_constructables_map[expect_type],
-                                      stripped=stripped, failsafe=False)
+            rv = read_aas_xml_element(
+                xml_data, cls.type_constructables_map[expect_type], stripped=stripped, failsafe=False
+            )
         except (KeyError, ValueError) as e:
             # xml deserialization creates an error chain. since we only return one error, return the root cause
             f: BaseException = e
@@ -385,8 +429,8 @@ class HTTPApiDecoder:
 
         if request.mimetype not in valid_content_types:
             raise werkzeug.exceptions.UnsupportedMediaType(
-                f"Invalid content-type: {request.mimetype}! Supported types: "
-                + ", ".join(valid_content_types))
+                f"Invalid content-type: {request.mimetype}! Supported types: " + ", ".join(valid_content_types)
+            )
 
         if request.mimetype == "application/json":
             return cls.json(request.get_data(), expect_type, stripped)

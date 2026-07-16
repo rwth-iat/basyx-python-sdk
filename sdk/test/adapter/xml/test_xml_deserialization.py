@@ -1,4 +1,4 @@
-# Copyright (c) 2025 the Eclipse BaSyx Authors
+# Copyright (c) 2026 the Eclipse BaSyx Authors
 #
 # This program and the accompanying materials are made available under the terms of the MIT License, available in
 # the LICENSE file of this project.
@@ -77,9 +77,9 @@ class XmlDeserializationTest(unittest.TestCase):
         xml = _xml_wrap("""
         <aas:assetAdministrationShells>
             <aas:assetAdministrationShell>
-                <aas:id>http://acplt.org/test_aas</aas:id>
+                <aas:id>http://example.org/test_aas</aas:id>
                 <aas:assetInformation>
-                    <aas:globalAssetId>http://acplt.org/TestAsset/</aas:globalAssetId>
+                    <aas:globalAssetId>http://example.org/TestAsset/</aas:globalAssetId>
                 </aas:assetInformation>
             </aas:assetAdministrationShell>
         </aas:assetAdministrationShells>
@@ -90,10 +90,10 @@ class XmlDeserializationTest(unittest.TestCase):
         xml = _xml_wrap("""
         <aas:assetAdministrationShells>
             <aas:assetAdministrationShell>
-                <aas:id>http://acplt.org/test_aas</aas:id>
+                <aas:id>http://example.org/test_aas</aas:id>
                 <aas:assetInformation>
                     <aas:assetKind></aas:assetKind>
-                    <aas:globalAssetId>http://acplt.org/TestAsset/</aas:globalAssetId>
+                    <aas:globalAssetId>http://example.org/TestAsset/</aas:globalAssetId>
                 </aas:assetInformation>
             </aas:assetAdministrationShell>
         </aas:assetAdministrationShells>
@@ -104,10 +104,10 @@ class XmlDeserializationTest(unittest.TestCase):
         xml = _xml_wrap("""
         <aas:assetAdministrationShells>
             <aas:assetAdministrationShell>
-                <aas:id>http://acplt.org/test_aas</aas:id>
+                <aas:id>http://example.org/test_aas</aas:id>
                 <aas:assetInformation>
                     <aas:assetKind>invalidKind</aas:assetKind>
-                    <aas:globalAssetId>http://acplt.org/TestAsset/</aas:globalAssetId>
+                    <aas:globalAssetId>http://example.org/TestAsset/</aas:globalAssetId>
                 </aas:assetInformation>
             </aas:assetAdministrationShell>
         </aas:assetAdministrationShells>
@@ -118,7 +118,7 @@ class XmlDeserializationTest(unittest.TestCase):
         xml = _xml_wrap("""
         <aas:submodels>
             <aas:submodel>
-                <aas:id>http://acplt.org/test_submodel</aas:id>
+                <aas:id>http://example.org/test_submodel</aas:id>
                 <aas:submodelElements>
                     <aas:submodelElementList>
                         <aas:orderRelevant>False</aas:orderRelevant>
@@ -135,14 +135,14 @@ class XmlDeserializationTest(unittest.TestCase):
         xml = _xml_wrap("""
         <aas:submodels>
             <aas:submodel>
-                <aas:id>http://acplt.org/test_submodel</aas:id>
+                <aas:id>http://example.org/test_submodel</aas:id>
             </aas:submodel>
         </aas:submodels>
         """)
         # should get parsed successfully
-        object_store = read_aas_xml_file(io.StringIO(xml), failsafe=False)
+        identifiable_store = read_aas_xml_file(io.StringIO(xml), failsafe=False)
         # modelling kind should default to INSTANCE
-        submodel = object_store.pop()
+        submodel = identifiable_store.pop()
         self.assertIsInstance(submodel, model.Submodel)
         assert isinstance(submodel, model.Submodel)  # to make mypy happy
         self.assertEqual(submodel.kind, model.ModellingKind.INSTANCE)
@@ -151,17 +151,17 @@ class XmlDeserializationTest(unittest.TestCase):
         xml = _xml_wrap("""
         <aas:assetAdministrationShells>
             <aas:assetAdministrationShell>
-                <aas:id>http://acplt.org/test_aas</aas:id>
+                <aas:id>http://example.org/test_aas</aas:id>
                 <aas:assetInformation>
                     <aas:assetKind>Instance</aas:assetKind>
-                    <aas:globalAssetId>http://acplt.org/TestAsset/</aas:globalAssetId>
+                    <aas:globalAssetId>http://example.org/TestAsset/</aas:globalAssetId>
                 </aas:assetInformation>
                 <aas:derivedFrom>
                     <aas:type>ModelReference</aas:type>
                     <aas:keys>
                         <aas:key>
                             <aas:type>Submodel</aas:type>
-                            <aas:value>http://acplt.org/test_ref</aas:value>
+                            <aas:value>http://example.org/test_ref</aas:value>
                         </aas:key>
                     </aas:keys>
                 </aas:derivedFrom>
@@ -170,14 +170,14 @@ class XmlDeserializationTest(unittest.TestCase):
         """)
         with self.assertLogs(logging.getLogger(), level=logging.WARNING) as context:
             read_aas_xml_file(io.StringIO(xml), failsafe=False)
-        for s in ("SUBMODEL", "http://acplt.org/test_ref", "AssetAdministrationShell"):
+        for s in ("SUBMODEL", "http://example.org/test_ref", "AssetAdministrationShell"):
             self.assertIn(s, context.output[0])
 
     def test_invalid_submodel_element(self) -> None:
         xml = _xml_wrap("""
         <aas:submodels>
             <aas:submodel>
-                <aas:id>http://acplt.org/test_submodel</aas:id>
+                <aas:id>http://example.org/test_submodel</aas:id>
                 <aas:submodelElements>
                     <aas:invalidSubmodelElement/>
                 </aas:submodelElements>
@@ -190,7 +190,7 @@ class XmlDeserializationTest(unittest.TestCase):
         xml = _xml_wrap("""
         <aas:submodels>
             <aas:submodel>
-                <aas:id>http://acplt.org/test_submodel</aas:id>
+                <aas:id>http://example.org/test_submodel</aas:id>
                 <aas:qualifiers>
                     <aas:qualifier/>
                 </aas:qualifiers>
@@ -203,7 +203,7 @@ class XmlDeserializationTest(unittest.TestCase):
         xml = _xml_wrap("""
         <aas:submodels>
             <aas:submodel>
-                <aas:id>http://acplt.org/test_submodel</aas:id>
+                <aas:id>http://example.org/test_submodel</aas:id>
                 <aas:submodelElements>
                     <aas:operation>
                         <aas:idShort>test_operation</aas:idShort>
@@ -223,7 +223,7 @@ class XmlDeserializationTest(unittest.TestCase):
         xml = _xml_wrap("""
         <aas:submodels>
             <aas:submodel>
-                <aas:id>http://acplt.org/test_submodel</aas:id>
+                <aas:id>http://example.org/test_submodel</aas:id>
                 <aas:submodelElements>
                     <aas:operation>
                         <aas:idShort>test_operation</aas:idShort>
@@ -256,26 +256,26 @@ class XmlDeserializationTest(unittest.TestCase):
         xml = _xml_wrap("""
         <aas:assetAdministrationShells>
             <aas:assetAdministrationShell>
-                <aas:id>http://acplt.org/test_aas</aas:id>
+                <aas:id>http://example.org/test_aas</aas:id>
                 <aas:assetInformation>
                     <aas:assetKind>Instance</aas:assetKind>
-                    <aas:globalAssetId>http://acplt.org/TestAsset/</aas:globalAssetId>
+                    <aas:globalAssetId>http://example.org/TestAsset/</aas:globalAssetId>
                 </aas:assetInformation>
             </aas:assetAdministrationShell>
         </aas:assetAdministrationShells>
         <aas:submodels>
             <aas:submodel>
-                <aas:id>http://acplt.org/test_aas</aas:id>
+                <aas:id>http://example.org/test_aas</aas:id>
             </aas:submodel>
         </aas:submodels>
         """)
         self._assertInExceptionAndLog(xml, "duplicate identifier", KeyError, logging.ERROR)
 
-    def test_duplicate_identifier_object_store(self) -> None:
-        sm_id = "http://acplt.org/test_submodel"
+    def test_duplicate_identifier_identifiable_store(self) -> None:
+        sm_id = "http://example.org/test_submodel"
 
-        def get_clean_store() -> model.DictObjectStore:
-            store: model.DictObjectStore = model.DictObjectStore()
+        def get_clean_store() -> model.DictIdentifiableStore:
+            store: model.DictIdentifiableStore[model.Identifiable] = model.DictIdentifiableStore()
             submodel_ = model.Submodel(sm_id, id_short="test123")
             store.add(submodel_)
             return store
@@ -283,43 +283,49 @@ class XmlDeserializationTest(unittest.TestCase):
         xml = _xml_wrap("""
         <aas:submodels>
             <aas:submodel>
-                <aas:id>http://acplt.org/test_submodel</aas:id>
+                <aas:id>http://example.org/test_submodel</aas:id>
                 <aas:idShort>test456</aas:idShort>
             </aas:submodel>
         </aas:submodels>
         """)
         string_io = io.StringIO(xml)
 
-        object_store = get_clean_store()
-        identifiers = read_aas_xml_file_into(object_store, string_io, replace_existing=True, ignore_existing=False)
+        identifiable_store = get_clean_store()
+        identifiers = read_aas_xml_file_into(
+            identifiable_store, string_io, replace_existing=True, ignore_existing=False
+        )
         self.assertEqual(identifiers.pop(), sm_id)
-        submodel = object_store.pop()
+        submodel = identifiable_store.pop()
         self.assertIsInstance(submodel, model.Submodel)
         self.assertEqual(submodel.id_short, "test456")
 
-        object_store = get_clean_store()
+        identifiable_store = get_clean_store()
         with self.assertLogs(logging.getLogger(), level=logging.INFO) as log_ctx:
-            identifiers = read_aas_xml_file_into(object_store, string_io, replace_existing=False, ignore_existing=True)
+            identifiers = read_aas_xml_file_into(
+                identifiable_store, string_io, replace_existing=False, ignore_existing=True
+            )
         self.assertEqual(len(identifiers), 0)
         self.assertIn("already exists in the object store", log_ctx.output[0])
-        submodel = object_store.pop()
+        submodel = identifiable_store.pop()
         self.assertIsInstance(submodel, model.Submodel)
         self.assertEqual(submodel.id_short, "test123")
 
-        object_store = get_clean_store()
+        identifiable_store = get_clean_store()
         with self.assertRaises(KeyError) as err_ctx:
-            identifiers = read_aas_xml_file_into(object_store, string_io, replace_existing=False, ignore_existing=False)
+            identifiers = read_aas_xml_file_into(
+                identifiable_store, string_io, replace_existing=False, ignore_existing=False
+            )
         self.assertEqual(len(identifiers), 0)
         cause = _root_cause(err_ctx.exception)
         self.assertIn("already exists in the object store", str(cause))
-        submodel = object_store.pop()
+        submodel = identifiable_store.pop()
         self.assertIsInstance(submodel, model.Submodel)
         self.assertEqual(submodel.id_short, "test123")
 
     def test_read_aas_xml_element(self) -> None:
         xml = f"""
         <aas:submodel xmlns:aas="{XML_NS_MAP["aas"]}">
-            <aas:id>http://acplt.org/test_submodel</aas:id>
+            <aas:id>http://example.org/test_submodel</aas:id>
         </aas:submodel>
         """
         string_io = io.StringIO(xml)
@@ -348,7 +354,7 @@ class XmlDeserializationStrippedObjectsTest(unittest.TestCase):
     def test_stripped_qualifiable(self) -> None:
         xml = f"""
         <aas:submodel xmlns:aas="{XML_NS_MAP["aas"]}">
-            <aas:id>http://acplt.org/test_stripped_submodel</aas:id>
+            <aas:id>http://example.org/test_stripped_submodel</aas:id>
             <aas:submodelElements>
                 <aas:operation>
                     <aas:idShort>test_operation</aas:idShort>
@@ -388,10 +394,10 @@ class XmlDeserializationStrippedObjectsTest(unittest.TestCase):
     def test_stripped_asset_administration_shell(self) -> None:
         xml = f"""
         <aas:assetAdministrationShell xmlns:aas="{XML_NS_MAP["aas"]}">
-            <aas:id>http://acplt.org/test_aas</aas:id>
+            <aas:id>http://example.org/test_aas</aas:id>
             <aas:assetInformation>
                 <aas:assetKind>Instance</aas:assetKind>
-                <aas:globalAssetId>http://acplt.org/TestAsset/</aas:globalAssetId>
+                <aas:globalAssetId>http://example.org/TestAsset/</aas:globalAssetId>
             </aas:assetInformation>
             <aas:submodels>
                 <aas:reference>
@@ -399,7 +405,7 @@ class XmlDeserializationStrippedObjectsTest(unittest.TestCase):
                     <aas:keys>
                         <aas:key>
                             <aas:type>Submodel</aas:type>
-                            <aas:value>http://acplt.org/test_ref</aas:value>
+                            <aas:value>http://example.org/test_ref</aas:value>
                         </aas:key>
                     </aas:keys>
                 </aas:reference>
@@ -422,6 +428,85 @@ class XmlDeserializationStrippedObjectsTest(unittest.TestCase):
         self.assertEqual(len(aas.submodel), 0)
 
 
+class XmlDeserializationDataSpecTest(unittest.TestCase):
+    def test_data_spec_iec61360_value_without_value_format(self) -> None:
+        xml = _xml_wrap(f"""
+        <aas:conceptDescriptions>
+            <aas:conceptDescription>
+                <aas:id>http://example.org/test_cd</aas:id>
+                <aas:embeddedDataSpecifications>
+                    <aas:embeddedDataSpecification>
+                        <aas:dataSpecification>
+                            <aas:type>ExternalReference</aas:type>
+                            <aas:keys>
+                                <aas:key>
+                                    <aas:type>GlobalReference</aas:type>
+                                    <aas:value>https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIec61360/3/0</aas:value>
+                                </aas:key>
+                            </aas:keys>
+                        </aas:dataSpecification>
+                        <aas:dataSpecificationContent>
+                            <aas:dataSpecificationIec61360>
+                                <aas:preferredName>
+                                    <aas:langStringPreferredNameTypeIec61360>
+                                        <aas:language>en</aas:language>
+                                        <aas:text>Test</aas:text>
+                                    </aas:langStringPreferredNameTypeIec61360>
+                                </aas:preferredName>
+                                <aas:value>test_value</aas:value>
+                            </aas:dataSpecificationIec61360>
+                        </aas:dataSpecificationContent>
+                    </aas:embeddedDataSpecification>
+                </aas:embeddedDataSpecifications>
+            </aas:conceptDescription>
+        </aas:conceptDescriptions>
+        """)
+        object_store = read_aas_xml_file(io.StringIO(xml), failsafe=False)
+        cd = object_store.get_item("http://example.org/test_cd")
+        self.assertIsInstance(cd, model.ConceptDescription)
+        assert isinstance(cd, model.ConceptDescription)
+        ds_content = list(cd.embedded_data_specifications)[0].data_specification_content
+        self.assertIsInstance(ds_content, model.DataSpecificationIEC61360)
+        assert isinstance(ds_content, model.DataSpecificationIEC61360)
+        self.assertEqual("test_value", ds_content.value)
+        self.assertIsNone(ds_content.value_format)
+
+    def test_optional_first_second_relationship_element(self) -> None:
+        xml = _xml_wrap("""
+        <aas:submodels>
+            <aas:submodel>
+                <aas:id>http://example.org/test_submodel</aas:id>
+                <aas:submodelElements>
+                    <aas:relationshipElement>
+                        <aas:idShort>test_optional_second_relationship_element</aas:idShort>
+                        <aas:category>PARAMETER</aas:category>
+                        <aas:first>
+                            <aas:type>ModelReference</aas:type>
+                            <aas:keys>
+                                <aas:key>
+                                    <aas:type>Submodel</aas:type>
+                                    <aas:value>http://example.org/Test_Submodel</aas:value>
+                                </aas:key>
+                                <aas:key>
+                                    <aas:type>AnnotatedRelationshipElement</aas:type>
+                                    <aas:value>test_ref</aas:value>
+                                </aas:key>
+                            </aas:keys>
+                        </aas:first>
+                    </aas:relationshipElement>
+                </aas:submodelElements>
+            </aas:submodel>
+        </aas:submodels>
+        """)
+        object_store = read_aas_xml_file(io.StringIO(xml), failsafe=False)
+        submodel = object_store.get_item("http://example.org/test_submodel")
+        assert isinstance(submodel, model.Submodel)
+        re = submodel.get_referable("test_optional_second_relationship_element")
+        self.assertIsInstance(re, model.RelationshipElement)
+        assert isinstance(re, model.RelationshipElement)
+        self.assertIsNone(re.second)
+
+
 class XmlDeserializationDerivingTest(unittest.TestCase):
     def test_submodel_constructor_overriding(self) -> None:
         class EnhancedSubmodel(model.Submodel):
@@ -437,7 +522,7 @@ class XmlDeserializationDerivingTest(unittest.TestCase):
 
         xml = f"""
         <aas:submodel xmlns:aas="{XML_NS_MAP["aas"]}">
-            <aas:id>http://acplt.org/test_stripped_submodel</aas:id>
+            <aas:id>http://example.org/test_stripped_submodel</aas:id>
         </aas:submodel>
         """
         string_io = io.StringIO(xml)
@@ -450,22 +535,22 @@ class XmlDeserializationDerivingTest(unittest.TestCase):
 
 class TestTagReplaceNamespace(unittest.TestCase):
     def test_known_namespace(self):
-        tag = '{https://admin-shell.io/aas/3/0}tag'
+        tag = '{https://admin-shell.io/aas/3/1}tag'
         expected = 'aas:tag'
         self.assertEqual(_tag_replace_namespace(tag, XML_NS_MAP), expected)
 
     def test_empty_prefix(self):
         # Empty prefix should not be replaced as otherwise it would apply everywhere
-        tag = '{https://admin-shell.io/aas/3/0}tag'
-        nsmap = {"": "https://admin-shell.io/aas/3/0"}
-        expected = '{https://admin-shell.io/aas/3/0}tag'
+        tag = '{https://admin-shell.io/aas/3/1}tag'
+        nsmap = {"": "https://admin-shell.io/aas/3/1"}
+        expected = '{https://admin-shell.io/aas/3/1}tag'
         self.assertEqual(_tag_replace_namespace(tag, nsmap), expected)
 
     def test_empty_namespace(self):
         # Empty namespaces should also have no effect
-        tag = '{https://admin-shell.io/aas/3/0}tag'
+        tag = '{https://admin-shell.io/aas/3/1}tag'
         nsmap = {"aas": ""}
-        expected = '{https://admin-shell.io/aas/3/0}tag'
+        expected = '{https://admin-shell.io/aas/3/1}tag'
         self.assertEqual(_tag_replace_namespace(tag, nsmap), expected)
 
     def test_unknown_namespace(self):
