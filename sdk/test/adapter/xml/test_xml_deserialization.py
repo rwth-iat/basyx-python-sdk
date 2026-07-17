@@ -10,8 +10,13 @@ import logging
 import unittest
 
 from basyx.aas import model
-from basyx.aas.adapter.xml import StrictAASFromXmlDecoder, XMLConstructables, read_aas_xml_file, \
-    read_aas_xml_file_into, read_aas_xml_element
+from basyx.aas.adapter.xml import (
+    StrictAASFromXmlDecoder,
+    XMLConstructables,
+    read_aas_xml_file,
+    read_aas_xml_file_into,
+    read_aas_xml_element,
+)
 from basyx.aas.adapter.xml.xml_deserialization import _tag_replace_namespace
 from basyx.aas.adapter._generic import XML_NS_MAP
 from lxml import etree
@@ -29,8 +34,9 @@ def _root_cause(exception: BaseException) -> BaseException:
 
 
 class XmlDeserializationTest(unittest.TestCase):
-    def _assertInExceptionAndLog(self, xml: str, strings: Union[Iterable[str], str], error_type: Type[BaseException],
-                                 log_level: int) -> None:
+    def _assertInExceptionAndLog(
+        self, xml: str, strings: Union[Iterable[str], str], error_type: Type[BaseException], log_level: int
+    ) -> None:
         """
         Runs read_xml_aas_file in failsafe mode and checks if each string is contained in the first message logged.
         Then runs it in non-failsafe mode and checks if each string is contained in the first error raised.
@@ -53,11 +59,7 @@ class XmlDeserializationTest(unittest.TestCase):
             self.assertIn(s, str(cause))
 
     def test_malformed_xml(self) -> None:
-        xml = (
-            "invalid xml",
-            _xml_wrap("<<>>><<<<<"),
-            _xml_wrap("<aas:submodels><aas:submodel/>")
-        )
+        xml = ("invalid xml", _xml_wrap("<<>>><<<<<"), _xml_wrap("<aas:submodels><aas:submodel/>"))
         for s in xml:
             self._assertInExceptionAndLog(s, [], etree.XMLSyntaxError, logging.ERROR)
 
@@ -345,8 +347,9 @@ class XmlDeserializationTest(unittest.TestCase):
             </environment>
             """
 
-        self._assertInExceptionAndLog(xml(""), f'{{{XML_NS_MAP["aas"]}}}id on line 5 has no text', KeyError,
-                                      logging.ERROR)
+        self._assertInExceptionAndLog(
+            xml(""), f"{{{XML_NS_MAP['aas']}}}id on line 5 has no text", KeyError, logging.ERROR
+        )
         read_aas_xml_file(io.StringIO(xml("urn:x-test:test-submodel")))
 
 
@@ -421,8 +424,9 @@ class XmlDeserializationStrippedObjectsTest(unittest.TestCase):
         self.assertEqual(len(aas.submodel), 1)
 
         # check if submodels are ignored in stripped mode
-        aas = read_aas_xml_element(string_io, XMLConstructables.ASSET_ADMINISTRATION_SHELL, failsafe=False,
-                                   stripped=True)
+        aas = read_aas_xml_element(
+            string_io, XMLConstructables.ASSET_ADMINISTRATION_SHELL, failsafe=False, stripped=True
+        )
         self.assertIsInstance(aas, model.AssetAdministrationShell)
         assert isinstance(aas, model.AssetAdministrationShell)
         self.assertEqual(len(aas.submodel), 0)
@@ -516,8 +520,9 @@ class XmlDeserializationDerivingTest(unittest.TestCase):
 
         class EnhancedAASDecoder(StrictAASFromXmlDecoder):
             @classmethod
-            def construct_submodel(cls, element: etree._Element, object_class=EnhancedSubmodel, **kwargs) \
-                    -> model.Submodel:
+            def construct_submodel(
+                cls, element: etree._Element, object_class=EnhancedSubmodel, **kwargs
+            ) -> model.Submodel:
                 return super().construct_submodel(element, object_class=object_class, **kwargs)
 
         xml = f"""
@@ -535,25 +540,25 @@ class XmlDeserializationDerivingTest(unittest.TestCase):
 
 class TestTagReplaceNamespace(unittest.TestCase):
     def test_known_namespace(self):
-        tag = '{https://admin-shell.io/aas/3/1}tag'
-        expected = 'aas:tag'
+        tag = "{https://admin-shell.io/aas/3/1}tag"
+        expected = "aas:tag"
         self.assertEqual(_tag_replace_namespace(tag, XML_NS_MAP), expected)
 
     def test_empty_prefix(self):
         # Empty prefix should not be replaced as otherwise it would apply everywhere
-        tag = '{https://admin-shell.io/aas/3/1}tag'
+        tag = "{https://admin-shell.io/aas/3/1}tag"
         nsmap = {"": "https://admin-shell.io/aas/3/1"}
-        expected = '{https://admin-shell.io/aas/3/1}tag'
+        expected = "{https://admin-shell.io/aas/3/1}tag"
         self.assertEqual(_tag_replace_namespace(tag, nsmap), expected)
 
     def test_empty_namespace(self):
         # Empty namespaces should also have no effect
-        tag = '{https://admin-shell.io/aas/3/1}tag'
+        tag = "{https://admin-shell.io/aas/3/1}tag"
         nsmap = {"aas": ""}
-        expected = '{https://admin-shell.io/aas/3/1}tag'
+        expected = "{https://admin-shell.io/aas/3/1}tag"
         self.assertEqual(_tag_replace_namespace(tag, nsmap), expected)
 
     def test_unknown_namespace(self):
-        tag = '{http://unknownnamespace.com}unknown'
-        expected = '{http://unknownnamespace.com}unknown'  # Unknown namespace should remain unchanged
+        tag = "{http://unknownnamespace.com}unknown"
+        expected = "{http://unknownnamespace.com}unknown"  # Unknown namespace should remain unchanged
         self.assertEqual(_tag_replace_namespace(tag, XML_NS_MAP), expected)

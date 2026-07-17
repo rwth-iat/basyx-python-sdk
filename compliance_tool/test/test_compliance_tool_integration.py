@@ -8,6 +8,7 @@
 Integration tests that exercise the full compliance check pipeline without mocking AASDataChecker.
 Each test creates a real file on disk and runs the compliance tool CLI against it.
 """
+
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -25,10 +26,9 @@ from aas_compliance_tool.cli import main
 
 
 class ComplianceToolIntegrationTest(unittest.TestCase):
-
     def _call_main(self, args) -> str:
         buf = StringIO()
-        with patch('sys.argv', ['compliance_tool'] + args):
+        with patch("sys.argv", ["compliance_tool"] + args):
             with redirect_stdout(buf):
                 main()
         return buf.getvalue()
@@ -43,90 +43,87 @@ class ComplianceToolIntegrationTest(unittest.TestCase):
 
     def test_json_example_success(self) -> None:
         with tempfile.NamedTemporaryFile(suffix=".json") as tf:
-            self._call_main(['c', tf.name, '--json'])
-            output = self._call_main(['e', tf.name, '--json'])
-        self.assertNotIn('FAILED:', output)
+            self._call_main(["c", tf.name, "--json"])
+            output = self._call_main(["e", tf.name, "--json"])
+        self.assertNotIn("FAILED:", output)
 
     def test_json_example_fail(self) -> None:
-        with tempfile.NamedTemporaryFile(suffix=".json", mode='w', encoding='utf-8-sig') as tf:
+        with tempfile.NamedTemporaryFile(suffix=".json", mode="w", encoding="utf-8-sig") as tf:
             write_aas_json_file(tf, self._modified_example())
             tf.flush()
-            output = self._call_main(['e', tf.name, '--json'])
-        self.assertIn('FAILED:', output)
+            output = self._call_main(["e", tf.name, "--json"])
+        self.assertIn("FAILED:", output)
 
     def test_json_files_equivalence_success(self) -> None:
-        with tempfile.NamedTemporaryFile(suffix=".json") as tf1, \
-             tempfile.NamedTemporaryFile(suffix=".json") as tf2:
-            self._call_main(['c', tf1.name, '--json'])
-            self._call_main(['c', tf2.name, '--json'])
-            output = self._call_main(['f', tf1.name, tf2.name, '--json'])
-        self.assertNotIn('FAILED:', output)
+        with tempfile.NamedTemporaryFile(suffix=".json") as tf1, tempfile.NamedTemporaryFile(suffix=".json") as tf2:
+            self._call_main(["c", tf1.name, "--json"])
+            self._call_main(["c", tf2.name, "--json"])
+            output = self._call_main(["f", tf1.name, tf2.name, "--json"])
+        self.assertNotIn("FAILED:", output)
 
     def test_json_files_equivalence_fail(self) -> None:
-        with tempfile.NamedTemporaryFile(suffix=".json") as tf1, \
-             tempfile.NamedTemporaryFile(suffix=".json", mode='w', encoding='utf-8-sig') as tf2:
-            self._call_main(['c', tf1.name, '--json'])
+        with (
+            tempfile.NamedTemporaryFile(suffix=".json") as tf1,
+            tempfile.NamedTemporaryFile(suffix=".json", mode="w", encoding="utf-8-sig") as tf2,
+        ):
+            self._call_main(["c", tf1.name, "--json"])
             write_aas_json_file(tf2, self._modified_example())
             tf2.flush()
-            output = self._call_main(['f', tf1.name, tf2.name, '--json'])
-        self.assertIn('FAILED:', output)
+            output = self._call_main(["f", tf1.name, tf2.name, "--json"])
+        self.assertIn("FAILED:", output)
 
     # --- XML ---
 
     def test_xml_example_success(self) -> None:
         with tempfile.NamedTemporaryFile(suffix=".xml") as tf:
-            self._call_main(['c', tf.name, '--xml'])
-            output = self._call_main(['e', tf.name, '--xml'])
-        self.assertNotIn('FAILED:', output)
+            self._call_main(["c", tf.name, "--xml"])
+            output = self._call_main(["e", tf.name, "--xml"])
+        self.assertNotIn("FAILED:", output)
 
     def test_xml_example_fail(self) -> None:
         with tempfile.NamedTemporaryFile(suffix=".xml") as tf:
             write_aas_xml_file(tf, self._modified_example())
             tf.flush()
-            output = self._call_main(['e', tf.name, '--xml'])
-        self.assertIn('FAILED:', output)
+            output = self._call_main(["e", tf.name, "--xml"])
+        self.assertIn("FAILED:", output)
 
     def test_xml_files_equivalence_success(self) -> None:
-        with tempfile.NamedTemporaryFile(suffix=".xml") as tf1, \
-             tempfile.NamedTemporaryFile(suffix=".xml") as tf2:
-            self._call_main(['c', tf1.name, '--xml'])
-            self._call_main(['c', tf2.name, '--xml'])
-            output = self._call_main(['f', tf1.name, tf2.name, '--xml'])
-        self.assertNotIn('FAILED:', output)
+        with tempfile.NamedTemporaryFile(suffix=".xml") as tf1, tempfile.NamedTemporaryFile(suffix=".xml") as tf2:
+            self._call_main(["c", tf1.name, "--xml"])
+            self._call_main(["c", tf2.name, "--xml"])
+            output = self._call_main(["f", tf1.name, tf2.name, "--xml"])
+        self.assertNotIn("FAILED:", output)
 
     def test_xml_files_equivalence_fail(self) -> None:
-        with tempfile.NamedTemporaryFile(suffix=".xml") as tf1, \
-             tempfile.NamedTemporaryFile(suffix=".xml") as tf2:
-            self._call_main(['c', tf1.name, '--xml'])
+        with tempfile.NamedTemporaryFile(suffix=".xml") as tf1, tempfile.NamedTemporaryFile(suffix=".xml") as tf2:
+            self._call_main(["c", tf1.name, "--xml"])
             write_aas_xml_file(tf2, self._modified_example())
             tf2.flush()
-            output = self._call_main(['f', tf1.name, tf2.name, '--xml'])
-        self.assertIn('FAILED:', output)
+            output = self._call_main(["f", tf1.name, tf2.name, "--xml"])
+        self.assertIn("FAILED:", output)
 
     # --- AASX ---
 
     def test_aasx_example_success(self) -> None:
         with tempfile.NamedTemporaryFile(suffix=".aasx") as tf:
-            self._call_main(['c', tf.name, '--xml', '--aasx'])
-            output = self._call_main(['e', tf.name, '--xml', '--aasx'])
-        self.assertNotIn('FAILED:', output)
+            self._call_main(["c", tf.name, "--xml", "--aasx"])
+            output = self._call_main(["e", tf.name, "--xml", "--aasx"])
+        self.assertNotIn("FAILED:", output)
 
     def test_aasx_files_equivalence_success(self) -> None:
-        with tempfile.NamedTemporaryFile(suffix=".aasx") as tf1, \
-             tempfile.NamedTemporaryFile(suffix=".aasx") as tf2:
-            self._call_main(['c', tf1.name, '--xml', '--aasx'])
-            self._call_main(['c', tf2.name, '--xml', '--aasx'])
-            output = self._call_main(['f', tf1.name, tf2.name, '--xml', '--aasx'])
-        self.assertNotIn('FAILED:', output)
+        with tempfile.NamedTemporaryFile(suffix=".aasx") as tf1, tempfile.NamedTemporaryFile(suffix=".aasx") as tf2:
+            self._call_main(["c", tf1.name, "--xml", "--aasx"])
+            self._call_main(["c", tf2.name, "--xml", "--aasx"])
+            output = self._call_main(["f", tf1.name, tf2.name, "--xml", "--aasx"])
+        self.assertNotIn("FAILED:", output)
 
     def test_aasx_files_equivalence_fail(self) -> None:
-        with tempfile.NamedTemporaryFile(suffix=".aasx") as tf1, \
-                tempfile.NamedTemporaryFile(suffix=".aasx") as tf2:
-            self._call_main(['c', tf1.name, '--xml', '--aasx'])
+        with tempfile.NamedTemporaryFile(suffix=".aasx") as tf1, tempfile.NamedTemporaryFile(suffix=".aasx") as tf2:
+            self._call_main(["c", tf1.name, "--xml", "--aasx"])
 
             with aasx.AASXWriter(tf2.name) as writer:
                 writer.write_aas([], model.DictIdentifiableStore(), aasx.DictSupplementaryFileContainer())
 
-            output = self._call_main(['f', tf1.name, tf2.name, '--xml', '--aasx'])
+            output = self._call_main(["f", tf1.name, tf2.name, "--xml", "--aasx"])
 
-        self.assertIn('FAILED:', output)
+        self.assertIn("FAILED:", output)

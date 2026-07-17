@@ -11,6 +11,7 @@ in local files.
 The :class:`~LocalFileIdentifiableStore` handles adding, deleting and otherwise managing
 the AAS objects in a specific Directory.
 """
+
 from typing import Iterator
 import logging
 import json
@@ -40,6 +41,7 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
         with the last writer winning and no error raised. Use a dedicated database
         backend for any production deployment.
     """
+
     def __init__(self, directory_path: str):
         """
         Initializer of class LocalFileIdentifiableStore
@@ -53,8 +55,9 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
         # local replication of each object is kept in the application and retrieving an object from the store always
         # returns the **same** (not only equal) object. Still, objects are forgotten, when they are not referenced
         # anywhere else to save memory.
-        self._object_cache: weakref.WeakValueDictionary[model.Identifier, model.Identifiable] \
-            = weakref.WeakValueDictionary()
+        self._object_cache: weakref.WeakValueDictionary[model.Identifier, model.Identifiable] = (
+            weakref.WeakValueDictionary()
+        )
         self._object_cache_lock = threading.Lock()
 
     def check_directory(self, create=False):
@@ -212,6 +215,7 @@ class LocalFileObjectStore(LocalFileIdentifiableStore):
     `LocalFileObjectStore` has been renamed to :class:`~.LocalFileIdentifiableStore` and will be removed in a
     future release. Please migrate to :class:`~.LocalFileIdentifiableStore`.
     """
+
     def __init__(self, directory_path: str):
         warnings.warn(
             "`LocalFileObjectStore` is deprecated and will be removed in a future release. Use "

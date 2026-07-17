@@ -18,5 +18,11 @@ AAS objects within a JSON file and return them as BaSyx Python SDK
 """
 
 from .json_serialization import AASToJsonEncoder, StrippedAASToJsonEncoder, write_aas_json_file, object_store_to_json
-from .json_deserialization import AASFromJsonDecoder, StrictAASFromJsonDecoder, StrippedAASFromJsonDecoder, \
-    StrictStrippedAASFromJsonDecoder, read_aas_json_file, read_aas_json_file_into
+from .json_deserialization import (
+    AASFromJsonDecoder,
+    StrictAASFromJsonDecoder,
+    StrippedAASFromJsonDecoder,
+    StrictStrippedAASFromJsonDecoder,
+    read_aas_json_file,
+    read_aas_json_file_into,
+)

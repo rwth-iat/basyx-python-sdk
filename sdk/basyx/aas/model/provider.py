@@ -17,8 +17,8 @@ from typing import MutableSet, Iterator, Generic, TypeVar, Dict, List, Optional,
 from .base import Identifier, Identifiable
 
 
-_KEY = TypeVar('_KEY')  # Generic key type
-_VALUE = TypeVar('_VALUE')  # Generic value type
+_KEY = TypeVar("_KEY")  # Generic key type
+_VALUE = TypeVar("_VALUE")  # Generic value type
 
 
 class AbstractObjectProvider(Generic[_KEY, _VALUE], metaclass=abc.ABCMeta):
@@ -122,11 +122,10 @@ class ObjectProviderMultiplexer(AbstractObjectProvider[_KEY, _VALUE]):
                 return provider.get_item(key)
             except KeyError:
                 pass
-        raise KeyError("Key could not be found in any of the {} consulted registries."
-                       .format(len(self.providers)))
+        raise KeyError("Key could not be found in any of the {} consulted registries.".format(len(self.providers)))
 
 
-_IDENTIFIABLE = TypeVar('_IDENTIFIABLE', bound=Identifiable)
+_IDENTIFIABLE = TypeVar("_IDENTIFIABLE", bound=Identifiable)
 
 
 class DictIdentifiableStore(AbstractObjectStore[Identifier, _IDENTIFIABLE]):
@@ -154,8 +153,7 @@ class DictIdentifiableStore(AbstractObjectStore[Identifier, _IDENTIFIABLE]):
 
     def add(self, x: _IDENTIFIABLE) -> None:
         if x.id in self._backend and self._backend.get(x.id) is not x:
-            raise KeyError("Identifiable object with same id {} is already stored in this store"
-                           .format(x.id))
+            raise KeyError("Identifiable object with same id {} is already stored in this store".format(x.id))
         self._backend[x.id] = x
 
     def commit(self, x: _IDENTIFIABLE) -> None:

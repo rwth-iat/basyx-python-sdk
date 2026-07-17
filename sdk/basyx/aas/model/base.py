@@ -13,8 +13,26 @@ import abc
 import inspect
 import itertools
 from enum import Enum, unique
-from typing import List, Optional, Set, TypeVar, MutableSet, Generic, Iterable, Dict, Iterator, Union, overload, \
-    MutableSequence, Type, Any, TYPE_CHECKING, Tuple, Callable, MutableMapping
+from typing import (
+    List,
+    Optional,
+    Set,
+    TypeVar,
+    MutableSet,
+    Generic,
+    Iterable,
+    Dict,
+    Iterator,
+    Union,
+    overload,
+    MutableSequence,
+    Type,
+    Any,
+    TYPE_CHECKING,
+    Tuple,
+    Callable,
+    MutableMapping,
+)
 import re
 
 from . import datatypes, _string_constraints
@@ -41,7 +59,7 @@ ShortNameType = str
 VersionType = str
 ValueTypeIEC61360 = str
 
-MAX_RECURSION_DEPTH = 32*2  # see https://github.com/admin-shell-io/aas-specs-metamodel/issues/333
+MAX_RECURSION_DEPTH = 32 * 2  # see https://github.com/admin-shell-io/aas-specs-metamodel/issues/333
 
 
 @unique
@@ -160,7 +178,7 @@ class KeyTypes(Enum):
             self.RELATIONSHIP_ELEMENT,
             self.SUBMODEL_ELEMENT,
             self.SUBMODEL_ELEMENT_COLLECTION,
-            self.SUBMODEL_ELEMENT_LIST
+            self.SUBMODEL_ELEMENT_LIST,
         )
 
     @property
@@ -291,6 +309,7 @@ class LangStringSet(MutableMapping[str, str]):
     "en-GB" for English (United Kingdom) and English (United States). IETF language tags are referencing ISO 639,
     ISO 3166 and ISO 15924.
     """
+
     def __init__(self, dict_: Dict[str, str]):
         self._dict: Dict[str, str] = {}
         if not isinstance(dict_, dict):
@@ -312,27 +331,20 @@ class LangStringSet(MutableMapping[str, str]):
             "i-klingon|i-lux|i-mingo|i-navajo|i-pwn|i-tao|i-tay|"
             "i-tsu|sgn-BE-FR|sgn-BE-NL|sgn-CH-DE)"
         )
-        regular = (
-            "(art-lojban|cel-gaulish|no-bok|no-nyn|zh-guoyu|zh-hakka|"
-            "zh-min|zh-min-nan|zh-xiang)"
-        )
+        regular = "(art-lojban|cel-gaulish|no-bok|no-nyn|zh-guoyu|zh-hakka|zh-min|zh-min-nan|zh-xiang)"
         grandfathered = f"({irregular}|{regular})"
         language = f"([a-zA-Z]{{2,3}}(-{extlang})?|[a-zA-Z]{{4}}|[a-zA-Z]{{5,8}})"
         script = "[a-zA-Z]{4}"
         region = "([a-zA-Z]{2}|[0-9]{3})"
         variant = f"(({alphanum}){{5,8}}|[0-9]({alphanum}){{3}})"
         privateuse = f"[xX](-({alphanum}){{1,8}})+"
-        langtag = (
-            f"{language}(-{script})?(-{region})?(-{variant})*(-{extension})*(-"
-            f"{privateuse})?"
-        )
+        langtag = f"{language}(-{script})?(-{region})?(-{variant})*(-{extension})*(-{privateuse})?"
         language_tag = f"({langtag}|{privateuse}|{grandfathered})"
 
         pattern = f"^{language_tag}$"
 
         if re.match(pattern, ltag) is None:
-            raise ValueError(f"The language tag must follow the format defined in BCP 47. "
-                             f"Given language tag: {ltag}")
+            raise ValueError(f"The language tag must follow the format defined in BCP 47. Given language tag: {ltag}")
 
     def __getitem__(self, item: str) -> str:
         return self._dict[item]
@@ -363,6 +375,7 @@ class ConstrainedLangStringSet(LangStringSet, metaclass=abc.ABCMeta):
     """
     A :class:`LangStringSet` with constrained values.
     """
+
     @abc.abstractmethod
     def __init__(self, dict_: Dict[str, str], constraint_check_fn: Callable[[str, str], None]):
         super().__init__(dict_)
@@ -386,6 +399,7 @@ class MultiLanguageNameType(ConstrainedLangStringSet):
     A :class:`~.ConstrainedLangStringSet` where each value is a :class:`NameType`.
     See also: :func:`basyx.aas.model._string_constraints.check_name_type`
     """
+
     def __init__(self, dict_: Dict[str, str]):
         super().__init__(dict_, _string_constraints.check_name_type)
 
@@ -394,6 +408,7 @@ class MultiLanguageTextType(ConstrainedLangStringSet):
     """
     A :class:`~.ConstrainedLangStringSet` where each value must have at least 1 and at most 1023 characters.
     """
+
     def __init__(self, dict_: Dict[str, str]):
         super().__init__(dict_, _string_constraints.create_check_function(min_length=1, max_length=1023))
 
@@ -402,6 +417,7 @@ class DefinitionTypeIEC61360(ConstrainedLangStringSet):
     """
     A :class:`~.ConstrainedLangStringSet` where each value must have at least 1 and at most 1023 characters.
     """
+
     def __init__(self, dict_: Dict[str, str]):
         super().__init__(dict_, _string_constraints.create_check_function(min_length=1, max_length=1023))
 
@@ -410,6 +426,7 @@ class PreferredNameTypeIEC61360(ConstrainedLangStringSet):
     """
     A :class:`~.ConstrainedLangStringSet` where each value must have at least 1 and at most 255 characters.
     """
+
     def __init__(self, dict_: Dict[str, str]):
         super().__init__(dict_, _string_constraints.create_check_function(min_length=1, max_length=255))
 
@@ -418,6 +435,7 @@ class ShortNameTypeIEC61360(ConstrainedLangStringSet):
     """
     A :class:`~.ConstrainedLangStringSet` where each value must have at least 1 and at most 18 characters.
     """
+
     def __init__(self, dict_: Dict[str, str]):
         super().__init__(dict_, _string_constraints.create_check_function(min_length=1, max_length=18))
 
@@ -432,21 +450,19 @@ class Key:
     :ivar value: The key value, for example an IRDI or IRI
     """
 
-    def __init__(self,
-                 type_: KeyTypes,
-                 value: Identifier):
+    def __init__(self, type_: KeyTypes, value: Identifier):
         """
         TODO: Add instruction what to do after construction
         """
         _string_constraints.check_identifier(value)
         self.type: KeyTypes
         self.value: Identifier
-        super().__setattr__('type', type_)
-        super().__setattr__('value', value)
+        super().__setattr__("type", type_)
+        super().__setattr__("value", value)
 
     def __setattr__(self, key, value):
         """Prevent modification of attributes."""
-        raise AttributeError('Reference is immutable')
+        raise AttributeError("Reference is immutable")
 
     def __repr__(self) -> str:
         return "Key(type={}, value={})".format(self.type.name, self.value)
@@ -457,8 +473,7 @@ class Key:
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Key):
             return NotImplemented
-        return (self.value == other.value
-                and self.type == other.type)
+        return self.value == other.value and self.type == other.type
 
     def __hash__(self):
         return hash((self.value, self.type))
@@ -490,6 +505,7 @@ class Key:
     @staticmethod
     def _get_key_type_for_referable(referable: "Referable") -> KeyTypes:
         from . import KEY_TYPES_CLASSES, resolve_referable_class_in_key_types
+
         ref_type = resolve_referable_class_in_key_types(referable)
         key_type = KEY_TYPES_CLASSES[ref_type]
         return key_type
@@ -497,6 +513,7 @@ class Key:
     @staticmethod
     def _get_key_value_for_referable(referable: "Referable") -> str:
         from . import SubmodelElementList
+
         if isinstance(referable, Identifiable):
             return referable.id
         elif isinstance(referable.parent, SubmodelElementList):
@@ -510,7 +527,7 @@ class Key:
             return referable.id_short
 
 
-_NSO = TypeVar('_NSO', bound=Union["Referable", "Qualifier", "HasSemantics", "Extension"])
+_NSO = TypeVar("_NSO", bound=Union["Referable", "Qualifier", "HasSemantics", "Extension"])
 
 
 class Namespace(metaclass=abc.ABCMeta):
@@ -522,6 +539,7 @@ class Namespace(metaclass=abc.ABCMeta):
 
     :ivar namespace_element_sets: List of :class:`NamespaceSets <basyx.aas.model.base.NamespaceSet>`
     """
+
     @abc.abstractmethod
     def __init__(self) -> None:
         super().__init__()
@@ -581,6 +599,7 @@ class HasExtension(Namespace, metaclass=abc.ABCMeta):
     :ivar namespace_element_sets: List of :class:`NamespaceSets <basyx.aas.model.base.NamespaceSet>`
     :ivar extension: A :class:`~.NamespaceSet` of :class:`Extensions <.Extension>` of the element.
     """
+
     @abc.abstractmethod
     def __init__(self) -> None:
         super().__init__()
@@ -639,6 +658,7 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
     :ivar parent: Reference (in form of a :class:`~.UniqueIdShortNamespace`) to the next referable parent element
         of the element.
     """
+
     @abc.abstractmethod
     def __init__(self):
         super().__init__()
@@ -678,8 +698,9 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
             elif isinstance(item, Referable):
                 item = item.parent
             else:
-                raise AttributeError('Referable must have an identifiable as root object and only parents that are '
-                                     'referable')
+                raise AttributeError(
+                    "Referable must have an identifiable as root object and only parents that are referable"
+                )
         return None
 
     def get_id_short_path(self) -> str:
@@ -702,16 +723,20 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
                                 :class:`~.Identifiable`
         """
         from .submodel import SubmodelElementList
+
         if self.id_short is None and not isinstance(self.parent, SubmodelElementList):
-            raise ValueError(f"Can't create id_short_path for {self.__class__.__name__} without an id_short or "
-                             f"if its parent is a SubmodelElementList!")
+            raise ValueError(
+                f"Can't create id_short_path for {self.__class__.__name__} without an id_short or "
+                f"if its parent is a SubmodelElementList!"
+            )
 
         item = self  # type: Any
         path: List[str] = []
         while item is not None:
             if not isinstance(item, Referable):
-                raise AttributeError('Referable must have an identifiable as root object and only parents that are '
-                                     'referable')
+                raise AttributeError(
+                    "Referable must have an identifiable as root object and only parents that are referable"
+                )
             if isinstance(item, Identifiable):
                 break
             elif isinstance(item.parent, SubmodelElementList):
@@ -749,12 +774,12 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
         """
         id_shorts_and_indexes = []
         for part in id_short_path.split("."):
-            id_short = part[0:part.find('[')] if '[' in part else part
+            id_short = part[0 : part.find("[")] if "[" in part else part
             id_shorts_and_indexes.append(id_short)
 
             indexes_part = part.removeprefix(id_short)
             if indexes_part:
-                if not re.fullmatch(r'(?:\[\d+\])+', indexes_part):
+                if not re.fullmatch(r"(?:\[\d+\])+", indexes_part):
                     raise ValueError(f"Invalid index format in id_short_path: '{id_short_path}', part: '{part}'")
                 indexes = indexes_part.strip("[]").split("][")
                 id_shorts_and_indexes.extend(indexes)
@@ -799,20 +824,11 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
         _string_constraints.check_name_type(id_short)
         test_id_short: NameType = str(id_short)
         if not re.fullmatch("[A-Za-z0-9_-]*", test_id_short):
-            raise AASConstraintViolation(
-                2,
-                "The id_short must contain only letters, digits underscore and hyphen"
-            )
+            raise AASConstraintViolation(2, "The id_short must contain only letters, digits underscore and hyphen")
         if not test_id_short[0].isalpha():
-            raise AASConstraintViolation(
-                2,
-                "The id_short must start with a letter"
-            )
+            raise AASConstraintViolation(2, "The id_short must start with a letter")
         if test_id_short.endswith("-"):
-            raise AASConstraintViolation(
-                2,
-                "The id_short must not end with a hyphen"
-            )
+            raise AASConstraintViolation(2, "The id_short must not end with a hyphen")
 
     category = property(_get_category, _set_category)
 
@@ -841,13 +857,16 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
 
         if self.parent is not None:
             if id_short is None:
-                raise AASConstraintViolation(117, f"id_short of {self!r} cannot be unset, since it is already "
-                                                  f"contained in {self.parent!r}")
+                raise AASConstraintViolation(
+                    117, f"id_short of {self!r} cannot be unset, since it is already contained in {self.parent!r}"
+                )
             from .submodel import SubmodelElementList
+
             for set_ in self.parent.namespace_element_sets:
                 if set_.contains_id("id_short", id_short):
-                    raise AASConstraintViolation(22, "Object with id_short '{}' is already present in the parent "
-                                                     "Namespace".format(id_short))
+                    raise AASConstraintViolation(
+                        22, "Object with id_short '{}' is already present in the parent Namespace".format(id_short)
+                    )
 
             set_add_list: List[NamespaceSet] = []
             for set_ in self.parent.namespace_element_sets:
@@ -893,7 +912,7 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
         """
         for name in dir(other):
             # Skip private and protected attributes
-            if name.startswith('_'):
+            if name.startswith("_"):
                 continue
 
             # Do not update 'parent', 'namespace_element_sets'
@@ -920,7 +939,7 @@ class Referable(HasExtension, metaclass=abc.ABCMeta):
     id_short = property(_get_id_short, _set_id_short)
 
 
-_RT = TypeVar('_RT', bound=Referable)
+_RT = TypeVar("_RT", bound=Referable)
 
 
 class UnexpectedTypeError(TypeError):
@@ -930,6 +949,7 @@ class UnexpectedTypeError(TypeError):
 
     :ivar value: The object of unexpected type
     """
+
     def __init__(self, value: Referable, *args):
         super().__init__(*args)
         self.value = value
@@ -957,6 +977,7 @@ class Reference(metaclass=abc.ABCMeta):
     :ivar referred_semantic_id: SemanticId of the referenced model element. For external references there typically is
                                 no semantic id.
     """
+
     @abc.abstractmethod
     def __init__(self, key: Tuple[Key, ...], referred_semantic_id: Optional["Reference"] = None):
         if len(key) < 1:
@@ -966,12 +987,12 @@ class Reference(metaclass=abc.ABCMeta):
 
         self.key: Tuple[Key, ...]
         self.referred_semantic_id: Optional["Reference"]
-        super().__setattr__('key', key)
-        super().__setattr__('referred_semantic_id', referred_semantic_id)
+        super().__setattr__("key", key)
+        super().__setattr__("referred_semantic_id", referred_semantic_id)
 
     def __setattr__(self, key, value):
         """Prevent modification of attributes."""
-        raise AttributeError('Reference is immutable')
+        raise AttributeError("Reference is immutable")
 
     def __hash__(self):
         return hash((self.__class__, self.key))
@@ -981,8 +1002,10 @@ class Reference(metaclass=abc.ABCMeta):
             return NotImplemented
         if len(self.key) != len(other.key):
             return False
-        return all(k1 == k2 for k1, k2 in zip(self.key, other.key)) \
+        return (
+            all(k1 == k2 for k1, k2 in zip(self.key, other.key))
             and self.referred_semantic_id == other.referred_semantic_id
+        )
 
 
 class ExternalReference(Reference):
@@ -1010,11 +1033,16 @@ class ExternalReference(Reference):
         super().__init__(key, referred_semantic_id)
 
         if not key[0].type.is_generic_globally_identifiable:
-            raise AASConstraintViolation(122, "The type of the first key of an ExternalReference must be a "
-                                              f"GenericGloballyIdentifiable: {key[0]!r}")
+            raise AASConstraintViolation(
+                122,
+                f"The type of the first key of an ExternalReference must be a GenericGloballyIdentifiable: {key[0]!r}",
+            )
         if not key[-1].type.is_generic_globally_identifiable and not key[-1].type.is_generic_fragment_key:
-            raise AASConstraintViolation(124, "The type of the last key of an ExternalReference must be a "
-                                              f"GenericGloballyIdentifiable or a GenericFragmentKey: {key[-1]!r}")
+            raise AASConstraintViolation(
+                124,
+                "The type of the last key of an ExternalReference must be a "
+                f"GenericGloballyIdentifiable or a GenericFragmentKey: {key[-1]!r}",
+            )
 
     def __repr__(self) -> str:
         return "ExternalReference(key={})".format(self.key)
@@ -1054,31 +1082,40 @@ class ModelReference(Reference, Generic[_RT]):
     :ivar referred_semantic_id: SemanticId of the referenced model element. For external references there typically is
                                 no semantic id.
     """
+
     def __init__(self, key: Tuple[Key, ...], type_: Type[_RT], referred_semantic_id: Optional[Reference] = None):
         super().__init__(key, referred_semantic_id)
 
         if not key[0].type.is_aas_identifiable:
-            raise AASConstraintViolation(123, "The type of the first key of a ModelReference must be an "
-                                              f"AasIdentifiable: {key[0]!r}")
+            raise AASConstraintViolation(
+                123, f"The type of the first key of a ModelReference must be an AasIdentifiable: {key[0]!r}"
+            )
         for k in key[1:]:
             if not k.type.is_fragment_key_element:
-                raise AASConstraintViolation(125, "The type of all keys following the first of a ModelReference "
-                                                  f"must be one of FragmentKeyElements: {k!r}")
+                raise AASConstraintViolation(
+                    125,
+                    "The type of all keys following the first of a ModelReference "
+                    f"must be one of FragmentKeyElements: {k!r}",
+                )
         if not key[-1].type.is_generic_fragment_key:
             for k in key[:-1]:
                 if k.type.is_generic_fragment_key:
-                    raise AASConstraintViolation(126, f"Key {k!r} is a GenericFragmentKey, "
-                                                      f"but the last key of the chain is not: {key[-1]!r}")
+                    raise AASConstraintViolation(
+                        126, f"Key {k!r} is a GenericFragmentKey, but the last key of the chain is not: {key[-1]!r}"
+                    )
         for pk, k in zip(key, key[1:]):
             if k.type == KeyTypes.FRAGMENT_REFERENCE and pk.type not in (KeyTypes.BLOB, KeyTypes.FILE):
                 raise AASConstraintViolation(127, f"{k!r} is not preceded by a key of type File or Blob, but {pk!r}")
             if pk.type == KeyTypes.SUBMODEL_ELEMENT_LIST and not k.value.isnumeric():
-                raise AASConstraintViolation(128, f"Key {pk!r} references a SubmodelElementList, "
-                                                  f"but the value of the succeeding key ({k!r}) is not a non-negative "
-                                                  f"integer: {k.value}")
+                raise AASConstraintViolation(
+                    128,
+                    f"Key {pk!r} references a SubmodelElementList, "
+                    f"but the value of the succeeding key ({k!r}) is not a non-negative "
+                    f"integer: {k.value}",
+                )
 
         self.type: Type[_RT]
-        object.__setattr__(self, 'type', type_)
+        object.__setattr__(self, "type", type_)
 
     def resolve(self, provider_: "provider.AbstractObjectProvider") -> _RT:
         """
@@ -1110,13 +1147,16 @@ class ModelReference(Reference, Generic[_RT]):
         # id_short path via get_referable().
         # This is cursed af, but at least it keeps the code DRY. get_referable() will check the type of self in the
         # first iteration, so we can ignore the type here.
-        item = UniqueIdShortNamespace.get_referable(item,  # type: ignore[arg-type]
-                                                    map(lambda k: k.value, self.key[1:]))
+        item = UniqueIdShortNamespace.get_referable(
+            item,  # type: ignore[arg-type]
+            map(lambda k: k.value, self.key[1:]),
+        )
 
         # Check type
         if not isinstance(item, self.type):
-            raise UnexpectedTypeError(item, "Retrieved object {} is not an instance of referenced type {}"
-                                            .format(item, self.type.__name__))
+            raise UnexpectedTypeError(
+                item, "Retrieved object {} is not an instance of referenced type {}".format(item, self.type.__name__)
+            )
         return item
 
     def get_identifier(self) -> Identifier:
@@ -1128,13 +1168,13 @@ class ModelReference(Reference, Generic[_RT]):
         :raises ValueError: If this :class:`~.ModelReference` does not include a Key of AasIdentifiable type
         """
         try:
-            last_identifier = next(key.get_identifier()
-                                   for key in reversed(self.key)
-                                   if key.get_identifier())
+            last_identifier = next(key.get_identifier() for key in reversed(self.key) if key.get_identifier())
             return last_identifier  # type: ignore  # MyPy doesn't get the generator expression above
         except StopIteration:
-            raise ValueError("ModelReference cannot be represented as an Identifier, since it does not contain a Key"
-                             f" of an AasIdentifiable type ({[t.name for t in KeyTypes if t.is_aas_identifiable]})")
+            raise ValueError(
+                "ModelReference cannot be represented as an Identifier, since it does not contain a Key"
+                f" of an AasIdentifiable type ({[t.name for t in KeyTypes if t.is_aas_identifiable]})"
+            )
 
     def __repr__(self) -> str:
         return "ModelReference<{}>(key={})".format(self.type.__name__, self.key)
@@ -1157,6 +1197,7 @@ class ModelReference(Reference, Generic[_RT]):
         """
         # Get the first class from the base classes list (via inspect.getmro), that is contained in KEY_ELEMENTS_CLASSES
         from . import resolve_referable_class_in_key_types
+
         try:
             ref_type = resolve_referable_class_in_key_types(referable)
         except StopIteration:
@@ -1172,8 +1213,10 @@ class ModelReference(Reference, Generic[_RT]):
                 raise ValueError(f"The given Referable object is not embedded within an Identifiable object: {ref}")
             ref = ref.parent
             if len(keys) > MAX_RECURSION_DEPTH:
-                raise ValueError(f"The given Referable object is embedded in >64 layers of Referables "
-                                 f"or there is a loop in the parent chain {ref}")
+                raise ValueError(
+                    f"The given Referable object is embedded in >64 layers of Referables "
+                    f"or there is a loop in the parent chain {ref}"
+                )
 
 
 @_string_constraints.constrain_content_type("content_type")
@@ -1187,6 +1230,7 @@ class Resource:
     :ivar content_type: Content type of the content of the file. The content type states which file extensions the file
                         can have.
     """
+
     def __init__(self, path: PathType, content_type: Optional[ContentType] = None):
         self.path: PathType = path
         self.content_type: Optional[ContentType] = content_type
@@ -1206,6 +1250,7 @@ class DataSpecificationContent:
     shall contain the external reference to the IRI of the corresponding data specification
     template ``https://admin-shell.io/DataSpecificationTemplates/DataSpecificationIEC61360/3/1``
     """
+
     @abc.abstractmethod
     def __init__(self):
         pass
@@ -1218,6 +1263,7 @@ class EmbeddedDataSpecification:
     :ivar data_specification: Reference to the data specification
     :ivar data_specification_content: Actual content of the data specification
     """
+
     def __init__(
         self,
         data_specification: Reference,
@@ -1243,6 +1289,7 @@ class HasDataSpecification(metaclass=abc.ABCMeta):
 
     :ivar embedded_data_specifications: List of :class:`~.EmbeddedDataSpecification`.
     """
+
     @abc.abstractmethod
     def __init__(
         self,
@@ -1281,12 +1328,14 @@ class AdministrativeInformation(HasDataSpecification):
         The creation of submodel templates can also be guided by another submodel template.
     """
 
-    def __init__(self,
-                 version: Optional[VersionType] = None,
-                 revision: Optional[RevisionType] = None,
-                 creator: Optional[Reference] = None,
-                 template_id: Optional[Identifier] = None,
-                 embedded_data_specifications: Iterable[EmbeddedDataSpecification] = ()):
+    def __init__(
+        self,
+        version: Optional[VersionType] = None,
+        revision: Optional[RevisionType] = None,
+        creator: Optional[Reference] = None,
+        template_id: Optional[Identifier] = None,
+        embedded_data_specifications: Iterable[EmbeddedDataSpecification] = (),
+    ):
         """
         Initializer of AdministrativeInformation
 
@@ -1307,8 +1356,11 @@ class AdministrativeInformation(HasDataSpecification):
 
     def _set_revision(self, revision: Optional[RevisionType]):
         if self.version is None and revision:
-            raise AASConstraintViolation(5, "A revision requires a version. This means, if there is no version "
-                                            "there is no revision neither. Please set version first.")
+            raise AASConstraintViolation(
+                5,
+                "A revision requires a version. This means, if there is no version "
+                "there is no revision neither. Please set version first.",
+            )
         if revision is not None:
             _string_constraints.check_revision_type(revision)
         self._revision = revision
@@ -1318,14 +1370,17 @@ class AdministrativeInformation(HasDataSpecification):
     def __eq__(self, other) -> bool:
         if not isinstance(other, AdministrativeInformation):
             return NotImplemented
-        return self.version == other.version \
-            and self._revision == other._revision \
-            and self.creator == other.creator \
+        return (
+            self.version == other.version
+            and self._revision == other._revision
+            and self.creator == other.creator
             and self.template_id == other.template_id
+        )
 
     def __repr__(self) -> str:
         return "AdministrativeInformation(version={}, revision={}, creator={}, template_id={})".format(
-            self.version, self.revision, self.creator, self.template_id)
+            self.version, self.revision, self.creator, self.template_id
+        )
 
 
 @_string_constraints.constrain_identifier("id")
@@ -1339,6 +1394,7 @@ class Identifiable(Referable, metaclass=abc.ABCMeta):
     :ivar administration: :class:`~.AdministrativeInformation` of an identifiable element.
     :ivar id: The globally unique id of the element.
     """
+
     @abc.abstractmethod
     def __init__(self) -> None:
         super().__init__()
@@ -1371,9 +1427,13 @@ class ConstrainedList(MutableSequence[_T], Generic[_T]):
     or ``del list[i]``. It is passed the item about to be deleted and the current list elements.
     """
 
-    def __init__(self, items: Iterable[_T], item_add_hook: Optional[Callable[[_T, List[_T]], None]] = None,
-                 item_set_hook: Optional[Callable[[List[_T], List[_T], List[_T]], None]] = None,
-                 item_del_hook: Optional[Callable[[_T, List[_T]], None]] = None) -> None:
+    def __init__(
+        self,
+        items: Iterable[_T],
+        item_add_hook: Optional[Callable[[_T, List[_T]], None]] = None,
+        item_set_hook: Optional[Callable[[List[_T], List[_T], List[_T]], None]] = None,
+        item_del_hook: Optional[Callable[[_T, List[_T]], None]] = None,
+    ) -> None:
         super().__init__()
         self._list: List[_T] = []
         self._item_add_hook: Optional[Callable[[_T, List[_T]], None]] = item_add_hook
@@ -1472,6 +1532,7 @@ class HasSemantics(metaclass=abc.ABCMeta):
     :ivar supplemental_semantic_id: Identifier of a supplemental semantic definition of the element. It is called
                                     supplemental semantic ID of the element.
     """
+
     @abc.abstractmethod
     def __init__(self) -> None:
         super().__init__()
@@ -1479,7 +1540,8 @@ class HasSemantics(metaclass=abc.ABCMeta):
         #  of Referable.parent as `UniqueIdShortNamespace`
         self.parent: Optional[Any] = None
         self._supplemental_semantic_id: ConstrainedList[Reference] = ConstrainedList(
-            [], item_add_hook=self._check_constraint_add)
+            [], item_add_hook=self._check_constraint_add
+        )
         self._semantic_id: Optional[Reference] = None
 
     def _check_constraint_add(self, _new: Reference, _list: List[Reference]) -> None:
@@ -1493,8 +1555,11 @@ class HasSemantics(metaclass=abc.ABCMeta):
     @semantic_id.setter
     def semantic_id(self, semantic_id: Optional[Reference]) -> None:
         if semantic_id is None and len(self.supplemental_semantic_id) > 0:
-            raise AASConstraintViolation(118, "semantic_id can not be removed while there is at least one "
-                                              f"supplemental_semantic_id: {self.supplemental_semantic_id!r}")
+            raise AASConstraintViolation(
+                118,
+                "semantic_id can not be removed while there is at least one "
+                f"supplemental_semantic_id: {self.supplemental_semantic_id!r}",
+            )
         if self.parent is not None:
             if semantic_id is not None:
                 for set_ in self.parent.namespace_element_sets:
@@ -1534,13 +1599,15 @@ class Extension(HasSemantics):
                                     :class:`~basyx.aas.model.base.HasSemantics`)
     """
 
-    def __init__(self,
-                 name: NameType,
-                 value_type: Optional[DataTypeDefXsd] = None,
-                 value: Optional[ValueDataType] = None,
-                 refers_to: Iterable[ModelReference] = (),
-                 semantic_id: Optional[Reference] = None,
-                 supplemental_semantic_id: Iterable[Reference] = ()):
+    def __init__(
+        self,
+        name: NameType,
+        value_type: Optional[DataTypeDefXsd] = None,
+        value: Optional[ValueDataType] = None,
+        refers_to: Iterable[ModelReference] = (),
+        semantic_id: Optional[Reference] = None,
+        supplemental_semantic_id: Iterable[Reference] = (),
+    ):
         super().__init__()
         self.parent: Optional[HasExtension] = None
         self._name: NameType
@@ -1565,7 +1632,7 @@ class Extension(HasSemantics):
             self._value = None
         else:
             if self.value_type is None:
-                raise ValueError('ValueType must be set, if value is not None')
+                raise ValueError("ValueType must be set, if value is not None")
             self._value = datatypes.trivial_cast(value, self.value_type)
 
     @property
@@ -1578,8 +1645,7 @@ class Extension(HasSemantics):
         if self.parent is not None:
             for set_ in self.parent.namespace_element_sets:
                 if set_.contains_id("name", name):
-                    raise KeyError("Object with name '{}' is already present in the parent Namespace"
-                                   .format(name))
+                    raise KeyError("Object with name '{}' is already present in the parent Namespace".format(name))
             set_add_list: List[NamespaceSet] = []
             for set_ in self.parent.namespace_element_sets:
                 if self in set_:
@@ -1601,6 +1667,7 @@ class HasKind(metaclass=abc.ABCMeta):
 
     :ivar _kind: Kind of the element: either type or instance. Default = :attr:`~ModellingKind.INSTANCE`.
     """
+
     @abc.abstractmethod
     def __init__(self) -> None:
         super().__init__()
@@ -1626,6 +1693,7 @@ class Qualifiable(Namespace, metaclass=abc.ABCMeta):
     :ivar qualifier: Unordered list of :class:`Qualifiers <Qualifier>` that gives additional qualification of a
                      qualifiable element.
     """
+
     @abc.abstractmethod
     def __init__(self) -> None:
         super().__init__()
@@ -1679,14 +1747,16 @@ class Qualifier(HasSemantics):
                                     :class:`~basyx.aas.model.base.HasSemantics`)
     """
 
-    def __init__(self,
-                 type_: QualifierType,
-                 value_type: DataTypeDefXsd,
-                 value: Optional[ValueDataType] = None,
-                 value_id: Optional[Reference] = None,
-                 kind: QualifierKind = QualifierKind.CONCEPT_QUALIFIER,
-                 semantic_id: Optional[Reference] = None,
-                 supplemental_semantic_id: Iterable[Reference] = ()):
+    def __init__(
+        self,
+        type_: QualifierType,
+        value_type: DataTypeDefXsd,
+        value: Optional[ValueDataType] = None,
+        value_id: Optional[Reference] = None,
+        kind: QualifierKind = QualifierKind.CONCEPT_QUALIFIER,
+        semantic_id: Optional[Reference] = None,
+        supplemental_semantic_id: Iterable[Reference] = (),
+    ):
         """
         TODO: Add instruction what to do after construction
         """
@@ -1725,8 +1795,7 @@ class Qualifier(HasSemantics):
         if self.parent is not None:
             for set_ in self.parent.namespace_element_sets:
                 if set_.contains_id("type", type_):
-                    raise KeyError("Object with type '{}' is already present in the parent Namespace"
-                                   .format(type_))
+                    raise KeyError("Object with type '{}' is already present in the parent Namespace".format(type_))
             set_add_list: List[NamespaceSet] = []
             for set_ in self.parent.namespace_element_sets:
                 if self in set_:
@@ -1750,9 +1819,7 @@ class ValueReferencePair:
     :ivar value_id: Global unique id of the value.
     """
 
-    def __init__(self,
-                 value: ValueTypeIEC61360,
-                 value_id: Optional[Reference] = None):
+    def __init__(self, value: ValueTypeIEC61360, value_id: Optional[Reference] = None):
         """
 
 
@@ -1777,6 +1844,7 @@ class UniqueIdShortNamespace(Namespace, metaclass=abc.ABCMeta):
 
     :ivar namespace_element_sets: A list of all :class:`NamespaceSets <.NamespaceSet>` of this Namespace
     """
+
     @abc.abstractmethod
     def __init__(self) -> None:
         super().__init__()
@@ -1796,6 +1864,7 @@ class UniqueIdShortNamespace(Namespace, metaclass=abc.ABCMeta):
         :raises KeyError: If no such :class:`~.Referable` can be found
         """
         from .submodel import SubmodelElementList
+
         if isinstance(id_short_path, (str, NameType)):
             id_short_path = Referable.parse_id_short_path(id_short_path)
         item: Union[UniqueIdShortNamespace, Referable] = self
@@ -1803,8 +1872,10 @@ class UniqueIdShortNamespace(Namespace, metaclass=abc.ABCMeta):
             # This is redundant on first iteration, but it's a negligible overhead.
             # Also, ModelReference.resolve() relies on this check.
             if not isinstance(item, UniqueIdShortNamespace):
-                raise TypeError(f"Cannot resolve id_short or index '{id_}' at {item!r}, "
-                                f"because it is not a {UniqueIdShortNamespace.__name__}!")
+                raise TypeError(
+                    f"Cannot resolve id_short or index '{id_}' at {item!r}, "
+                    f"because it is not a {UniqueIdShortNamespace.__name__}!"
+                )
             is_submodel_element_list = isinstance(item, SubmodelElementList)
             try:
                 if is_submodel_element_list:
@@ -1817,8 +1888,11 @@ class UniqueIdShortNamespace(Namespace, metaclass=abc.ABCMeta):
             except ValueError as e:
                 raise ValueError(f"Cannot resolve '{id_}' at {item!r}, because it is not a numeric index!") from e
             except (KeyError, IndexError) as e:
-                raise KeyError("Referable with {} {} not found in {}".format(
-                    "index" if is_submodel_element_list else "id_short", id_, repr(item))) from e
+                raise KeyError(
+                    "Referable with {} {} not found in {}".format(
+                        "index" if is_submodel_element_list else "id_short", id_, repr(item)
+                    )
+                ) from e
         # All UniqueIdShortNamespaces are Referables, and we only ever assign Referable to item.
         return item  # type: ignore[return-value]
 
@@ -1862,6 +1936,7 @@ class UniqueSemanticIdNamespace(Namespace, metaclass=abc.ABCMeta):
 
     :ivar namespace_element_sets: A list of all NamespaceSets of this Namespace
     """
+
     @abc.abstractmethod
     def __init__(self) -> None:
         super().__init__()
@@ -1919,11 +1994,16 @@ class NamespaceSet(MutableSet[_NSO], Generic[_NSO]):
 
     :raises KeyError: When ``items`` contains multiple objects with same unique attribute
     """
-    def __init__(self, parent: Union[UniqueIdShortNamespace, UniqueSemanticIdNamespace, Qualifiable, HasExtension],
-                 attribute_names: List[Tuple[str, bool]], items: Iterable[_NSO] = (),
-                 item_add_hook: Optional[Callable[[_NSO, Iterable[_NSO]], None]] = None,
-                 item_id_set_hook: Optional[Callable[[_NSO], None]] = None,
-                 item_id_del_hook: Optional[Callable[[_NSO], None]] = None) -> None:
+
+    def __init__(
+        self,
+        parent: Union[UniqueIdShortNamespace, UniqueSemanticIdNamespace, Qualifiable, HasExtension],
+        attribute_names: List[Tuple[str, bool]],
+        items: Iterable[_NSO] = (),
+        item_add_hook: Optional[Callable[[_NSO, Iterable[_NSO]], None]] = None,
+        item_id_set_hook: Optional[Callable[[_NSO], None]] = None,
+        item_id_del_hook: Optional[Callable[[_NSO], None]] = None,
+    ) -> None:
         """
         Initialize a new NamespaceSet.
 
@@ -2017,20 +2097,28 @@ class NamespaceSet(MutableSet[_NSO], Generic[_NSO]):
     def _check_attr_is_not_none(self, element: _NSO, attr_name: str, attr):
         if attr is None:
             if attr_name == "id_short":
-                raise AASConstraintViolation(117, f"{element!r} has attribute {attr_name}=None, "
-                                                  f"which is not allowed within a {self.parent.__class__.__name__}!")
+                raise AASConstraintViolation(
+                    117,
+                    f"{element!r} has attribute {attr_name}=None, "
+                    f"which is not allowed within a {self.parent.__class__.__name__}!",
+                )
             else:
                 raise ValueError(f"{element!r} has attribute {attr_name}=None, which is not allowed!")
 
-    def _check_value_is_not_in_backend(self, element: _NSO, attr_name: str, attr,
-                                       backend_dict: Dict[ATTRIBUTE_TYPES, _NSO], set_: "NamespaceSet"):
+    def _check_value_is_not_in_backend(
+        self, element: _NSO, attr_name: str, attr, backend_dict: Dict[ATTRIBUTE_TYPES, _NSO], set_: "NamespaceSet"
+    ):
         if attr in backend_dict:
             if set_ is self:
-                text = f"Object with attribute (name='{attr_name}', value='{getattr(element, attr_name)}') " \
-                       f"is already present in this set of objects"
+                text = (
+                    f"Object with attribute (name='{attr_name}', value='{getattr(element, attr_name)}') "
+                    f"is already present in this set of objects"
+                )
             else:
-                text = f"Object with attribute (name='{attr_name}', value='{getattr(element, attr_name)}') " \
-                       f"is already present in another set in the same namespace"
+                text = (
+                    f"Object with attribute (name='{attr_name}', value='{getattr(element, attr_name)}') "
+                    f"is already present in another set in the same namespace"
+                )
             raise AASConstraintViolation(ATTRIBUTES_CONSTRAINT_IDS.get(attr_name, 0), text)
 
     def _execute_item_id_set_hook(self, element: _NSO):
@@ -2165,11 +2253,16 @@ class OrderedNamespaceSet(NamespaceSet[_NSO], MutableSequence[_NSO], Generic[_NS
     (actually it is derived from MutableSequence). However, we don't permit duplicate entries in the ordered list of
     objects.
     """
-    def __init__(self, parent: Union[UniqueIdShortNamespace, UniqueSemanticIdNamespace, Qualifiable, HasExtension],
-                 attribute_names: List[Tuple[str, bool]], items: Iterable[_NSO] = (),
-                 item_add_hook: Optional[Callable[[_NSO, Iterable[_NSO]], None]] = None,
-                 item_id_set_hook: Optional[Callable[[_NSO], None]] = None,
-                 item_id_del_hook: Optional[Callable[[_NSO], None]] = None) -> None:
+
+    def __init__(
+        self,
+        parent: Union[UniqueIdShortNamespace, UniqueSemanticIdNamespace, Qualifiable, HasExtension],
+        attribute_names: List[Tuple[str, bool]],
+        items: Iterable[_NSO] = (),
+        item_add_hook: Optional[Callable[[_NSO, Iterable[_NSO]], None]] = None,
+        item_id_set_hook: Optional[Callable[[_NSO], None]] = None,
+        item_id_del_hook: Optional[Callable[[_NSO], None]] = None,
+    ) -> None:
         """
         Initialize a new OrderedNamespaceSet.
 
@@ -2275,7 +2368,7 @@ class OrderedNamespaceSet(NamespaceSet[_NSO], MutableSequence[_NSO], Generic[_NS
 
     def __delitem__(self, i: Union[int, slice]) -> None:
         if isinstance(i, int):
-            i = slice(i, i+1)
+            i = slice(i, i + 1)
         for o in self._order[i]:
             super().remove(o)
         del self._order[i]
@@ -2301,12 +2394,14 @@ class SpecificAssetId(HasSemantics):
                                     :class:`~basyx.aas.model.base.HasSemantics`)
     """
 
-    def __init__(self,
-                 name: LabelType,
-                 value: Identifier,
-                 external_subject_id: Optional[ExternalReference] = None,
-                 semantic_id: Optional[Reference] = None,
-                 supplemental_semantic_id: Iterable[Reference] = ()):
+    def __init__(
+        self,
+        name: LabelType,
+        value: Identifier,
+        external_subject_id: Optional[ExternalReference] = None,
+        semantic_id: Optional[Reference] = None,
+        supplemental_semantic_id: Iterable[Reference] = (),
+    ):
         super().__init__()
         if value == "":
             raise ValueError("value is not allowed to be an empty string")
@@ -2316,11 +2411,11 @@ class SpecificAssetId(HasSemantics):
         self.value: Identifier
         self.external_subject_id: ExternalReference
 
-        super().__setattr__('name', name)
-        super().__setattr__('value', value)
-        super().__setattr__('external_subject_id', external_subject_id)
-        super().__setattr__('semantic_id', semantic_id)
-        super().__setattr__('supplemental_semantic_id', supplemental_semantic_id)
+        super().__setattr__("name", name)
+        super().__setattr__("value", value)
+        super().__setattr__("external_subject_id", external_subject_id)
+        super().__setattr__("semantic_id", semantic_id)
+        super().__setattr__("supplemental_semantic_id", supplemental_semantic_id)
 
     def __setattr__(self, key, value):
         """Prevent modification of attributes."""
@@ -2328,27 +2423,31 @@ class SpecificAssetId(HasSemantics):
         # HasSemantics.__init__ sets the parent attribute to None, so that has to be possible. It needs to be set
         # because its value is checked in the semantic_id setter and since every subclass of HasSemantics is expected
         # to have this attribute. Additionally, the protected _semantic_id attribute must be settable.
-        if key == '_semantic_id' or key == '_supplemental_semantic_id' or (key == 'parent' and value is None):
+        if key == "_semantic_id" or key == "_supplemental_semantic_id" or (key == "parent" and value is None):
             return super(HasSemantics, self).__setattr__(key, value)
-        raise AttributeError('SpecificAssetId is immutable')
+        raise AttributeError("SpecificAssetId is immutable")
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SpecificAssetId):
             return NotImplemented
-        return (self.name == other.name
-                and self.value == other.value
-                and self.external_subject_id == other.external_subject_id
-                and self.semantic_id == other.semantic_id
-                and self.supplemental_semantic_id == other.supplemental_semantic_id)
+        return (
+            self.name == other.name
+            and self.value == other.value
+            and self.external_subject_id == other.external_subject_id
+            and self.semantic_id == other.semantic_id
+            and self.supplemental_semantic_id == other.supplemental_semantic_id
+        )
 
     def __hash__(self):
         return hash((self.name, self.value, self.external_subject_id))
 
     def __repr__(self) -> str:
-        return "SpecificAssetId(key={}, value={}, external_subject_id={}, " \
-                "semantic_id={}, supplemental_semantic_id={})".format(
-                    self.name, self.value, self.external_subject_id, self.semantic_id,
-                    self.supplemental_semantic_id)
+        return (
+            "SpecificAssetId(key={}, value={}, external_subject_id={}, "
+            "semantic_id={}, supplemental_semantic_id={})".format(
+                self.name, self.value, self.external_subject_id, self.semantic_id, self.supplemental_semantic_id
+            )
+        )
 
 
 class AASConstraintViolation(Exception):
@@ -2359,6 +2458,7 @@ class AASConstraintViolation(Exception):
     :ivar constraint_id: The ID of the constraint that is violated
     :ivar message: The error message of the Exception
     """
+
     def __init__(self, constraint_id: int, message: str):
         self.constraint_id: int = constraint_id
         self.message: str = message + " (Constraint AASd-" + str(constraint_id).zfill(3) + ")"
@@ -2391,6 +2491,7 @@ class DataTypeIEC61360(Enum):
     :cvar BLOB:
     :cvar FILE:
     """
+
     DATE = 0
     STRING = 1
     STRING_TRANSLATABLE = 2
@@ -2423,6 +2524,7 @@ class IEC61360LevelType(Enum):
     :cvar NOM:
     :cvar TYP:
     """
+
     MIN = 0
     MAX = 1
     NOM = 2
@@ -2449,19 +2551,22 @@ class DataSpecificationIEC61360(DataSpecificationContent):
     :ivar value: Optional value data type object
     :ivar level_types: Optional set of level types of the DataSpecificationContent
     """
-    def __init__(self,
-                 preferred_name: PreferredNameTypeIEC61360,
-                 data_type: Optional[DataTypeIEC61360] = None,
-                 definition: Optional[DefinitionTypeIEC61360] = None,
-                 short_name: Optional[ShortNameTypeIEC61360] = None,
-                 unit: Optional[str] = None,
-                 unit_id: Optional[Reference] = None,
-                 source_of_definition: Optional[str] = None,
-                 symbol: Optional[str] = None,
-                 value_format: Optional[str] = None,
-                 value_list: Optional[ValueList] = None,
-                 value: Optional[ValueTypeIEC61360] = None,
-                 level_types: Iterable[IEC61360LevelType] = ()):
+
+    def __init__(
+        self,
+        preferred_name: PreferredNameTypeIEC61360,
+        data_type: Optional[DataTypeIEC61360] = None,
+        definition: Optional[DefinitionTypeIEC61360] = None,
+        short_name: Optional[ShortNameTypeIEC61360] = None,
+        unit: Optional[str] = None,
+        unit_id: Optional[Reference] = None,
+        source_of_definition: Optional[str] = None,
+        symbol: Optional[str] = None,
+        value_format: Optional[str] = None,
+        value_list: Optional[ValueList] = None,
+        value: Optional[ValueTypeIEC61360] = None,
+        level_types: Iterable[IEC61360LevelType] = (),
+    ):
 
         self.preferred_name: PreferredNameTypeIEC61360 = preferred_name
         self.short_name: Optional[ShortNameTypeIEC61360] = short_name

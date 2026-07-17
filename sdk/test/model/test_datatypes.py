@@ -22,14 +22,15 @@ class TestIntTypes(unittest.TestCase):
         self.assertEqual(8, model.datatypes.from_xsd("8", model.datatypes.Long))
         self.assertEqual(9, model.datatypes.from_xsd("9", model.datatypes.Int))
         self.assertEqual(10, model.datatypes.from_xsd("10", model.datatypes.Short))
-        self.assertEqual(-123456789012345678901234567890,
-                         model.datatypes.from_xsd("-123456789012345678901234567890", model.datatypes.Integer))
+        self.assertEqual(
+            -123456789012345678901234567890,
+            model.datatypes.from_xsd("-123456789012345678901234567890", model.datatypes.Integer),
+        )
         self.assertEqual(2147483647, model.datatypes.from_xsd("2147483647", model.datatypes.Int))
         self.assertEqual(-2147483648, model.datatypes.from_xsd("-2147483648", model.datatypes.Int))
         self.assertEqual(-32768, model.datatypes.from_xsd("-32768", model.datatypes.Short))
         self.assertEqual(-128, model.datatypes.from_xsd("-128", model.datatypes.Byte))
-        self.assertEqual(-9223372036854775808,
-                         model.datatypes.from_xsd("-9223372036854775808", model.datatypes.Long))
+        self.assertEqual(-9223372036854775808, model.datatypes.from_xsd("-9223372036854775808", model.datatypes.Long))
 
     def test_serialize_int(self) -> None:
         self.assertEqual("5", model.datatypes.xsd_repr(model.datatypes.Integer(5)))
@@ -58,7 +59,7 @@ class TestIntTypes(unittest.TestCase):
         self.assertEqual("2147483648 is out of the allowed range for type Int", str(cm.exception))
         with self.assertRaises(ValueError) as cm:
             model.datatypes.Long(2**63)
-        self.assertEqual(str(2**63)+" is out of the allowed range for type Long", str(cm.exception))
+        self.assertEqual(str(2**63) + " is out of the allowed range for type Long", str(cm.exception))
 
     def test_trivial_cast(self) -> None:
         val = model.datatypes.trivial_cast(5, model.datatypes.UnsignedByte)
@@ -101,30 +102,42 @@ class TestStringTypes(unittest.TestCase):
 class TestDateTimeTypes(unittest.TestCase):
     def test_parse_duration(self) -> None:
         # Examples from https://www.w3.org/TR/xmlschema-2/#duration-lexical-repr
-        self.assertEqual(dateutil.relativedelta.relativedelta(years=1, months=2, hours=2),
-                         model.datatypes.from_xsd("P1Y2MT2H", model.datatypes.Duration))
-        self.assertEqual(dateutil.relativedelta.relativedelta(months=1347),
-                         model.datatypes.from_xsd("P0Y1347M", model.datatypes.Duration))
-        self.assertEqual(dateutil.relativedelta.relativedelta(months=1347),
-                         model.datatypes.from_xsd("P0Y1347M0D", model.datatypes.Duration))
-        self.assertEqual(dateutil.relativedelta.relativedelta(months=-1347),
-                         model.datatypes.from_xsd("-P1347M", model.datatypes.Duration))
-        self.assertEqual(dateutil.relativedelta.relativedelta(years=1, months=2, days=3, hours=10, minutes=30),
-                         model.datatypes.from_xsd("P1Y2M3DT10H30M", model.datatypes.Duration))
+        self.assertEqual(
+            dateutil.relativedelta.relativedelta(years=1, months=2, hours=2),
+            model.datatypes.from_xsd("P1Y2MT2H", model.datatypes.Duration),
+        )
+        self.assertEqual(
+            dateutil.relativedelta.relativedelta(months=1347),
+            model.datatypes.from_xsd("P0Y1347M", model.datatypes.Duration),
+        )
+        self.assertEqual(
+            dateutil.relativedelta.relativedelta(months=1347),
+            model.datatypes.from_xsd("P0Y1347M0D", model.datatypes.Duration),
+        )
+        self.assertEqual(
+            dateutil.relativedelta.relativedelta(months=-1347),
+            model.datatypes.from_xsd("-P1347M", model.datatypes.Duration),
+        )
+        self.assertEqual(
+            dateutil.relativedelta.relativedelta(years=1, months=2, days=3, hours=10, minutes=30),
+            model.datatypes.from_xsd("P1Y2M3DT10H30M", model.datatypes.Duration),
+        )
         with self.assertRaises(ValueError) as cm:
             model.datatypes.from_xsd("P-1347M", model.datatypes.Duration)
         self.assertEqual("Value is not a valid XSD duration string", str(cm.exception))
 
     def test_serialize_duration(self) -> None:
-        self.assertEqual("P1Y2MT2H",
-                         model.datatypes.xsd_repr(dateutil.relativedelta.relativedelta(years=1, months=2, hours=2)))
-        self.assertEqual("P112Y3M",
-                         model.datatypes.xsd_repr(dateutil.relativedelta.relativedelta(months=1347)))
-        self.assertEqual("-P112Y3M",
-                         model.datatypes.xsd_repr(dateutil.relativedelta.relativedelta(months=-1347)))
-        self.assertEqual("P1Y2M3DT10H30M",
-                         model.datatypes.xsd_repr(dateutil.relativedelta.relativedelta(years=1, months=2, days=3,
-                                                                                       hours=10, minutes=30)))
+        self.assertEqual(
+            "P1Y2MT2H", model.datatypes.xsd_repr(dateutil.relativedelta.relativedelta(years=1, months=2, hours=2))
+        )
+        self.assertEqual("P112Y3M", model.datatypes.xsd_repr(dateutil.relativedelta.relativedelta(months=1347)))
+        self.assertEqual("-P112Y3M", model.datatypes.xsd_repr(dateutil.relativedelta.relativedelta(months=-1347)))
+        self.assertEqual(
+            "P1Y2M3DT10H30M",
+            model.datatypes.xsd_repr(
+                dateutil.relativedelta.relativedelta(years=1, months=2, days=3, hours=10, minutes=30)
+            ),
+        )
         zero_val = model.datatypes.xsd_repr(dateutil.relativedelta.relativedelta())
         self.assertGreaterEqual(len(zero_val), 3)
         self.assertEqual("P", zero_val[0])
@@ -134,12 +147,18 @@ class TestDateTimeTypes(unittest.TestCase):
 
     def test_parse_date(self) -> None:
         self.assertEqual(datetime.date(2020, 1, 24), model.datatypes.from_xsd("2020-01-24", model.datatypes.Date))
-        self.assertEqual(model.datatypes.Date(2020, 1, 24, datetime.timezone.utc),
-                         model.datatypes.from_xsd("2020-01-24Z", model.datatypes.Date))
-        self.assertEqual(model.datatypes.Date(2020, 1, 24, datetime.timezone(datetime.timedelta(hours=11, minutes=20))),
-                         model.datatypes.from_xsd("2020-01-24+11:20", model.datatypes.Date))
-        self.assertEqual(model.datatypes.Date(2020, 1, 24, datetime.timezone(datetime.timedelta(hours=-8))),
-                         model.datatypes.from_xsd("2020-01-24-08:00", model.datatypes.Date))
+        self.assertEqual(
+            model.datatypes.Date(2020, 1, 24, datetime.timezone.utc),
+            model.datatypes.from_xsd("2020-01-24Z", model.datatypes.Date),
+        )
+        self.assertEqual(
+            model.datatypes.Date(2020, 1, 24, datetime.timezone(datetime.timedelta(hours=11, minutes=20))),
+            model.datatypes.from_xsd("2020-01-24+11:20", model.datatypes.Date),
+        )
+        self.assertEqual(
+            model.datatypes.Date(2020, 1, 24, datetime.timezone(datetime.timedelta(hours=-8))),
+            model.datatypes.from_xsd("2020-01-24-08:00", model.datatypes.Date),
+        )
         with self.assertRaises(ValueError) as cm:
             model.datatypes.from_xsd("2020-01-24+11", model.datatypes.Date)
         self.assertEqual("Value is not a valid XSD date string", str(cm.exception))
@@ -148,30 +167,34 @@ class TestDateTimeTypes(unittest.TestCase):
 
     def test_serialize_date(self) -> None:
         self.assertEqual("2020-01-24", model.datatypes.xsd_repr(model.datatypes.Date(2020, 1, 24)))
-        self.assertEqual("2020-01-24Z", model.datatypes.xsd_repr(
-            model.datatypes.Date(2020, 1, 24, datetime.timezone.utc)))
-        self.assertEqual("2020-01-24+11:20", model.datatypes.xsd_repr(
-            model.datatypes.Date(2020, 1, 24, datetime.timezone(datetime.timedelta(hours=11, minutes=20)))))
+        self.assertEqual(
+            "2020-01-24Z", model.datatypes.xsd_repr(model.datatypes.Date(2020, 1, 24, datetime.timezone.utc))
+        )
+        self.assertEqual(
+            "2020-01-24+11:20",
+            model.datatypes.xsd_repr(
+                model.datatypes.Date(2020, 1, 24, datetime.timezone(datetime.timedelta(hours=11, minutes=20)))
+            ),
+        )
 
     def test_parse_partial_dates(self) -> None:
-        self.assertEqual(model.datatypes.GYear(2019),
-                         model.datatypes.from_xsd("2019", model.datatypes.GYear))
-        self.assertEqual(model.datatypes.GYear(-2001),
-                         model.datatypes.from_xsd("-2001", model.datatypes.GYear))
-        self.assertEqual(model.datatypes.GYear(20000),
-                         model.datatypes.from_xsd("20000", model.datatypes.GYear))
-        self.assertEqual(model.datatypes.GMonth(7),
-                         model.datatypes.from_xsd("--07", model.datatypes.GMonth))
-        self.assertEqual(model.datatypes.GYearMonth(2020, 5),
-                         model.datatypes.from_xsd("2020-05", model.datatypes.GYearMonth))
-        self.assertEqual(model.datatypes.GYearMonth(-2001, 10),
-                         model.datatypes.from_xsd("-2001-10", model.datatypes.GYearMonth))
-        self.assertEqual(model.datatypes.GYearMonth(20000, 5),
-                         model.datatypes.from_xsd("20000-05", model.datatypes.GYearMonth))
-        self.assertEqual(model.datatypes.GMonthDay(12, 6),
-                         model.datatypes.from_xsd("--12-06", model.datatypes.GMonthDay))
-        self.assertEqual(model.datatypes.GDay(23),
-                         model.datatypes.from_xsd("---23", model.datatypes.GDay))
+        self.assertEqual(model.datatypes.GYear(2019), model.datatypes.from_xsd("2019", model.datatypes.GYear))
+        self.assertEqual(model.datatypes.GYear(-2001), model.datatypes.from_xsd("-2001", model.datatypes.GYear))
+        self.assertEqual(model.datatypes.GYear(20000), model.datatypes.from_xsd("20000", model.datatypes.GYear))
+        self.assertEqual(model.datatypes.GMonth(7), model.datatypes.from_xsd("--07", model.datatypes.GMonth))
+        self.assertEqual(
+            model.datatypes.GYearMonth(2020, 5), model.datatypes.from_xsd("2020-05", model.datatypes.GYearMonth)
+        )
+        self.assertEqual(
+            model.datatypes.GYearMonth(-2001, 10), model.datatypes.from_xsd("-2001-10", model.datatypes.GYearMonth)
+        )
+        self.assertEqual(
+            model.datatypes.GYearMonth(20000, 5), model.datatypes.from_xsd("20000-05", model.datatypes.GYearMonth)
+        )
+        self.assertEqual(
+            model.datatypes.GMonthDay(12, 6), model.datatypes.from_xsd("--12-06", model.datatypes.GMonthDay)
+        )
+        self.assertEqual(model.datatypes.GDay(23), model.datatypes.from_xsd("---23", model.datatypes.GDay))
         with self.assertRaises(ValueError) as cm:
             model.datatypes.from_xsd("--23", model.datatypes.GDay)
         self.assertEqual("Value is not a valid XSD GDay string", str(cm.exception))
@@ -208,24 +231,36 @@ class TestDateTimeTypes(unittest.TestCase):
         self.assertEqual("2019Z", model.datatypes.xsd_repr(model.datatypes.GYear(2019, datetime.timezone.utc)))
         self.assertEqual("--07", model.datatypes.xsd_repr(model.datatypes.GMonth(7)))
         self.assertEqual("2020-05", model.datatypes.xsd_repr(model.datatypes.GYearMonth(2020, 5)))
-        self.assertEqual("2020-05-05:15", model.datatypes.xsd_repr(
-            model.datatypes.GYearMonth(2020, 5, datetime.timezone(datetime.timedelta(hours=-5, minutes=-15)))))
+        self.assertEqual(
+            "2020-05-05:15",
+            model.datatypes.xsd_repr(
+                model.datatypes.GYearMonth(2020, 5, datetime.timezone(datetime.timedelta(hours=-5, minutes=-15)))
+            ),
+        )
         self.assertEqual("--12-06", model.datatypes.xsd_repr(model.datatypes.GMonthDay(12, 6)))
-        self.assertEqual("--12-06+07:00", model.datatypes.xsd_repr(
-            model.datatypes.GMonthDay(12, 6, datetime.timezone(datetime.timedelta(hours=7)))))
+        self.assertEqual(
+            "--12-06+07:00",
+            model.datatypes.xsd_repr(model.datatypes.GMonthDay(12, 6, datetime.timezone(datetime.timedelta(hours=7)))),
+        )
         self.assertEqual("---23", model.datatypes.xsd_repr(model.datatypes.GDay(23)))
 
     def test_parse_datetime(self) -> None:
-        self.assertEqual(datetime.datetime(2020, 1, 24, 15, 25, 17),
-                         model.datatypes.from_xsd("2020-01-24T15:25:17", model.datatypes.DateTime))
-        self.assertEqual(datetime.datetime(2020, 1, 24, 15, 25, 17, tzinfo=datetime.timezone.utc),
-                         model.datatypes.from_xsd("2020-01-24T15:25:17Z", model.datatypes.DateTime))
-        self.assertEqual(datetime.datetime(2020, 1, 24, 15, 25, 17,
-                                           tzinfo=datetime.timezone(datetime.timedelta(hours=1))),
-                         model.datatypes.from_xsd("2020-01-24T15:25:17+01:00", model.datatypes.DateTime))
-        self.assertEqual(datetime.datetime(2020, 1, 24, 15, 25, 17,
-                                           tzinfo=datetime.timezone(datetime.timedelta(minutes=-20))),
-                         model.datatypes.from_xsd("2020-01-24T15:25:17-00:20", model.datatypes.DateTime))
+        self.assertEqual(
+            datetime.datetime(2020, 1, 24, 15, 25, 17),
+            model.datatypes.from_xsd("2020-01-24T15:25:17", model.datatypes.DateTime),
+        )
+        self.assertEqual(
+            datetime.datetime(2020, 1, 24, 15, 25, 17, tzinfo=datetime.timezone.utc),
+            model.datatypes.from_xsd("2020-01-24T15:25:17Z", model.datatypes.DateTime),
+        )
+        self.assertEqual(
+            datetime.datetime(2020, 1, 24, 15, 25, 17, tzinfo=datetime.timezone(datetime.timedelta(hours=1))),
+            model.datatypes.from_xsd("2020-01-24T15:25:17+01:00", model.datatypes.DateTime),
+        )
+        self.assertEqual(
+            datetime.datetime(2020, 1, 24, 15, 25, 17, tzinfo=datetime.timezone(datetime.timedelta(minutes=-20))),
+            model.datatypes.from_xsd("2020-01-24T15:25:17-00:20", model.datatypes.DateTime),
+        )
         with self.assertRaises(ValueError) as cm:
             model.datatypes.from_xsd("--2020-01-24T15:25:17-00:20", model.datatypes.DateTime)
         self.assertEqual("--2020-01-24T15:25:17-00:20 is not a valid XSD datetime string", str(cm.exception))
@@ -233,36 +268,54 @@ class TestDateTimeTypes(unittest.TestCase):
             model.datatypes.from_xsd("-2020-01-24T15:25:17+01:00", model.datatypes.DateTime)
 
     def test_serialize_datetime(self) -> None:
-        self.assertEqual("2020-01-24T15:25:17",
-                         model.datatypes.xsd_repr(model.datatypes.DateTime(2020, 1, 24, 15, 25, 17)))
-        self.assertEqual("2020-01-24T15:25:17+00:00",
-                         model.datatypes.xsd_repr(
-                             model.datatypes.DateTime(2020, 1, 24, 15, 25, 17, tzinfo=datetime.timezone.utc)))
-        self.assertEqual("2020-01-24T15:25:17+01:00",
-                         model.datatypes.xsd_repr(
-                             model.datatypes.DateTime(2020, 1, 24, 15, 25, 17,
-                                                      tzinfo=datetime.timezone(datetime.timedelta(hours=1)))))
-        self.assertEqual("2020-01-24T15:25:17-00:20",
-                         model.datatypes.xsd_repr(
-                             model.datatypes.DateTime(2020, 1, 24, 15, 25, 17,
-                                                      tzinfo=datetime.timezone(datetime.timedelta(minutes=-20)))))
+        self.assertEqual(
+            "2020-01-24T15:25:17", model.datatypes.xsd_repr(model.datatypes.DateTime(2020, 1, 24, 15, 25, 17))
+        )
+        self.assertEqual(
+            "2020-01-24T15:25:17+00:00",
+            model.datatypes.xsd_repr(model.datatypes.DateTime(2020, 1, 24, 15, 25, 17, tzinfo=datetime.timezone.utc)),
+        )
+        self.assertEqual(
+            "2020-01-24T15:25:17+01:00",
+            model.datatypes.xsd_repr(
+                model.datatypes.DateTime(2020, 1, 24, 15, 25, 17, tzinfo=datetime.timezone(datetime.timedelta(hours=1)))
+            ),
+        )
+        self.assertEqual(
+            "2020-01-24T15:25:17-00:20",
+            model.datatypes.xsd_repr(
+                model.datatypes.DateTime(
+                    2020, 1, 24, 15, 25, 17, tzinfo=datetime.timezone(datetime.timedelta(minutes=-20))
+                )
+            ),
+        )
 
     def test_parse_time(self) -> None:
-        self.assertEqual(datetime.time(15, 25, 17),
-                         model.datatypes.from_xsd("15:25:17", model.datatypes.Time))
-        self.assertEqual(datetime.time(15, 25, 17, tzinfo=datetime.timezone.utc),
-                         model.datatypes.from_xsd("15:25:17Z", model.datatypes.Time))
-        self.assertEqual(datetime.time(15, 25, 17, 250000, tzinfo=datetime.timezone(datetime.timedelta(hours=1))),
-                         model.datatypes.from_xsd("15:25:17.25+01:00", model.datatypes.Time))
-        self.assertEqual(datetime.time(15, 25, 17, tzinfo=datetime.timezone(datetime.timedelta(minutes=-20))),
-                         model.datatypes.from_xsd("15:25:17-00:20", model.datatypes.Time))
+        self.assertEqual(datetime.time(15, 25, 17), model.datatypes.from_xsd("15:25:17", model.datatypes.Time))
+        self.assertEqual(
+            datetime.time(15, 25, 17, tzinfo=datetime.timezone.utc),
+            model.datatypes.from_xsd("15:25:17Z", model.datatypes.Time),
+        )
+        self.assertEqual(
+            datetime.time(15, 25, 17, 250000, tzinfo=datetime.timezone(datetime.timedelta(hours=1))),
+            model.datatypes.from_xsd("15:25:17.25+01:00", model.datatypes.Time),
+        )
+        self.assertEqual(
+            datetime.time(15, 25, 17, tzinfo=datetime.timezone(datetime.timedelta(minutes=-20))),
+            model.datatypes.from_xsd("15:25:17-00:20", model.datatypes.Time),
+        )
 
     def test_serialize_time(self) -> None:
         self.assertEqual("15:25:17", model.datatypes.xsd_repr(datetime.time(15, 25, 17)))
-        self.assertEqual("15:25:17+00:00", model.datatypes.xsd_repr(
-            datetime.time(15, 25, 17, tzinfo=datetime.timezone.utc)))
-        self.assertEqual("15:25:17.250000+01:00", model.datatypes.xsd_repr(
-            datetime.time(15, 25, 17, 250000, tzinfo=datetime.timezone(datetime.timedelta(hours=1)))))
+        self.assertEqual(
+            "15:25:17+00:00", model.datatypes.xsd_repr(datetime.time(15, 25, 17, tzinfo=datetime.timezone.utc))
+        )
+        self.assertEqual(
+            "15:25:17.250000+01:00",
+            model.datatypes.xsd_repr(
+                datetime.time(15, 25, 17, 250000, tzinfo=datetime.timezone(datetime.timedelta(hours=1)))
+            ),
+        )
 
     def test_parse_datetime_midnight_24(self) -> None:
         res = model.datatypes.from_xsd("2020-01-24T24:00:00", model.datatypes.DateTime)
@@ -273,9 +326,7 @@ class TestDateTimeTypes(unittest.TestCase):
     def test_parse_datetime_midnight_24_invalid(self) -> None:
         with self.assertRaises(ValueError) as cm:
             model.datatypes.from_xsd("2020-01-24T24:01:00", model.datatypes.DateTime)
-        self.assertEqual(
-            "2020-01-24T24:01:00 is not a valid xsd:datetime.",
-            str(cm.exception))
+        self.assertEqual("2020-01-24T24:01:00 is not a valid xsd:datetime.", str(cm.exception))
 
     def test_parse_time_midnight_24(self) -> None:
         res = model.datatypes.from_xsd("24:00:00", model.datatypes.Time)
@@ -284,10 +335,7 @@ class TestDateTimeTypes(unittest.TestCase):
     def test_parse_time_midnight_24_invalid(self) -> None:
         with self.assertRaises(ValueError) as cm:
             model.datatypes.from_xsd("24:00:01", model.datatypes.Time)
-        self.assertEqual(
-            "24:00:01 is not a valid xsd:time.",
-            str(cm.exception)
-        )
+        self.assertEqual("24:00:01 is not a valid xsd:time.", str(cm.exception))
 
     def test_trivial_cast(self) -> None:
         val = model.datatypes.trivial_cast(datetime.date(2017, 11, 13), model.datatypes.Date)

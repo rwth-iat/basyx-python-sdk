@@ -10,6 +10,7 @@ the :mod:`~basyx.aas.adapter.aasx` module from the Eclipse BaSyx Python SDK.
     *Details of the Asset Administration Shell* some specifications of AASX files will change, resulting in changes of
     the :class:`~basyx.aas.adapter.aasx.AASXWriter` interface.
 """
+
 import datetime
 from pathlib import Path  # Used for easier handling of auxiliary file's local path
 
@@ -29,22 +30,17 @@ from basyx.aas.adapter import aasx
 # Let's first create a basic Asset Administration Shell with a simple submodel.
 # See `tutorial_create_simple_aas.py` for more details.
 
-submodel = model.Submodel(
-    id_='https://example.org/Simple_Submodel'
-)
+submodel = model.Submodel(id_="https://example.org/Simple_Submodel")
 aas = model.AssetAdministrationShell(
-    id_='https://example.org/Simple_AAS',
+    id_="https://example.org/Simple_AAS",
     asset_information=model.AssetInformation(
-        asset_kind=model.AssetKind.INSTANCE,
-        global_asset_id='http://example.org/Simple_Asset'
+        asset_kind=model.AssetKind.INSTANCE, global_asset_id="http://example.org/Simple_Asset"
     ),
-    submodel={model.ModelReference.from_referable(submodel)}
+    submodel={model.ModelReference.from_referable(submodel)},
 )
 
 # Another submodel, which is not related to the AAS:
-unrelated_submodel = model.Submodel(
-    id_='https://example.org/Unrelated_Submodel'
-)
+unrelated_submodel = model.Submodel(id_="https://example.org/Unrelated_Submodel")
 
 # We add these objects to an IdentifiableStore for easy retrieval by id.
 # See `tutorial_storage.py` for more details. We could also use a database-backed IdentifiableStore here
@@ -69,7 +65,7 @@ file_store = aasx.DictSupplementaryFileContainer()
 # (This is actually a requirement of the underlying Open Packaging Conventions (ECMA376-2) format, which imposes the
 # specification of the MIME type ("content type") of every single file within the package.)
 
-with open(Path(__file__).parent / 'data' / 'TestFile.pdf', 'rb') as f:
+with open(Path(__file__).parent / "data" / "TestFile.pdf", "rb") as f:
     actual_file_name = file_store.add_file("/aasx/suppl/MyExampleFile.pdf", f, "application/pdf")
 
 
@@ -77,9 +73,8 @@ with open(Path(__file__).parent / 'data' / 'TestFile.pdf', 'rb') as f:
 # Submodel, in the form of a `File` object:
 
 submodel.submodel_element.add(
-    model.File(id_short="documentationFile",
-               content_type="application/pdf",
-               value=actual_file_name))
+    model.File(id_short="documentationFile", content_type="application/pdf", value=actual_file_name)
+)
 
 
 ######################################################################
@@ -102,9 +97,7 @@ with aasx.AASXWriter("MyAASXPackage.aasx") as writer:
     # ATTENTION: As of Version 3.0 RC01 of Details of the Asset Administration Shell, it is no longer valid to add more
     # than one "aas-spec" part (JSON/XML part with AAS objects) to an AASX package. Thus, `write_aas` MUST
     # only be called once per AASX package!
-    writer.write_aas(aas_ids=['https://example.org/Simple_AAS'],
-                     object_store=identifiable_store,
-                     file_store=file_store)
+    writer.write_aas(aas_ids=["https://example.org/Simple_AAS"], object_store=identifiable_store, file_store=file_store)
 
     # Alternatively, we can use a more low-level interface to add a JSON/XML part with any Identifiable objects (not
     # only an AAS and referenced objects) in the AASX package manually. `write_aas_objects()` will also take care of
@@ -116,9 +109,9 @@ with aasx.AASXWriter("MyAASXPackage.aasx") as writer:
     identifiables_to_be_written: model.DictIdentifiableStore[model.Identifiable] = model.DictIdentifiableStore(
         [unrelated_submodel]
     )
-    writer.write_all_aas_objects(part_name="/aasx/my_aas_part.xml",
-                                 objects=identifiables_to_be_written,
-                                 file_store=file_store)
+    writer.write_all_aas_objects(
+        part_name="/aasx/my_aas_part.xml", objects=identifiables_to_be_written, file_store=file_store
+    )
 
     # We can also add a thumbnail image to the package (using `writer.write_thumbnail()`) or add metadata:
     meta_data = pyecma376_2.OPCCoreProperties()
@@ -144,8 +137,7 @@ new_file_store = aasx.DictSupplementaryFileContainer()
 # package file is properly closed when we are finished.
 with aasx.AASXReader("MyAASXPackage.aasx") as reader:
     # Read all contained AAS objects and all referenced auxiliary files
-    reader.read_into(object_store=new_identifiable_store,
-                     file_store=new_file_store)
+    reader.read_into(object_store=new_identifiable_store, file_store=new_file_store)
 
     # We can also read the metadata
     new_meta_data = reader.get_core_properties()
@@ -154,6 +146,6 @@ with aasx.AASXReader("MyAASXPackage.aasx") as reader:
 
 
 # Some quick checks to make sure, reading worked as expected
-assert 'https://example.org/Simple_Submodel' in new_identifiable_store
+assert "https://example.org/Simple_Submodel" in new_identifiable_store
 assert actual_file_name in new_file_store
 assert new_meta_data.creator == "Chair of Process Control Engineering"

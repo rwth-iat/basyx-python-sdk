@@ -2,10 +2,12 @@
 This helper script checks if the Python versions defined in a `pyproject.toml` coincide with the given `min_version`
 and `max_version` and returns an error if they don't.
 """
+
 import re
 import argparse
 import sys
 from packaging.version import Version, InvalidVersion
+
 
 def main(pyproject_toml_path: str, min_version: str, max_version: str) -> None:
     # Load and check `requires-python` version from `pyproject.toml`
@@ -20,16 +22,20 @@ def main(pyproject_toml_path: str, min_version: str, max_version: str) -> None:
 
         pyproject_version = match.group(1)
         if Version(pyproject_version) < Version(min_version):
-            print(f"Error: Python version in `{pyproject_toml_path}` `requires-python` ({pyproject_version}) "
-                  f"is smaller than `min_version` ({min_version}).")
+            print(
+                f"Error: Python version in `{pyproject_toml_path}` `requires-python` ({pyproject_version}) "
+                f"is smaller than `min_version` ({min_version})."
+            )
             sys.exit(1)
 
     except FileNotFoundError:
         print(f"Error: File not found: `{pyproject_toml_path}`.")
         sys.exit(1)
 
-    print(f"Success: Version in pyproject.toml `requires-python` (>={pyproject_version}) "
-          f"matches expected versions ([{min_version} to {max_version}]).")
+    print(
+        f"Success: Version in pyproject.toml `requires-python` (>={pyproject_version}) "
+        f"matches expected versions ([{min_version} to {max_version}])."
+    )
 
 
 if __name__ == "__main__":

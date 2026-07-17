@@ -45,11 +45,7 @@ from typing import cast
 submodel = model.Submodel(id_="https://iat.rwth-aachen.de/Simple_Submodel")
 
 # Step 1.2: Add a single Property to the Submodel
-my_property = model.Property(
-    id_short="MyProperty",
-    value_type=model.datatypes.String,
-    value="I am a simple Property"
-)
+my_property = model.Property(id_short="MyProperty", value_type=model.datatypes.String, value="I am a simple Property")
 submodel.submodel_element.add(my_property)
 
 # Step 1.3: Add a SubmodelElementCollection of Properties to the Submodel
@@ -59,14 +55,14 @@ my_property_collection = model.SubmodelElementCollection(
         model.Property(
             id_short="MyProperty0",
             value_type=model.datatypes.String,
-            value="I am the first of two Properties within a SubmodelElementCollection"
+            value="I am the first of two Properties within a SubmodelElementCollection",
         ),
         model.Property(
             id_short="MyProperty1",
             value_type=model.datatypes.String,
-            value="I am the second of two Properties within a SubmodelElementCollection"
-        )
-    }
+            value="I am the second of two Properties within a SubmodelElementCollection",
+        ),
+    },
 )
 submodel.submodel_element.add(my_property_collection)
 
@@ -78,49 +74,51 @@ my_property_list = model.SubmodelElementList(
     order_relevant=True,
     value=[
         model.Property(
-            id_short=None,
-            value_type=model.datatypes.String,
-            value="I am Property 0 within a SubmodelElementList"
+            id_short=None, value_type=model.datatypes.String, value="I am Property 0 within a SubmodelElementList"
         ),
         model.Property(
-            id_short=None,
-            value_type=model.datatypes.String,
-            value="I am Property 1 within a SubmodelElementList"
-        )
-    ]
+            id_short=None, value_type=model.datatypes.String, value="I am Property 1 within a SubmodelElementList"
+        ),
+    ],
 )
 submodel.submodel_element.add(my_property_list)
 
 # Step 1.5: Add a SubmodelElementList of SubmodelElementCollections to the Submodel
 my_property_collection_0 = model.SubmodelElementCollection(
     id_short=None,
-    value={model.Property(
-        id_short="MyProperty",
-        value_type=model.datatypes.String,
-        value="I am a simple Property within SubmodelElementCollection 0"
-    )}
+    value={
+        model.Property(
+            id_short="MyProperty",
+            value_type=model.datatypes.String,
+            value="I am a simple Property within SubmodelElementCollection 0",
+        )
+    },
 )
 my_property_collection_1 = model.SubmodelElementCollection(
     id_short=None,
-    value={model.Property(
-        id_short="MyProperty",
-        value_type=model.datatypes.String,
-        value="I am a simple Property within SubmodelElementCollection 1"
-    )}
+    value={
+        model.Property(
+            id_short="MyProperty",
+            value_type=model.datatypes.String,
+            value="I am a simple Property within SubmodelElementCollection 1",
+        )
+    },
 )
 my_property_collection_2 = model.SubmodelElementCollection(
     id_short=None,
-    value={model.Property(
-        id_short="MyProperty",
-        value_type=model.datatypes.String,
-        value="I am a simple Property within SubmodelElementCollection 2"
-    )}
+    value={
+        model.Property(
+            id_short="MyProperty",
+            value_type=model.datatypes.String,
+            value="I am a simple Property within SubmodelElementCollection 2",
+        )
+    },
 )
 my_collection_list = model.SubmodelElementList(
     id_short="MyCollectionList",
     type_value_list_element=model.SubmodelElementCollection,
     order_relevant=True,
-    value=[my_property_collection_0, my_property_collection_1, my_property_collection_2]
+    value=[my_property_collection_0, my_property_collection_1, my_property_collection_2],
 )
 submodel.submodel_element.add(my_collection_list)
 
@@ -145,8 +143,7 @@ print(
 
 # Step 2.2.2: Access a Property within a SubmodelElementCollection via its IdShortPath
 my_property_collection_property_1 = cast(
-    model.Property,
-    submodel.get_referable(["MyPropertyCollection", "MyProperty1"])
+    model.Property, submodel.get_referable(["MyPropertyCollection", "MyProperty1"])
 )
 print(
     f"my_property_collection_property_1: "
@@ -178,8 +175,7 @@ print(
 my_collection_list = cast(model.SubmodelElementList, submodel.get_referable("MyCollectionList"))
 my_collection_list_collection_0 = cast(model.SubmodelElementCollection, my_collection_list.get_referable("0"))
 my_collection_list_collection_0_property_0 = cast(
-    model.Property,
-    my_collection_list_collection_0.get_referable("MyProperty")
+    model.Property, my_collection_list_collection_0.get_referable("MyProperty")
 )
 print(
     f"my_collection_list_collection_0_property_0: "
@@ -189,8 +185,7 @@ print(
 
 # Step 2.4.2: Access a Property within a SubmodelElementList of SubmodelElementCollections via its IdShortPath
 my_collection_list_collection_2_property_0 = cast(
-    model.Property,
-    submodel.get_referable(["MyCollectionList", "2", "MyProperty"])
+    model.Property, submodel.get_referable(["MyCollectionList", "2", "MyProperty"])
 )
 print(
     f"my_collection_list_collection_2_property_0: "

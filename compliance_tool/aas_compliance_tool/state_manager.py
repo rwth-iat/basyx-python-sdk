@@ -8,6 +8,7 @@
 This module defines a :class:`~.ComplianceToolStateManager` to store :class:`LogRecords <logging.LogRecord>`
 for single steps in a compliance check of the compliance tool
 """
+
 import logging
 import enum
 import pprint
@@ -25,6 +26,7 @@ class Status(enum.IntEnum):
     :cvar FAILED:
     :cvar NOT_EXECUTED:
     """
+
     SUCCESS = 0
     SUCCESS_WITH_WARNINGS = 1  # never used
     FAILED = 2
@@ -39,6 +41,7 @@ class Step:
     :ivar status: Status of the step from type Status
     :ivar log_list: List of :class:`LogRecords <logging.LogRecord>` which belong to this step
     """
+
     def __init__(self, name: str, status: Status, log_list: List[logging.LogRecord]):
         self.name = name
         self.status = status
@@ -65,6 +68,7 @@ class ComplianceToolStateManager(logging.Handler):
 
     :ivar steps: List of :class:`Steps <.Step>`
     """
+
     def __init__(self):
         """
         steps: List of steps. Each step consist of a step name, a step status and LogRecords belong to to this step.
@@ -134,18 +138,23 @@ class ComplianceToolStateManager(logging.Handler):
         """
         self.steps[-1].status = Status.SUCCESS if not any(True for _ in data_checker.failed_checks) else Status.FAILED
         for check in data_checker.checks:
-            self.steps[-1].log_list.append(logging.LogRecord(name=__name__,
-                                                             level=logging.INFO if check.result else logging.ERROR,
-                                                             pathname='',
-                                                             lineno=0,
-                                                             msg="{} ({})".format(
-                                                                 check.expectation,
-                                                                 ", ".join("{}={}".format(
-                                                                     k, pprint.pformat(
-                                                                         v, depth=2, width=2 ** 14, compact=True))
-                                                                           for k, v in check.data.items())),
-                                                             args=(),
-                                                             exc_info=None))
+            self.steps[-1].log_list.append(
+                logging.LogRecord(
+                    name=__name__,
+                    level=logging.INFO if check.result else logging.ERROR,
+                    pathname="",
+                    lineno=0,
+                    msg="{} ({})".format(
+                        check.expectation,
+                        ", ".join(
+                            "{}={}".format(k, pprint.pformat(v, depth=2, width=2**14, compact=True))
+                            for k, v in check.data.items()
+                        ),
+                    ),
+                    args=(),
+                    exc_info=None,
+                )
+            )
 
     def get_error_logs_from_step(self, index: int) -> List[logging.LogRecord]:
         """
@@ -172,11 +181,11 @@ class ComplianceToolStateManager(logging.Handler):
         :return: formatted string of the step
         """
         STEP_STATUS: Dict[Status, str] = {
-            Status.SUCCESS: '{:14}'.format('SUCCESS:'),
-            Status.SUCCESS_WITH_WARNINGS: '{:14}'.format('WARNINGS:'),
-            Status.FAILED: '{:14}'.format('FAILED:'),
-            Status.NOT_EXECUTED: '{:14}'.format('NOT_EXECUTED:'),
-            }
+            Status.SUCCESS: "{:14}".format("SUCCESS:"),
+            Status.SUCCESS_WITH_WARNINGS: "{:14}".format("WARNINGS:"),
+            Status.FAILED: "{:14}".format("FAILED:"),
+            Status.NOT_EXECUTED: "{:14}".format("NOT_EXECUTED:"),
+        }
         if self.steps[index].status not in STEP_STATUS:
             raise NotImplementedError
         string = STEP_STATUS[self.steps[index].status]
@@ -187,7 +196,7 @@ class ComplianceToolStateManager(logging.Handler):
                 if log.levelno < logging.WARNING:
                     if verbose_level == 1:
                         continue
-                string += '\n'+' - {:6} {}'.format(log.levelname + ':', log.getMessage())
+                string += "\n" + " - {:6} {}".format(log.levelname + ":", log.getMessage())
         return string
 
     def format_state_manager(self, verbose_level: int = 0) -> str:
@@ -203,7 +212,7 @@ class ComplianceToolStateManager(logging.Handler):
 
         :return: formatted report
         """
-        string = 'Compliance Test executed:\n'
+        string = "Compliance Test executed:\n"
         string += "\n".join(self.format_step(x, verbose_level) for x in range(len(self.steps)))
         return string
 

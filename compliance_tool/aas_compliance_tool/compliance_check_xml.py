@@ -11,6 +11,7 @@ All functions reports any issues using the given
 :class:`~basyx.aas.compliance_tool.state_manager.ComplianceToolStateManager` by adding new steps and associated
 :class:`LogRecords <logging.LogRecord>`
 """
+
 import os
 from lxml import etree  # type: ignore
 import logging
@@ -23,8 +24,9 @@ from basyx.aas.examples.data._helper import AASDataChecker
 from aas_compliance_tool.state_manager import ComplianceToolStateManager, Status
 
 
-def check_deserialization(file_path: str, state_manager: ComplianceToolStateManager,
-                          file_info: Optional[str] = None) -> model.DictIdentifiableStore:
+def check_deserialization(
+    file_path: str, state_manager: ComplianceToolStateManager, file_info: Optional[str] = None
+) -> model.DictIdentifiableStore:
     """
     Deserializes a XML AAS file and reports any issues using the given
     :class:`~basyx.aas.compliance_tool.state_manager.ComplianceToolStateManager`
@@ -36,7 +38,7 @@ def check_deserialization(file_path: str, state_manager: ComplianceToolStateMana
     :param file_info: Additional information about the file for name of the steps
     :return: The deserialized object store
     """
-    logger = logging.getLogger('compliance_check')
+    logger = logging.getLogger("compliance_check")
     logger.addHandler(state_manager)
     logger.propagate = False
     logger.setLevel(logging.INFO)
@@ -48,19 +50,19 @@ def check_deserialization(file_path: str, state_manager: ComplianceToolStateMana
     logger_deserialization.setLevel(logging.INFO)
 
     if file_info:
-        state_manager.add_step('Open {} file'.format(file_info))
+        state_manager.add_step("Open {} file".format(file_info))
     else:
-        state_manager.add_step('Open file')
+        state_manager.add_step("Open file")
     try:
         # open given file
-        file_to_be_checked = open(file_path, 'rb')
+        file_to_be_checked = open(file_path, "rb")
     except IOError as error:
         state_manager.set_step_status(Status.FAILED)
         logger.error(error)
         if file_info:
-            state_manager.add_step('Read file {} and check if it is deserializable'.format(file_info))
+            state_manager.add_step("Read file {} and check if it is deserializable".format(file_info))
         else:
-            state_manager.add_step('Read file and check if it is deserializable')
+            state_manager.add_step("Read file and check if it is deserializable")
         state_manager.set_step_status(Status.NOT_EXECUTED)
         return model.DictIdentifiableStore()
 
@@ -68,9 +70,9 @@ def check_deserialization(file_path: str, state_manager: ComplianceToolStateMana
         state_manager.set_step_status(Status.SUCCESS)
         # read given file and check if it is conform to the official xml schema
         if file_info:
-            state_manager.add_step('Read file {} and check if it is deserializable'.format(file_info))
+            state_manager.add_step("Read file {} and check if it is deserializable".format(file_info))
         else:
-            state_manager.add_step('Read file and check if it is deserializable')
+            state_manager.add_step("Read file and check if it is deserializable")
         identifiable_store = xml_deserialization.read_aas_xml_file(file_to_be_checked, failsafe=True)
 
     state_manager.set_step_status_from_log()
@@ -99,20 +101,21 @@ def check_aas_example(file_path: str, state_manager: ComplianceToolStateManager,
     identifiable_store = check_deserialization(file_path, state_manager)
 
     if state_manager.status in (Status.FAILED, Status.NOT_EXECUTED):
-        state_manager.add_step('Check if data is equal to example data')
+        state_manager.add_step("Check if data is equal to example data")
         state_manager.set_step_status(Status.NOT_EXECUTED)
         return
 
     checker = AASDataChecker(raise_immediately=False, **kwargs)
 
-    state_manager.add_step('Check if data is equal to example data')
+    state_manager.add_step("Check if data is equal to example data")
     checker.check_identifiable_store(identifiable_store, create_example())
 
     state_manager.add_log_records_from_data_checker(checker)
 
 
-def check_xml_files_equivalence(file_path_1: str, file_path_2: str, state_manager: ComplianceToolStateManager,
-                                **kwargs) -> None:
+def check_xml_files_equivalence(
+    file_path_1: str, file_path_2: str, state_manager: ComplianceToolStateManager, **kwargs
+) -> None:
     """
     Checks if two xml files contain the same elements in any order and reports any issues using the given
     :class:`~basyx.aas.compliance_tool.state_manager.ComplianceToolStateManager`
@@ -125,23 +128,23 @@ def check_xml_files_equivalence(file_path_1: str, file_path_2: str, state_manage
     :param state_manager: :class:`~basyx.aas.compliance_tool.state_manager.ComplianceToolStateManager` to log the steps
     :param kwargs: Additional arguments to pass to :class:`~basyx.aas.examples.data._helper.AASDataChecker`
     """
-    logger = logging.getLogger('compliance_check')
+    logger = logging.getLogger("compliance_check")
     logger.addHandler(state_manager)
     logger.propagate = False
     logger.setLevel(logging.INFO)
 
-    identifiable_store_1 = check_deserialization(file_path_1, state_manager, 'first')
+    identifiable_store_1 = check_deserialization(file_path_1, state_manager, "first")
 
-    identifiable_store_2 = check_deserialization(file_path_2, state_manager, 'second')
+    identifiable_store_2 = check_deserialization(file_path_2, state_manager, "second")
 
     if state_manager.status is Status.FAILED:
-        state_manager.add_step('Check if data in files are equal')
+        state_manager.add_step("Check if data in files are equal")
         state_manager.set_step_status(Status.NOT_EXECUTED)
         return
 
     checker = AASDataChecker(raise_immediately=False, **kwargs)
     try:
-        state_manager.add_step('Check if data in files are equal')
+        state_manager.add_step("Check if data in files are equal")
         checker.check_identifiable_store(identifiable_store_1, identifiable_store_2)
     except (KeyError, AssertionError) as error:
         state_manager.set_step_status(Status.FAILED)

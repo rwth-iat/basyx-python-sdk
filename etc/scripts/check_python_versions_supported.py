@@ -2,11 +2,13 @@
 This helper script checks that the provided `min_version` and `max_version` are supported and released, respectively,
 using the API from the great https://github.com/endoflife-date/endoflife.date project.
 """
+
 import argparse
 import sys
 import requests
 from packaging.version import InvalidVersion
 from datetime import datetime
+
 
 def main(min_version: str, max_version: str) -> None:
     # Fetch supported Python versions and check min/max versions
@@ -47,8 +49,10 @@ def main(min_version: str, max_version: str) -> None:
         print("Error: Failed to fetch Python version support data.")
         sys.exit(1)
 
-    print(f"Version check passed: min_version [{min_version}] is supported "
-          f"and max_version [{max_version}] is released.")
+    print(
+        f"Version check passed: min_version [{min_version}] is supported and max_version [{max_version}] is released."
+    )
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Check Python version support and alignment with pyproject.toml.")

@@ -22,7 +22,7 @@ from basyx.aas.examples.data import example_aas, example_aas_mandatory_attribute
 class TestAASXUtils(unittest.TestCase):
     def test_supplementary_file_container(self) -> None:
         container = aasx.DictSupplementaryFileContainer()
-        with open(os.path.join(os.path.dirname(__file__), 'TestFile.pdf'), 'rb') as f:
+        with open(os.path.join(os.path.dirname(__file__), "TestFile.pdf"), "rb") as f:
             saved_file_name = container.add_file("/TestFile.pdf", f, "application/pdf")
             # Name should not be modified, since there is no conflict
             self.assertEqual("/TestFile.pdf", saved_file_name)
@@ -33,7 +33,7 @@ class TestAASXUtils(unittest.TestCase):
         self.assertEqual("/TestFile.pdf", same_file_with_same_name)
 
         # Add other file with the same name to create a conflict
-        with open(__file__, 'rb') as f:
+        with open(__file__, "rb") as f:
             saved_file_name_2 = container.add_file("/TestFile.pdf", f, "application/pdf")
         # Now, we have a conflict
         self.assertNotEqual(saved_file_name, saved_file_name_2)
@@ -63,8 +63,10 @@ class TestAASXUtils(unittest.TestCase):
 
         # Check metadata
         self.assertEqual("application/pdf", container.get_content_type("/TestFile.pdf"))
-        self.assertEqual("142a0061de1ef5c22137ab05bb6001335596c0fc8693d33fa9b011ceac652342",
-                         container.get_sha256("/TestFile.pdf").hex())
+        self.assertEqual(
+            "142a0061de1ef5c22137ab05bb6001335596c0fc8693d33fa9b011ceac652342",
+            container.get_sha256("/TestFile.pdf").hex(),
+        )
         self.assertIn("/TestFile.pdf", container)
 
         # Check contents
@@ -73,7 +75,7 @@ class TestAASXUtils(unittest.TestCase):
         self.assertEqual(hashlib.sha1(file_content.getvalue()).hexdigest(), "241e62aef8b4cdad0975f6c68a4ed8b3923d8db1")
 
         # Add same file again with different content_type to test reference counting
-        with open(__file__, 'rb') as f:
+        with open(__file__, "rb") as f:
             duplicate_file = container.add_file("/TestFile.pdf", f, "image/jpeg")
         self.assertIn(duplicate_file, container)
 
@@ -122,14 +124,18 @@ class AASXWriterTest(unittest.TestCase):
                     # try to write non-existing object
                     writer.write_aas_objects(
                         "/aasx/selection.xml",
-                        ["https://example.org/Test_AssetAdministrationShell",
-                         "http://false-identifier.org/",
-                         "http://example.org/Submodels/Assets/TestAsset/Identification"],
-                        data, aasx.DictSupplementaryFileContainer()
+                        [
+                            "https://example.org/Test_AssetAdministrationShell",
+                            "http://false-identifier.org/",
+                            "http://example.org/Submodels/Assets/TestAsset/Identification",
+                        ],
+                        data,
+                        aasx.DictSupplementaryFileContainer(),
                     )
 
-            self.assertIn("Could not find identifiable http://false-identifier.org/ in IdentifiableStore",
-                          log.output[0])
+            self.assertIn(
+                "Could not find identifiable http://false-identifier.org/ in IdentifiableStore", log.output[0]
+            )
 
             # assert only the two existing objects have been written to aasx file
             object_store = model.DictIdentifiableStore()
@@ -161,7 +167,7 @@ class AASXWriterTest(unittest.TestCase):
             self.assertIn("Could not find file", cm.exception.args[0])
 
     def test_writing_file_twice(self) -> None:
-        with (tempfile.TemporaryDirectory() as tmpdir):
+        with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
 
             # ---- Arange ----
@@ -172,22 +178,19 @@ class AASXWriterTest(unittest.TestCase):
             # create two submodels that reference the same file in file_store
             first_submodel = model.Submodel(
                 id_="http://example.org/First_Submodel",
-                submodel_element=[model.File(
-                    id_short="ExampleFile",
-                    content_type="application/pdf",
-                    value=resulting_file_name
-                )]
+                submodel_element=[
+                    model.File(id_short="ExampleFile", content_type="application/pdf", value=resulting_file_name)
+                ],
             )
             second_submodel = model.Submodel(
                 id_="http://example.org/SecondSubmodel",
-                submodel_element=[model.File(
-                    id_short="ExampleFile",
-                    content_type="application/pdf",
-                    value=resulting_file_name
-                )]
+                submodel_element=[
+                    model.File(id_short="ExampleFile", content_type="application/pdf", value=resulting_file_name)
+                ],
             )
-            data: model.DictIdentifiableStore[model.Identifiable] \
-                = model.DictIdentifiableStore([first_submodel, second_submodel])
+            data: model.DictIdentifiableStore[model.Identifiable] = model.DictIdentifiableStore(
+                [first_submodel, second_submodel]
+            )
 
             # ---- Act & Assert ----
             with self.assertNoLogs(level="WARNING"):
@@ -217,8 +220,10 @@ class AASXWriterTest(unittest.TestCase):
                 with aasx.AASXWriter(tmpdir_path / "tmp.aasx", failsafe=False) as writer:
                     # try to write a non AAS object
                     writer.write_aas("https://example.org/Test_Submodel", data, file_store)
-            self.assertIn("Identifier https://example.org/Test_Submodel does not belong "
-                          "to an AssetAdministrationShell", cm.exception.args[0])
+            self.assertIn(
+                "Identifier https://example.org/Test_Submodel does not belong to an AssetAdministrationShell",
+                cm.exception.args[0],
+            )
 
     def test_write_aas_missing_submodel(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -226,11 +231,13 @@ class AASXWriterTest(unittest.TestCase):
 
             # ---- Arange ----
             # leave example_submodel out of object store
-            data = model.DictIdentifiableStore([
-                example_aas.create_example_asset_administration_shell(),
-                example_aas.create_example_asset_identification_submodel(),
-                example_aas.create_example_bill_of_material_submodel()
-            ])
+            data = model.DictIdentifiableStore(
+                [
+                    example_aas.create_example_asset_administration_shell(),
+                    example_aas.create_example_asset_identification_submodel(),
+                    example_aas.create_example_bill_of_material_submodel(),
+                ]
+            )
             empty_file_store = aasx.DictSupplementaryFileContainer()
 
             # ---- Act & Assert ----
@@ -252,12 +259,14 @@ class AASXWriterTest(unittest.TestCase):
 
             # ---- Arange ----
             # leave example_concept_description out of object store
-            data = model.DictIdentifiableStore([
-                example_aas.create_example_asset_administration_shell(),
-                example_aas.create_example_submodel(),
-                example_aas.create_example_asset_identification_submodel(),
-                example_aas.create_example_bill_of_material_submodel()
-            ])
+            data = model.DictIdentifiableStore(
+                [
+                    example_aas.create_example_asset_administration_shell(),
+                    example_aas.create_example_submodel(),
+                    example_aas.create_example_asset_identification_submodel(),
+                    example_aas.create_example_bill_of_material_submodel(),
+                ]
+            )
             file_store = aasx.DictSupplementaryFileContainer()
             with open(Path(__file__).parent / "TestFile.pdf", "rb") as pdf:
                 file_store.add_file("/TestFile.pdf", pdf, "application/pdf")
@@ -284,22 +293,23 @@ class AASXWriterTest(unittest.TestCase):
             # ---- Arange ----
             # semanticId of submodel holds reference to an object
             # that is no ContentDescription
-            second_submodel = model.Submodel(
-                id_="https://example.org/Second_Submodel"
-            )
+            second_submodel = model.Submodel(id_="https://example.org/Second_Submodel")
             submodel = model.Submodel(
                 id_="https://example.org/Test_Submodel",
                 semantic_id=model.ModelReference(
                     key=(model.Key(type_=model.KeyTypes.SUBMODEL, value="https://example.org/Second_Submodel"),),
-                    type_=model.ConceptDescription
-                )
+                    type_=model.ConceptDescription,
+                ),
             )
-            data = model.DictIdentifiableStore([
-                example_aas.create_example_asset_administration_shell(),
-                example_aas.create_example_asset_identification_submodel(),
-                example_aas.create_example_bill_of_material_submodel(),
-                submodel, second_submodel
-            ])
+            data = model.DictIdentifiableStore(
+                [
+                    example_aas.create_example_asset_administration_shell(),
+                    example_aas.create_example_asset_identification_submodel(),
+                    example_aas.create_example_bill_of_material_submodel(),
+                    submodel,
+                    second_submodel,
+                ]
+            )
             empty_file_store = aasx.DictSupplementaryFileContainer()
 
             # ---- Act & Assert ----
@@ -354,10 +364,10 @@ class AASXWriterTest(unittest.TestCase):
 
     def test_writing_reading_example_aas(self) -> None:
         # Create example data and file_store
-        data = example_aas.create_full_example()    # creates a complete, valid example AAS
-        files = aasx.DictSupplementaryFileContainer()   # in-memory store for attached files
-        with open(os.path.join(os.path.dirname(__file__), 'TestFile.pdf'), 'rb') as f:
-            files.add_file("/TestFile.pdf", f, "application/pdf")   # add a real supplementary pdf file
+        data = example_aas.create_full_example()  # creates a complete, valid example AAS
+        files = aasx.DictSupplementaryFileContainer()  # in-memory store for attached files
+        with open(os.path.join(os.path.dirname(__file__), "TestFile.pdf"), "rb") as f:
+            files.add_file("/TestFile.pdf", f, "application/pdf")  # add a real supplementary pdf file
             f.seek(0)
         # Create OPC/AASX core properties
         # create AASX metadata (core properties)
@@ -366,10 +376,10 @@ class AASXWriterTest(unittest.TestCase):
         cp.creator = "Eclipse BaSyx Python Testing Framework"
 
         # Write AASX file
-        for write_json in (False, True):    # Loop over both XML and JSON modes
+        for write_json in (False, True):  # Loop over both XML and JSON modes
             with self.subTest(write_json=write_json):
-                fd, filename = tempfile.mkstemp(suffix=".aasx")     # create temporary file
-                os.close(fd)    # close file descriptor
+                fd, filename = tempfile.mkstemp(suffix=".aasx")  # create temporary file
+                os.close(fd)  # close file descriptor
 
                 # Write AASX file
                 # the zipfile library reports errors as UserWarnings via the warnings library. Let's check for
@@ -377,13 +387,15 @@ class AASXWriterTest(unittest.TestCase):
                 with warnings.catch_warnings(record=True) as w:
                     with aasx.AASXWriter(filename) as writer:
                         # TODO test writing multiple AAS
-                        writer.write_aas('https://example.org/Test_AssetAdministrationShell',
-                                         data, files, write_json=write_json)
+                        writer.write_aas(
+                            "https://example.org/Test_AssetAdministrationShell", data, files, write_json=write_json
+                        )
                         writer.write_core_properties(cp)
 
                 assert isinstance(w, list)  # This should be True due to the record=True parameter
-                self.assertEqual(0, len(w), f"Warnings were issued while writing the AASX file: "
-                                            f"{[warning.message for warning in w]}")
+                self.assertEqual(
+                    0, len(w), f"Warnings were issued while writing the AASX file: {[warning.message for warning in w]}"
+                )
 
                 # Read AASX file
                 new_data: model.DictIdentifiableStore[model.Identifiable] = model.DictIdentifiableStore()
@@ -408,8 +420,9 @@ class AASXWriterTest(unittest.TestCase):
                 self.assertEqual(new_files.get_content_type("/TestFile.pdf"), "application/pdf")
                 file_content = io.BytesIO()
                 new_files.write_file("/TestFile.pdf", file_content)
-                self.assertEqual(hashlib.sha1(file_content.getvalue()).hexdigest(),
-                                 "241e62aef8b4cdad0975f6c68a4ed8b3923d8db1")
+                self.assertEqual(
+                    hashlib.sha1(file_content.getvalue()).hexdigest(), "241e62aef8b4cdad0975f6c68a4ed8b3923d8db1"
+                )
 
                 os.unlink(filename)
 
@@ -419,7 +432,7 @@ class AASXReaderTest(unittest.TestCase):
         data = example_aas.create_full_example()
         files = aasx.DictSupplementaryFileContainer()
 
-        with open(os.path.join(os.path.dirname(__file__), 'TestFile.pdf'), 'rb') as f:
+        with open(os.path.join(os.path.dirname(__file__), "TestFile.pdf"), "rb") as f:
             files.add_file("/TestFile.pdf", f, "application/pdf")
             f.seek(0)
 
@@ -432,10 +445,7 @@ class AASXReaderTest(unittest.TestCase):
         os.close(fd)
 
         with aasx.AASXWriter(filename) as writer:
-            writer.write_aas(
-                'https://example.org/Test_AssetAdministrationShell',
-                data, files, write_json=False
-            )
+            writer.write_aas("https://example.org/Test_AssetAdministrationShell", data, files, write_json=False)
             writer.write_core_properties(cp)
 
         return filename
@@ -474,19 +484,18 @@ class AASXReaderTest(unittest.TestCase):
             # ---- Arange ----
             tmpdir_path = Path(tmpdir)
 
-            data: model.DictIdentifiableStore[model.Identifiable] = model.DictIdentifiableStore([
-                model.AssetAdministrationShell(
-                    id_="http://example.org/Test_AAS",
-                    asset_information=model.AssetInformation(
-                        global_asset_id="http://example.org/Test_Asset"
+            data: model.DictIdentifiableStore[model.Identifiable] = model.DictIdentifiableStore(
+                [
+                    model.AssetAdministrationShell(
+                        id_="http://example.org/Test_AAS",
+                        asset_information=model.AssetInformation(global_asset_id="http://example.org/Test_Asset"),
                     )
-                )
-            ])
+                ]
+            )
 
             with aasx.AASXWriter(tmpdir_path / "test_thumbnail.aasx") as writer:
                 writer.write_aas(
-                    'http://example.org/Test_AAS',
-                    data, aasx.DictSupplementaryFileContainer(), write_json=False
+                    "http://example.org/Test_AAS", data, aasx.DictSupplementaryFileContainer(), write_json=False
                 )
                 with open(Path(__file__).parent / "test.png", "rb") as png:
                     thumbnail = png.read()
@@ -525,15 +534,12 @@ class AASXReaderTest(unittest.TestCase):
                     ids = reader.read_into(objects, files)
 
             assert isinstance(w, list)
-            self.assertEqual(0, len(w))     # Ensure no warnings were raised
+            self.assertEqual(0, len(w))  # Ensure no warnings were raised
 
-            self.assertGreater(len(ids), 0)     # Ensure at least one AAS was read
-            self.assertGreater(len(objects), 0)     # Ensure objects were populated
+            self.assertGreater(len(ids), 0)  # Ensure at least one AAS was read
+            self.assertGreater(len(objects), 0)  # Ensure objects were populated
             self.assertGreater(len(files), 0)
-            self.assertEqual(
-                files.get_content_type("/TestFile.pdf"),
-                "application/pdf"
-            )
+            self.assertEqual(files.get_content_type("/TestFile.pdf"), "application/pdf")
         finally:
             os.unlink(filename)
 
@@ -550,16 +556,12 @@ class AASXReaderTest(unittest.TestCase):
             buf = io.BytesIO()
             files.write_file("/TestFile.pdf", buf)
 
-            self.assertEqual(
-                hashlib.sha1(buf.getvalue()).hexdigest(),
-                "241e62aef8b4cdad0975f6c68a4ed8b3923d8db1"
-            )
+            self.assertEqual(hashlib.sha1(buf.getvalue()).hexdigest(), "241e62aef8b4cdad0975f6c68a4ed8b3923d8db1")
         finally:
             os.unlink(filename)
 
 
 class AASXWriterReferencedSubmodelsTest(unittest.TestCase):
-
     def test_only_referenced_submodels(self):
         """
         Test that verifies that all Submodels (referenced and unreferenced) are written to the AASX package when using
@@ -574,10 +576,9 @@ class AASXWriterReferencedSubmodelsTest(unittest.TestCase):
         aas = model.AssetAdministrationShell(
             id_="Test_AAS",
             asset_information=model.AssetInformation(
-                asset_kind=model.AssetKind.INSTANCE,
-                global_asset_id="http://example.org/Test_Asset"
+                asset_kind=model.AssetKind.INSTANCE, global_asset_id="http://example.org/Test_Asset"
             ),
-            submodel={model.ModelReference.from_referable(referenced_submodel)}
+            submodel={model.ModelReference.from_referable(referenced_submodel)},
         )
 
         # IdentifiableStore containing all objects
@@ -599,7 +600,7 @@ class AASXWriterReferencedSubmodelsTest(unittest.TestCase):
                             aas_ids=[aas.id],
                             object_store=identifiable_store,
                             file_store=file_store,
-                            write_json=write_json
+                            write_json=write_json,
                         )
 
                 # Read back
@@ -609,7 +610,7 @@ class AASXWriterReferencedSubmodelsTest(unittest.TestCase):
                     reader.read_into(new_data, new_files)
 
                 # Assertions
-                self.assertIn(referenced_submodel.id, new_data)     # referenced Submodel is included
+                self.assertIn(referenced_submodel.id, new_data)  # referenced Submodel is included
                 self.assertNotIn(unreferenced_submodel.id, new_data)  # unreferenced Submodel is excluded
 
                 os.unlink(filename)
@@ -626,7 +627,7 @@ class AASXWriterReferencedSubmodelsTest(unittest.TestCase):
                             part_name="/aasx/my_aas_part.xml",
                             objects=identifiable_store,
                             file_store=file_store,
-                            write_json=write_json
+                            write_json=write_json,
                         )
 
                 # Read back

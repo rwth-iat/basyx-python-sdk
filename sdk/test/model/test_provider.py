@@ -15,9 +15,11 @@ class ProvidersTest(unittest.TestCase):
 
     def setUp(self) -> None:
         self.aas1 = model.AssetAdministrationShell(
-            model.AssetInformation(global_asset_id="http://example.org/TestAsset1/"), "urn:x-test:aas1")
+            model.AssetInformation(global_asset_id="http://example.org/TestAsset1/"), "urn:x-test:aas1"
+        )
         self.aas2 = model.AssetAdministrationShell(
-            model.AssetInformation(global_asset_id="http://example.org/TestAsset2/"), "urn:x-test:aas2")
+            model.AssetInformation(global_asset_id="http://example.org/TestAsset2/"), "urn:x-test:aas2"
+        )
         self.submodel1 = model.Submodel("urn:x-test:submodel1")
         self.submodel2 = model.Submodel("urn:x-test:submodel2")
 
@@ -33,14 +35,17 @@ class ProvidersTest(unittest.TestCase):
                 self.assertIn(self.aas1, store)
                 self.assertIn("urn:x-test:aas1", store)
                 self.assertNotIn("urn:x-test:missing", store)
-                property = model.Property('test', model.datatypes.String)
+                property = model.Property("test", model.datatypes.String)
                 self.assertFalse(property in store)
                 aas3 = model.AssetAdministrationShell(
-                    model.AssetInformation(global_asset_id="http://example.org/TestAsset/"), "urn:x-test:aas1")
+                    model.AssetInformation(global_asset_id="http://example.org/TestAsset/"), "urn:x-test:aas1"
+                )
                 with self.assertRaises(KeyError) as cm:
                     store.add(aas3)
-                self.assertEqual("'Identifiable object with same id urn:x-test:aas1 is already "
-                                 "stored in this store'", str(cm.exception))
+                self.assertEqual(
+                    "'Identifiable object with same id urn:x-test:aas1 is already stored in this store'",
+                    str(cm.exception),
+                )
                 self.assertEqual(2, len(store))
                 self.assertIs(self.aas1, store.get_item("urn:x-test:aas1"))
                 self.assertIs(self.aas1, store.get("urn:x-test:aas1"))
@@ -94,9 +99,7 @@ class ProvidersTest(unittest.TestCase):
                     store.remove(self.aas1)
 
     def test_provider_multiplexer(self) -> None:
-        aas_identifiable_store: model.DictIdentifiableStore[model.Identifiable] = (
-            model.DictIdentifiableStore()
-        )
+        aas_identifiable_store: model.DictIdentifiableStore[model.Identifiable] = model.DictIdentifiableStore()
         aas_identifiable_store.add(self.aas1)
         aas_identifiable_store.add(self.aas2)
         submodel_identifiable_store: model.DictIdentifiableStore[model.Identifiable] = model.DictIdentifiableStore()

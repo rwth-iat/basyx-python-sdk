@@ -31,8 +31,9 @@ class TestWalkSubmodel(unittest.TestCase):
 
     def test_list_traversal(self):
         child = model.Property(None, model.datatypes.String)
-        sml = model.SubmodelElementList("sml", type_value_list_element=model.Property,
-                                        value_type_list_element=model.datatypes.String, value=[child])
+        sml = model.SubmodelElementList(
+            "sml", type_value_list_element=model.Property, value_type_list_element=model.datatypes.String, value=[child]
+        )
         sm = self._submodel(sml)
         result = list(walk_submodel(sm))
         self.assertCountEqual([child, sml], result)
@@ -54,8 +55,7 @@ class TestWalkSubmodel(unittest.TestCase):
         in_var = model.Property("in_var", model.datatypes.String)
         out_var = model.Property("out_var", model.datatypes.String)
         inout_var = model.Property("inout_var", model.datatypes.String)
-        op = model.Operation("op", input_variable=[in_var], output_variable=[out_var],
-                             in_output_variable=[inout_var])
+        op = model.Operation("op", input_variable=[in_var], output_variable=[out_var], in_output_variable=[inout_var])
         sm = self._submodel(op)
         result = list(walk_submodel(sm))
         self.assertCountEqual([in_var, out_var, inout_var, op], result)

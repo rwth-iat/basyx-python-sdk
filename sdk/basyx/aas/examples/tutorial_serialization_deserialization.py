@@ -32,23 +32,26 @@ import basyx.aas.adapter.json
 # For more details, take a look at `tutorial_create_simple_aas.py`
 
 submodel = model.Submodel(
-    id_='https://example.org/Simple_Submodel',
+    id_="https://example.org/Simple_Submodel",
     submodel_element={
         model.Property(
-            id_short='ExampleProperty',
+            id_short="ExampleProperty",
             value_type=basyx.aas.model.datatypes.String,
-            value='exampleValue',
-            semantic_id=model.ExternalReference((model.Key(
-                    type_=model.KeyTypes.GLOBAL_REFERENCE,
-                    value='http://example.org/Properties/SimpleProperty'
-                ),)
-            )
-        )}
+            value="exampleValue",
+            semantic_id=model.ExternalReference(
+                (
+                    model.Key(
+                        type_=model.KeyTypes.GLOBAL_REFERENCE, value="http://example.org/Properties/SimpleProperty"
+                    ),
+                )
+            ),
+        )
+    },
 )
 aashell = model.AssetAdministrationShell(
-    id_='https://example.org/Simple_AAS',
+    id_="https://example.org/Simple_AAS",
     asset_information=model.AssetInformation(global_asset_id="test"),
-    submodel={model.ModelReference.from_referable(submodel)}
+    submodel={model.ModelReference.from_referable(submodel)},
 )
 
 
@@ -62,14 +65,13 @@ aashell = model.AssetAdministrationShell(
 # dumped data structure.
 aashell_json_string = json.dumps(aashell, cls=basyx.aas.adapter.json.AASToJsonEncoder)
 
-property_json_string = json.dumps(submodel.submodel_element.get_object_by_attribute("id_short", 'ExampleProperty'),
-                                  cls=basyx.aas.adapter.json.AASToJsonEncoder)
+property_json_string = json.dumps(
+    submodel.submodel_element.get_object_by_attribute("id_short", "ExampleProperty"),
+    cls=basyx.aas.adapter.json.AASToJsonEncoder,
+)
 
 # Using this technique, we can also serialize Python dict and list data structures with nested AAS objects:
-json_string = json.dumps({'the_submodel': submodel,
-                          'the_aas': aashell
-                          },
-                         cls=basyx.aas.adapter.json.AASToJsonEncoder)
+json_string = json.dumps({"the_submodel": submodel, "the_aas": aashell}, cls=basyx.aas.adapter.json.AASToJsonEncoder)
 
 
 ######################################################################
@@ -98,13 +100,13 @@ identifiable_store.add(submodel)
 identifiable_store.add(aashell)
 
 # step 4.2: writing the contents of the IdentifiableStore to a JSON file
-basyx.aas.adapter.json.write_aas_json_file('data.json', identifiable_store)
+basyx.aas.adapter.json.write_aas_json_file("data.json", identifiable_store)
 
 # We can pass the additional keyword argument `indent=4` to `write_aas_json_file()` to format the JSON file in a more
 # human-readable (but much more space-consuming) manner.
 
 # step 4.3: writing the contents of the IdentifiableStore to an XML file
-basyx.aas.adapter.xml.write_aas_xml_file('data.xml', identifiable_store)
+basyx.aas.adapter.xml.write_aas_xml_file("data.xml", identifiable_store)
 
 
 ##################################################################
@@ -112,17 +114,17 @@ basyx.aas.adapter.xml.write_aas_xml_file('data.xml', identifiable_store)
 ##################################################################
 
 # step 5.1: reading contents of the JSON file as an IdentifiableStore
-json_file_data = basyx.aas.adapter.json.read_aas_json_file('data.json')
+json_file_data = basyx.aas.adapter.json.read_aas_json_file("data.json")
 
 # By passing the `failsafe=False` argument to `read_aas_json_file()`, we can switch to the `StrictAASFromJsonDecoder`
 # (see step 3) for a stricter error reporting.
 
 # step 5.2: reading contents of the XML file as an IdentifiableStore
-xml_file_data = basyx.aas.adapter.xml.read_aas_xml_file('data.xml')
+xml_file_data = basyx.aas.adapter.xml.read_aas_xml_file("data.xml")
 
 # Again, we can use `failsafe=False` for switching on stricter error reporting in the parser.
 
 # step 5.3: Retrieving the objects from the IdentifiableStore
 # For more information on the available techniques, see `tutorial_storage.py`.
-submodel_from_xml = xml_file_data.get_item('https://example.org/Simple_Submodel')
+submodel_from_xml = xml_file_data.get_item("https://example.org/Simple_Submodel")
 assert isinstance(submodel_from_xml, model.Submodel)

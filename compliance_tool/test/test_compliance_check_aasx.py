@@ -15,7 +15,6 @@ from basyx.aas.examples.data._helper import CheckResult
 
 
 class ComplianceToolAASXTest(unittest.TestCase):
-
     def test_check_deserialization_no_file(self) -> None:
         manager = ComplianceToolStateManager()
 
@@ -59,8 +58,9 @@ class ComplianceToolAASXTest(unittest.TestCase):
 
     @mock.patch("basyx.aas.adapter.aasx.AASXReader", autospec=True)
     @mock.patch("aas_compliance_tool.compliance_check_aasx.AASDataChecker", autospec=True)
-    def test_check_aas_example_fail_on_open(self, mock_data_checker: mock.MagicMock,
-                                            mock_aasx_reader: mock.MagicMock) -> None:
+    def test_check_aas_example_fail_on_open(
+        self, mock_data_checker: mock.MagicMock, mock_aasx_reader: mock.MagicMock
+    ) -> None:
         manager = ComplianceToolStateManager()
 
         mock_aasx_reader.side_effect = ValueError("Test error!")
@@ -75,8 +75,9 @@ class ComplianceToolAASXTest(unittest.TestCase):
 
     @mock.patch("basyx.aas.adapter.aasx.AASXReader", autospec=True)
     @mock.patch("aas_compliance_tool.compliance_check_aasx.AASDataChecker", autospec=True)
-    def test_check_aas_example_fail_on_read(self, mock_data_checker: mock.MagicMock,
-                                            mock_aasx_reader: mock.MagicMock) -> None:
+    def test_check_aas_example_fail_on_read(
+        self, mock_data_checker: mock.MagicMock, mock_aasx_reader: mock.MagicMock
+    ) -> None:
         manager = ComplianceToolStateManager()
 
         mock_aasx_reader.return_value.read_into.side_effect = ValueError("Test error!")
@@ -91,8 +92,9 @@ class ComplianceToolAASXTest(unittest.TestCase):
 
     @mock.patch("basyx.aas.adapter.aasx.AASXReader", autospec=True)
     @mock.patch("aas_compliance_tool.compliance_check_aasx.AASDataChecker", autospec=True)
-    def test_check_aas_example_fail_on_data_check(self, mock_data_checker: mock.MagicMock,
-                                                  mock_aasx_reader: mock.MagicMock) -> None:
+    def test_check_aas_example_fail_on_data_check(
+        self, mock_data_checker: mock.MagicMock, mock_aasx_reader: mock.MagicMock
+    ) -> None:
         manager = ComplianceToolStateManager()
 
         failed = [CheckResult("Expected Behavior", False, dict())]
@@ -110,13 +112,14 @@ class ComplianceToolAASXTest(unittest.TestCase):
 
     @mock.patch("basyx.aas.adapter.aasx.AASXReader", autospec=True)
     @mock.patch("aas_compliance_tool.compliance_check_aasx.AASDataChecker", autospec=True)
-    def test_check_aas_example_fail_on_core_properties(self, mock_data_checker: mock.MagicMock,
-                                                       mock_aasx_reader: mock.MagicMock) -> None:
+    def test_check_aas_example_fail_on_core_properties(
+        self, mock_data_checker: mock.MagicMock, mock_aasx_reader: mock.MagicMock
+    ) -> None:
         manager = ComplianceToolStateManager()
 
         mock_data_checker.return_value.checks = []
         type(mock_data_checker.return_value).failed_checks = mock.PropertyMock(side_effect=lambda: iter([]))
-        mock_aasx_reader.return_value.read_into.side_effect = create_read_into_mock(file='TestFile')
+        mock_aasx_reader.return_value.read_into.side_effect = create_read_into_mock(file="TestFile")
         wrong_cp = create_example_aas_core_properties()
         wrong_cp.creator = "Wrong Creator"
         mock_aasx_reader.return_value.get_core_properties.return_value = wrong_cp
@@ -132,8 +135,9 @@ class ComplianceToolAASXTest(unittest.TestCase):
 
     @mock.patch("basyx.aas.adapter.aasx.AASXReader", autospec=True)
     @mock.patch("aas_compliance_tool.compliance_check_aasx.AASDataChecker", autospec=True)
-    def test_check_aas_example_fail_on_file_missing(self, mock_data_checker: mock.MagicMock,
-                                                    mock_aasx_reader: mock.MagicMock) -> None:
+    def test_check_aas_example_fail_on_file_missing(
+        self, mock_data_checker: mock.MagicMock, mock_aasx_reader: mock.MagicMock
+    ) -> None:
         manager = ComplianceToolStateManager()
 
         mock_data_checker.return_value.checks = []
@@ -152,13 +156,14 @@ class ComplianceToolAASXTest(unittest.TestCase):
 
     @mock.patch("basyx.aas.adapter.aasx.AASXReader", autospec=True)
     @mock.patch("aas_compliance_tool.compliance_check_aasx.AASDataChecker", autospec=True)
-    def test_check_aas_example_fail_on_file_check(self, mock_data_checker: mock.MagicMock,
-                                                  mock_aasx_reader: mock.MagicMock) -> None:
+    def test_check_aas_example_fail_on_file_check(
+        self, mock_data_checker: mock.MagicMock, mock_aasx_reader: mock.MagicMock
+    ) -> None:
         manager = ComplianceToolStateManager()
 
         mock_data_checker.return_value.checks = []
         type(mock_data_checker.return_value).failed_checks = mock.PropertyMock(side_effect=lambda: iter([]))
-        mock_aasx_reader.return_value.read_into.side_effect = create_read_into_mock(file='TestFileWrong')
+        mock_aasx_reader.return_value.read_into.side_effect = create_read_into_mock(file="TestFileWrong")
         mock_aasx_reader.return_value.get_core_properties.return_value = create_example_aas_core_properties()
         compliance_tool.check_aas_example("", manager)
 
@@ -172,11 +177,12 @@ class ComplianceToolAASXTest(unittest.TestCase):
 
     @mock.patch("basyx.aas.adapter.aasx.AASXReader", autospec=True)
     @mock.patch("aas_compliance_tool.compliance_check_aasx.AASDataChecker", autospec=True)
-    def test_check_aas_example_success(self, mock_data_checker: mock.MagicMock,
-                                       mock_aasx_reader: mock.MagicMock) -> None:
+    def test_check_aas_example_success(
+        self, mock_data_checker: mock.MagicMock, mock_aasx_reader: mock.MagicMock
+    ) -> None:
         manager = ComplianceToolStateManager()
 
-        mock_aasx_reader.return_value.read_into.side_effect = create_read_into_mock(file='TestFile')
+        mock_aasx_reader.return_value.read_into.side_effect = create_read_into_mock(file="TestFile")
         mock_aasx_reader.return_value.get_core_properties.return_value = create_example_aas_core_properties()
         mock_data_checker.return_value.checks = []
         type(mock_data_checker.return_value).failed_checks = mock.PropertyMock(side_effect=lambda: iter([]))
@@ -191,8 +197,9 @@ class ComplianceToolAASXTest(unittest.TestCase):
 
     @mock.patch("basyx.aas.adapter.aasx.AASXReader", autospec=True)
     @mock.patch("aas_compliance_tool.compliance_check_aasx.AASDataChecker", autospec=True)
-    def test_check_aasx_files_equivalence_file1_fail_on_open(self, mock_data_checker: mock.MagicMock,
-                                                             mock_aasx_reader: mock.MagicMock) -> None:
+    def test_check_aasx_files_equivalence_file1_fail_on_open(
+        self, mock_data_checker: mock.MagicMock, mock_aasx_reader: mock.MagicMock
+    ) -> None:
         manager = ComplianceToolStateManager()
 
         mock_aasx_reader.side_effect = [ValueError("Test error!"), mock_aasx_reader.return_value]
@@ -212,8 +219,9 @@ class ComplianceToolAASXTest(unittest.TestCase):
 
     @mock.patch("basyx.aas.adapter.aasx.AASXReader", autospec=True)
     @mock.patch("aas_compliance_tool.compliance_check_aasx.AASDataChecker", autospec=True)
-    def test_check_aasx_files_equivalence_file2_fail_on_open(self, mock_data_checker: mock.MagicMock,
-                                                             mock_aasx_reader: mock.MagicMock) -> None:
+    def test_check_aasx_files_equivalence_file2_fail_on_open(
+        self, mock_data_checker: mock.MagicMock, mock_aasx_reader: mock.MagicMock
+    ) -> None:
         manager = ComplianceToolStateManager()
 
         mock_aasx_reader.side_effect = [mock_aasx_reader.return_value, ValueError("Test error!")]
@@ -233,8 +241,9 @@ class ComplianceToolAASXTest(unittest.TestCase):
 
     @mock.patch("basyx.aas.adapter.aasx.AASXReader", autospec=True)
     @mock.patch("aas_compliance_tool.compliance_check_aasx.AASDataChecker", autospec=True)
-    def test_check_aasx_files_equivalence_fail_on_data_check(self, mock_data_checker: mock.MagicMock,
-                                                             mock_aasx_reader: mock.MagicMock) -> None:
+    def test_check_aasx_files_equivalence_fail_on_data_check(
+        self, mock_data_checker: mock.MagicMock, mock_aasx_reader: mock.MagicMock
+    ) -> None:
         manager = ComplianceToolStateManager()
 
         failed = [CheckResult("Expected Behavior", False, dict())]
@@ -255,19 +264,19 @@ class ComplianceToolAASXTest(unittest.TestCase):
 
     @mock.patch("basyx.aas.adapter.aasx.AASXReader", autospec=True)
     @mock.patch("aas_compliance_tool.compliance_check_aasx.AASDataChecker", autospec=True)
-    def test_check_aasx_files_equivalence_fail_on_core_properties(self, mock_data_checker: mock.MagicMock,
-                                                                  mock_aasx_reader: mock.MagicMock) -> None:
+    def test_check_aasx_files_equivalence_fail_on_core_properties(
+        self, mock_data_checker: mock.MagicMock, mock_aasx_reader: mock.MagicMock
+    ) -> None:
         manager = ComplianceToolStateManager()
 
-        mock_aasx_reader.return_value.read_into.side_effect = create_read_into_mock(file='TestFile')
+        mock_aasx_reader.return_value.read_into.side_effect = create_read_into_mock(file="TestFile")
         mock_data_checker.return_value.checks = []
         mock_aasx_reader.return_value.get_core_properties.return_value = create_example_aas_core_properties()
         type(mock_data_checker.return_value).failed_checks = mock.PropertyMock(side_effect=lambda: iter([]))
 
         wrong_cp = create_example_aas_core_properties()
         wrong_cp.creator = "Wrong Creator"
-        mock_aasx_reader.return_value.get_core_properties.side_effect = \
-            [create_example_aas_core_properties(), wrong_cp]
+        mock_aasx_reader.return_value.get_core_properties.side_effect = [create_example_aas_core_properties(), wrong_cp]
 
         compliance_tool.check_aasx_files_equivalence("", "", manager)
 
@@ -283,8 +292,9 @@ class ComplianceToolAASXTest(unittest.TestCase):
 
     @mock.patch("basyx.aas.adapter.aasx.AASXReader", autospec=True)
     @mock.patch("aas_compliance_tool.compliance_check_aasx.AASDataChecker", autospec=True)
-    def test_check_aasx_files_equivalence_fail_on_file_missing(self, mock_data_checker: mock.MagicMock,
-                                                               mock_aasx_reader: mock.MagicMock) -> None:
+    def test_check_aasx_files_equivalence_fail_on_file_missing(
+        self, mock_data_checker: mock.MagicMock, mock_aasx_reader: mock.MagicMock
+    ) -> None:
         manager = ComplianceToolStateManager()
 
         mock_data_checker.return_value.checks = []
@@ -296,7 +306,7 @@ class ComplianceToolAASXTest(unittest.TestCase):
         def setup_file_stores(*args, **kwargs):
             call_count[0] += 1
             if call_count[0] == 1:
-                return create_read_into_mock(file='TestFile')(*args, **kwargs)
+                return create_read_into_mock(file="TestFile")(*args, **kwargs)
             else:
                 return create_read_into_mock(file=None)(*args, **kwargs)
 
@@ -311,13 +321,15 @@ class ComplianceToolAASXTest(unittest.TestCase):
         self.assertEqual(Status.SUCCESS, manager.steps[4].status)
         self.assertEqual(Status.SUCCESS, manager.steps[5].status)
         self.assertEqual(Status.FAILED, manager.steps[6].status)
-        self.assertIn("second file must contain supplementary file /TestFile.pdf",
-                      manager.format_step(6, verbose_level=1))
+        self.assertIn(
+            "second file must contain supplementary file /TestFile.pdf", manager.format_step(6, verbose_level=1)
+        )
 
     @mock.patch("basyx.aas.adapter.aasx.AASXReader", autospec=True)
     @mock.patch("aas_compliance_tool.compliance_check_aasx.AASDataChecker", autospec=True)
-    def test_check_aasx_files_equivalence_fail_on_file_check(self, mock_data_checker: mock.MagicMock,
-                                                             mock_aasx_reader: mock.MagicMock) -> None:
+    def test_check_aasx_files_equivalence_fail_on_file_check(
+        self, mock_data_checker: mock.MagicMock, mock_aasx_reader: mock.MagicMock
+    ) -> None:
         manager = ComplianceToolStateManager()
 
         mock_data_checker.return_value.checks = []
@@ -329,9 +341,9 @@ class ComplianceToolAASXTest(unittest.TestCase):
         def setup_file_stores(*args, **kwargs):
             call_count[0] += 1
             if call_count[0] == 1:
-                return create_read_into_mock(file='TestFile')(*args, **kwargs)
+                return create_read_into_mock(file="TestFile")(*args, **kwargs)
             else:
-                return create_read_into_mock(file='TestFileWrong')(*args, **kwargs)
+                return create_read_into_mock(file="TestFileWrong")(*args, **kwargs)
 
         mock_aasx_reader.return_value.read_into.side_effect = setup_file_stores
         compliance_tool.check_aasx_files_equivalence("", "", manager)
@@ -344,16 +356,19 @@ class ComplianceToolAASXTest(unittest.TestCase):
         self.assertEqual(Status.SUCCESS, manager.steps[4].status)
         self.assertEqual(Status.SUCCESS, manager.steps[5].status)
         self.assertEqual(Status.FAILED, manager.steps[6].status)
-        self.assertIn("second file must contain supplementary file /TestFile.pdf with sha256",
-                      manager.format_step(6, verbose_level=1))
+        self.assertIn(
+            "second file must contain supplementary file /TestFile.pdf with sha256",
+            manager.format_step(6, verbose_level=1),
+        )
 
     @mock.patch("basyx.aas.adapter.aasx.AASXReader", autospec=True)
     @mock.patch("aas_compliance_tool.compliance_check_aasx.AASDataChecker", autospec=True)
-    def test_check_aasx_files_equivalence_success(self, mock_data_checker: mock.MagicMock,
-                                                  mock_aasx_reader: mock.MagicMock) -> None:
+    def test_check_aasx_files_equivalence_success(
+        self, mock_data_checker: mock.MagicMock, mock_aasx_reader: mock.MagicMock
+    ) -> None:
         manager = ComplianceToolStateManager()
 
-        mock_aasx_reader.return_value.read_into.side_effect = create_read_into_mock(file='TestFile')
+        mock_aasx_reader.return_value.read_into.side_effect = create_read_into_mock(file="TestFile")
         mock_aasx_reader.return_value.get_core_properties.return_value = create_example_aas_core_properties()
         mock_data_checker.return_value.checks = []
         type(mock_data_checker.return_value).failed_checks = mock.PropertyMock(side_effect=lambda: iter([]))

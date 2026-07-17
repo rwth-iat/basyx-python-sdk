@@ -44,13 +44,17 @@ import basyx.aas.backend.couchdb
 # password of a CouchDB user account which is "member" of this database (see above). Alternatively, you can provide
 # your CouchDB server's admin credentials.
 config = ConfigParser()
-config.read([Path(__file__).parent.parent.parent.parent / 'test' / 'test_config.default.ini',
-             Path(__file__).parent.parent.parent.parent / 'test' / 'test_config.ini'])
+config.read(
+    [
+        Path(__file__).parent.parent.parent.parent / "test" / "test_config.default.ini",
+        Path(__file__).parent.parent.parent.parent / "test" / "test_config.ini",
+    ]
+)
 
-couchdb_url = config['couchdb']['url']
-couchdb_database = config['couchdb']['database']
-couchdb_user = config['couchdb']['user']
-couchdb_password = config['couchdb']['password']
+couchdb_url = config["couchdb"]["url"]
+couchdb_database = config["couchdb"]["database"]
+couchdb_user = config["couchdb"]["user"]
+couchdb_password = config["couchdb"]["password"]
 
 
 # Provide the login credentials to the CouchDB backend.
