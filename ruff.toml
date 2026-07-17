@@ -24,7 +24,10 @@ select = [
     "T20",     # prevent native print() statements
     "A",       # prevent shadowing of python builtins
 ]
+
+# TODO: Revisit these
 ignore = [
-    "F403",  # star imports - high existing usage, revisit later
-    "F405",  # may-be-undefined from star imports - same
+    "F403",  # star imports - high existing usage
+    "F405",  # may-be-undefined from star imports
+    "N818",  # Exception name should be named with Error suffix
 ]
