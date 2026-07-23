@@ -64,7 +64,6 @@ class ServerAASFromJsonDecoder(AASFromJsonDecoder):
             ret.asset_kind = ASSET_KIND_INVERSE[_get_ts(dct, "assetKind", str)]
         if "assetType" in dct:
             ret.asset_type = _get_ts(dct, "assetType", str)
-        global_asset_id = None
         if "globalAssetId" in dct:
             ret.global_asset_id = _get_ts(dct, "globalAssetId", str)
         specific_asset_id = set()
@@ -204,11 +203,9 @@ class ServerStrictStrippedAASFromJsonDecoder(ServerStrictAASFromJsonDecoder, Ser
     Non-failsafe decoder for stripped JSON objects.
     """
 
-    pass
 
 
 class ServerAASToJsonEncoder(AASToJsonEncoder):
-
     @classmethod
     def _get_aas_class_serializers(cls) -> Dict[Type, Callable]:
         serializers = super()._get_aas_class_serializers()

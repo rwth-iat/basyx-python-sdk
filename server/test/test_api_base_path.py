@@ -4,9 +4,9 @@
 # the LICENSE file of this project.
 #
 # SPDX-License-Identifier: MIT
-import unittest
 import pathlib
 import re
+import unittest
 
 SERVER_ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -47,8 +47,4 @@ class APIBasePathConsistencyTest(unittest.TestCase):
             values[str(path.relative_to(SERVER_ROOT))] = _extract(path)
 
         distinct = set(values.values())
-        self.assertEqual(
-            1,
-            len(distinct),
-            _list_divergences(values)
-        )
+        self.assertEqual(1, len(distinct), _list_divergences(values))
