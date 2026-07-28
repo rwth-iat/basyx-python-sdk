@@ -4,14 +4,13 @@
 # the LICENSE file of this project.
 #
 # SPDX-License-Identifier: MIT
+import concurrent.futures
 import gc
 import os.path
 import shutil
 import tempfile
 import threading
-import concurrent.futures
-from typing import Callable, cast
-
+from typing import Callable
 from unittest import TestCase
 
 from basyx.aas.backend import local_file
