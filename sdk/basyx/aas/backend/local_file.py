@@ -12,20 +12,20 @@ The :class:`~LocalFileIdentifiableStore` handles adding, deleting and otherwise 
 the AAS objects in a specific Directory.
 """
 import contextlib
-from typing import Iterator, Generator, TextIO, Optional
-import logging
-import json
-import os
 import hashlib
+import json
+import logging
+import os
 import tempfile
 import threading
 import warnings
 import weakref
 from pathlib import Path
+from typing import Generator, Iterator, Optional, TextIO
 
-from ..adapter.json import json_serialization, json_deserialization
 from basyx.aas import model
 
+from ..adapter.json import json_deserialization, json_serialization
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +43,7 @@ class DirectoryLock:
         Directory locking relies on ``fcntl.flock``, which is only available on POSIX platforms. On Windows
         a warning is logged and the lock is skipped.
     """
+
     def __init__(self, directory_path: str):
         self.directory_path = Path(directory_path)
         self.lock_path = self.directory_path / ".lock"
@@ -142,7 +143,9 @@ class DirectoryLock:
         self.release()
 
 
-class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, model.Identifiable]):
+class LocalFileIdentifiableStore(
+    model.AbstractObjectStore[model.Identifier, model.Identifiable]
+):
     """
     An ObjectStore implementation for :class:`~basyx.aas.model.base.Identifiable` BaSyx Python SDK objects backed
     by a local file based local backend.
@@ -158,6 +161,7 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
         Directory locking relies on ``fcntl.flock``, which is only available on POSIX platforms. On Windows
         a warning is logged and the lock is skipped.
     """
+
     def __init__(self, directory_path: str):
         """
         Initializer of class LocalFileIdentifiableStore
@@ -171,8 +175,9 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
         # local replication of each object is kept in the application and retrieving an object from the store always
         # returns the **same** (not only equal) object. Still, objects are forgotten, when they are not referenced
         # anywhere else to save memory.
-        self._object_cache: weakref.WeakValueDictionary[model.Identifier, model.Identifiable] \
-            = weakref.WeakValueDictionary()
+        self._object_cache: weakref.WeakValueDictionary[
+            model.Identifier, model.Identifiable
+        ] = weakref.WeakValueDictionary()
         self._object_cache_lock = threading.Lock()
 
         # Prevent concurrent write operations to avoid TOCTOU problems
@@ -203,7 +208,11 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
         """
         if not os.path.exists(self.directory_path):
             if not create:
-                raise FileNotFoundError("The given directory ({}) does not exist".format(self.directory_path))
+                raise FileNotFoundError(
+                    "The given directory ({}) does not exist".format(
+                        self.directory_path
+                    )
+                )
             # Create directory
             os.mkdir(self.directory_path)
             logger.info("Creating directory {}".format(self.directory_path))
@@ -221,7 +230,11 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
                     data = json.load(file, cls=json_deserialization.AASFromJsonDecoder)
                     obj = data["data"]
             except FileNotFoundError as e:
-                raise KeyError("No Identifiable with hash {} found in local file database".format(hash_)) from e
+                raise KeyError(
+                "No Identifiable with hash {} found in local file database".format(
+                    hash_
+                )
+            ) from e
         with self._object_cache_lock:
             if obj.id in self._object_cache:
                 return self._object_cache[obj.id]
@@ -241,7 +254,11 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
             try:
                 return self.get_identifiable_by_hash(self._transform_id(identifier))
             except KeyError as e:
-                raise KeyError("No Identifiable with id {} found in local file database".format(identifier)) from e
+                raise KeyError(
+                "No Identifiable with id {} found in local file database".format(
+                    identifier
+                )
+            ) from e
 
     def _write_atomic(self, x: model.Identifiable) -> None:
         """
@@ -254,7 +271,12 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
         tmp_fd, tmp_path = tempfile.mkstemp(dir=self.directory_path, suffix=".tmp")
         try:
             with os.fdopen(tmp_fd, "w") as tmp_file:
-                json.dump({"data": x}, tmp_file, cls=json_serialization.AASToJsonEncoder, indent=4)
+                json.dump(
+                    {"data": x},
+                    tmp_file,
+                    cls=json_serialization.AASToJsonEncoder,
+                    indent=4,
+                )
             os.replace(tmp_path, final_path)
         # Catch all `Exception`s, as well as `KeyboardInterrupt` and `SystemExit` too, so the temp
         # file is never left behind even if the process is being torn down:
@@ -271,8 +293,14 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
         logger.debug("Adding object %s to Local File Store ...", repr(x))
         with self._write_lock:
             with self._dir_lock.ensure_locked():
-                if os.path.exists("{}/{}.json".format(self.directory_path, self._transform_id(x.id))):
-                    raise KeyError("Identifiable with id {} already exists in local file database".format(x.id))
+                if os.path.exists(
+                    "{}/{}.json".format(self.directory_path, self._transform_id(x.id))
+                ):
+                    raise KeyError(
+                        "Identifiable with id {} already exists in local file database".format(
+                            x.id
+                        )
+                    )
                 self._write_atomic(x)
         with self._object_cache_lock:
             self._object_cache[x.id] = x
@@ -286,8 +314,12 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
         """
         with self._write_lock:
             with self._dir_lock.ensure_locked():
-                if not os.path.exists("{}/{}.json".format(self.directory_path, self._transform_id(x.id))):
-                    raise KeyError("No AAS object with id {} exists in local file database".format(x.id))
+                if not os.path.exists(
+                    "{}/{}.json".format(self.directory_path, self._transform_id(x.id))
+                ):
+                    raise KeyError(
+                "No AAS object with id {} exists in local file database".format(x.id)
+            )
                 self._write_atomic(x)
 
     def discard(self, x: model.Identifiable) -> None:
@@ -301,9 +333,13 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
         with self._write_lock:
             with self._dir_lock.ensure_locked():
                 try:
-                    os.remove("{}/{}.json".format(self.directory_path, self._transform_id(x.id)))
+                    os.remove(
+                        "{}/{}.json".format(self.directory_path, self._transform_id(x.id))
+                    )
                 except FileNotFoundError as e:
-                    raise KeyError("No AAS object with id {} exists in local file database".format(x.id)) from e
+                    raise KeyError(
+                        "No AAS object with id {} exists in local file database".format(x.id)
+                    ) from e
         with self._object_cache_lock:
             self._object_cache.pop(x.id, None)
 
@@ -324,7 +360,9 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
             return False
         logger.debug("Checking existence of object with id %s in database ...", repr(x))
         with self._dir_lock.ensure_locked():
-            return os.path.exists("{}/{}.json".format(self.directory_path, self._transform_id(identifier)))
+            return os.path.exists(
+                "{}/{}.json".format(self.directory_path, self._transform_id(identifier))
+            )
 
     def __len__(self) -> int:
         """
@@ -334,7 +372,9 @@ class LocalFileIdentifiableStore(model.AbstractObjectStore[model.Identifier, mod
         """
         logger.debug("Fetching number of documents from database ...")
         with self._dir_lock.ensure_locked():
-            return sum(1 for f in os.listdir(self.directory_path) if f.lower().endswith(".json"))
+            return sum(
+                1 for f in os.listdir(self.directory_path) if f.lower().endswith(".json")
+            )
 
     def __iter__(self) -> Iterator[model.Identifiable]:
         """
@@ -362,6 +402,7 @@ class LocalFileObjectStore(LocalFileIdentifiableStore):
     `LocalFileObjectStore` has been renamed to :class:`~.LocalFileIdentifiableStore` and will be removed in a
     future release. Please migrate to :class:`~.LocalFileIdentifiableStore`.
     """
+
     def __init__(self, directory_path: str):
         warnings.warn(
             "`LocalFileObjectStore` is deprecated and will be removed in a future release. Use "
