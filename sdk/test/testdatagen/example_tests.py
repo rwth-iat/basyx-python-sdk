@@ -37,7 +37,9 @@ def test_json_example(example_file: Path, base_path: Optional[Path] = None, outp
         if output_dir:
             error_dir = output_dir / sanitize_name(error_msg)
             error_dir.mkdir(parents=True, exist_ok=True)
-            error_file = error_dir / f"{sanitize_name(example_file.stem)}.txt"
+            # Use the full relative path (not just the stem) to avoid collisions: generated example sets reuse
+            # the same filenames (e.g. "fuzzed_01.json") across many different subdirectories.
+            error_file = error_dir / f"{sanitize_name(str(rel_path))}.txt"
 
             json_content = example_file.read_text(encoding="utf-8")
             error_output = f"=== JSON File: {rel_path} ===\n{json_content}\n\n=== Stacktrace ====\n{tb}"
@@ -48,17 +50,40 @@ def test_json_example(example_file: Path, base_path: Optional[Path] = None, outp
         error_msg = str(ex).split(">>>")[0].strip()
 
         rel_path = example_file.relative_to(base_path) if base_path else example_file
-        logger.warning(f"[JSON] Unimplemented behavior on {rel_path}: {error_msg}")
+        logger.warning(f"[JSON] NOT_IMPLEMENTED on {rel_path}: {error_msg}")
 
         if output_dir:
             error_dir = output_dir / "NotImplementedError" / sanitize_name(error_msg)
             error_dir.mkdir(parents=True, exist_ok=True)
-            error_file = error_dir / f"{sanitize_name(example_file.stem)}.txt"
+            # Use the full relative path (not just the stem) to avoid collisions: generated example sets reuse
+            # the same filenames (e.g. "fuzzed_01.json") across many different subdirectories.
+            error_file = error_dir / f"{sanitize_name(str(rel_path))}.txt"
 
             json_content = example_file.read_text(encoding="utf-8")
             error_output = f"=== JSON File: {rel_path} ===\n{json_content}\n\n=== Stacktrace ====\n{tb}"
             error_file.write_text(error_output, encoding="utf-8")
         return True
+    except Exception as ex:
+        # Catch-all so an exception type not (yet) anticipated by the except clauses above (e.g. thrown by a
+        # future implementation change) fails just this one example instead of aborting the whole run.
+        # Deliberately not `except BaseException`, so KeyboardInterrupt/SystemExit still propagate.
+        tb = traceback.format_exc()
+        error_msg = str(ex).split(">>>")[0].strip()
+
+        rel_path = example_file.relative_to(base_path) if base_path else example_file
+        logger.error(f"[JSON] UNEXPECTED {type(ex).__name__} on {rel_path}: {error_msg}")
+
+        if output_dir:
+            error_dir = output_dir / "UnexpectedError" / sanitize_name(type(ex).__name__) / sanitize_name(error_msg)
+            error_dir.mkdir(parents=True, exist_ok=True)
+            # Use the full relative path (not just the stem) to avoid collisions: generated example sets reuse
+            # the same filenames (e.g. "fuzzed_01.json") across many different subdirectories.
+            error_file = error_dir / f"{sanitize_name(str(rel_path))}.txt"
+
+            json_content = example_file.read_text(encoding="utf-8")
+            error_output = f"=== JSON File: {rel_path} ===\n{json_content}\n\n=== Stacktrace ====\n{tb}"
+            error_file.write_text(error_output, encoding="utf-8")
+        return False
 
 def main(example_path_str: str, output_path_str: Optional[str])-> None:
     example_path = Path(example_path_str)
