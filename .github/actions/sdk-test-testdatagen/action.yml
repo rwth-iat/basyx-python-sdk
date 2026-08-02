@@ -23,7 +23,7 @@ runs:
     - name: Run tests on example files
       shell: bash
       run: |
-        python sdk/test/testdatagen/example_tests.py --examples aas-specs-metamodel/schemas --output testdata-output
+        python sdk/test/testdatagen/example_tests.py --examples aas-specs-metamodel/schemas --output testdata-output --summary $GITHUB_STEP_SUMMARY
 
     - name: Upload test output
       if: ${{ always() }}
