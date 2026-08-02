@@ -178,15 +178,18 @@ def summarize_output(
             totals[category] = totals.get(category, 0) + format_results[category, err_msg]
         sections.append(" · ".join(f"{category} : {count}" for category, count in totals.items()))
 
+        total_failed = sum((value for category, value in totals.items() if category != TestResult.SUCCESS))
         table_lines = [
             "<details>",
-            f"<summary>Error groups ({sum(totals.values())})</summary>",
+            f"<summary>Error groups ({total_failed})</summary>",
             "",
             "| Category | Group | Count |",
             "|---|---|---|",
         ]
         table_lines += [f"| {category} | {err_msg} | {count} |"
-                        for (category, err_msg), count in format_results.most_common()]
+                        for (category, err_msg), count in format_results.most_common()
+                        if category != TestResult.SUCCESS
+                        ]
         table_lines += ["", "</details>"]
         sections.append("\n".join(table_lines))
 
