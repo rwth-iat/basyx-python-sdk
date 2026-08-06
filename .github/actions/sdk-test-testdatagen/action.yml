@@ -11,14 +11,12 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Clone aas-specs-metamodel repository
-      shell: bash
-      env:
-        AAS_SPECS_RELEASE_TAG: ${{ inputs.AAS_SPECS_RELEASE_TAG }}
-      run: |
-        git clone https://github.com/admin-shell-io/aas-specs-metamodel.git
-        cd aas-specs-metamodel
-        git checkout $AAS_SPECS_RELEASE_TAG
+    - name: Checkout aas-specs-metamodel repository
+      uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 #v5.1.0
+      with:
+        repository: 'admin-shell-io/aas-specs-metamodel'
+        ref: ${{ inputs.AAS_SPECS_RELEASE_TAG }}
+        path: 'aas-specs-metamodel'
 
     - name: Run tests on example files
       shell: bash
