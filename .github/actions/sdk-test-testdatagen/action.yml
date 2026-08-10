@@ -21,11 +21,14 @@ runs:
     - name: Run tests on example files
       shell: bash
       run: |
-        python sdk/test/testdatagen/example_tests.py --examples aas-specs-metamodel/schemas --output testdata-output --summary $GITHUB_STEP_SUMMARY
+        python etc/sdk-testdatagen/deserialization_tests.py \
+          --examples aas-specs-metamodel/schemas \
+          --output sdk-testdatagen-output \
+          --summary $GITHUB_STEP_SUMMARY
 
     - name: Upload test output
       if: ${{ always() }}
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #v7.0.1
       with:
-        path: testdata-output
-        name: sdk_test_testdatagen_results
+        path: sdk-testdatagen-output
+        name: sdk_testdatagen_results
