@@ -30,7 +30,7 @@ configuration_locations:
     - compliance_tool/pyproject.toml
 
   configs:
-    - server/config.yaml
+    - server/app/config.yaml
 
   # Dockerfiles are checked for a `FROM python:X.Y[-...]` line; `X.Y` must fall
   # within [python.min, python.max].

@@ -38,6 +38,7 @@ requires-python = ">=3.10"
 dependencies = [
     "urllib3>=1.26,<3",
     "Werkzeug>=3.0.3,<4",
+    "PyYAML>=6.0",
 ]
 
 [project.optional-dependencies]
@@ -59,7 +60,7 @@ dev = [
 packages = { find = { include = ["app*"], exclude = ["test*"] } }
 
 [tool.setuptools.package-data]
-app = ["py.typed"]
+app = ["py.typed", "config.yaml"]
 
 [tool.mypy]
 exclude = "build/"
