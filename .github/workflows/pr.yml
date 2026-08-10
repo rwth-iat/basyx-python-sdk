@@ -405,20 +405,3 @@ jobs:
       - name: Stop and remove the container
         run: |
           docker stop basyx-python-${{ matrix.profile }} && docker rm basyx-python-${{ matrix.profile }}
-
-  tmp-sdk-testdatagen:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python ${{ env.X_PYTHON_MIN_VERSION }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.X_PYTHON_MIN_VERSION }}
-      - name: Install Python dependencies
-        working-directory: ./sdk
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install .[dev]
-      - uses: ./.github/actions/sdk-test-testdatagen
-        with:
-          AAS_SPECS_RELEASE_TAG: v3.1.2
