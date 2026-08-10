@@ -5,7 +5,7 @@ services:
       context: ../..
       additional_contexts:
         - sdk=../../../sdk
-      dockerfile: ./docker/discovery/Dockerfile
+      dockerfile: ./docker/repository/Dockerfile
     ports:
     - "8080:80"
     volumes:
