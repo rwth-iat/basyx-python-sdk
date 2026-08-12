@@ -5,19 +5,18 @@
 #
 # SPDX-License-Identifier: MIT
 """
-Reads config.yaml  once and exposes the entries as module-level constants.
+Reads config.toml once and exposes the entries as module-level constants.
 Consumers should import the constants directly rather than reading the file.
 """
+import tomllib
 from functools import cache
 from importlib.resources import files
 from typing import Any
 
-import yaml
-
 
 @cache
 def _cfg() -> dict[str, Any]:
-    return yaml.safe_load(files(__package__).joinpath("config.yaml").read_text())
+    return tomllib.loads(files(__package__).joinpath("config.toml").read_text())
 
 
 API_BASE_PATH: str = _cfg()["api_base_path"]

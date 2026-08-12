@@ -1,4 +1,2 @@
 requests>=2.23
 packaging>=24.2
-PyYAML>=6.0
-tomli>=2.0
