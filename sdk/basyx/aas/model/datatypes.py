@@ -695,10 +695,10 @@ DURATION_RE = re.compile(
     r"^(-?)P(\d+Y)?(\d+M)?(\d+D)?(T(\d+H)?(\d+M)?((\d+)(\.\d+)?S)?)?$"
 )
 DATETIME_RE = re.compile(
-    r"^(-?)(\d\d\d\d)-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)(\.\d+)?([+\-](\d\d):(\d\d)|Z)?$"
+    r"^(-?)([1-9]\d{4,}|\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)(\.\d+)?([+\-](\d\d):(\d\d)|Z)?$"
 )
 TIME_RE = re.compile(r"^(\d\d):(\d\d):(\d\d)(\.\d+)?([+\-](\d\d):(\d\d)|Z)?$")
-DATE_RE = re.compile(r"^(-?)(\d\d\d\d)-(\d\d)-(\d\d)([+\-](\d\d):(\d\d)|Z)?$")
+DATE_RE = re.compile(r"^(-?)([1-9]\d{4,}|\d{4})-(\d\d)-(\d\d)([+\-](\d\d):(\d\d)|Z)?$")
 
 
 def _parse_xsd_duration(value: str) -> Duration:
