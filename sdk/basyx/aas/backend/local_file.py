@@ -35,6 +35,10 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+class LockedDirectoryError(RuntimeError):
+    pass
+
+
 class DirectoryLock:
     """
     Implementation of a Lock on a directory. Uses POSIX ``flock`` on ``<directory>/.lock`` to control which instance
@@ -46,13 +50,15 @@ class DirectoryLock:
 
     .. note::
         Directory locking relies on ``fcntl.flock``, which is only available on POSIX platforms. On Windows
-        a warning is logged and the lock is skipped.
+        acquiring a lock fails with a :class:`RuntimeError`. Override this behavior by setting parameter
+        ``strict_locking`` to `False`.
     """
 
-    def __init__(self, directory_path: str):
+    def __init__(self, directory_path: str, strict_locking: bool = True):
         self.directory_path = Path(directory_path)
         self.lock_path = self.directory_path / ".lock"
         self._dir_lock_file: Optional[TextIO] = None
+        self._strict_locking = strict_locking
 
         # We count the number of active accesses to the directory to ensure that
         # release() is only releasing if all are done
@@ -68,9 +74,10 @@ class DirectoryLock:
 
         .. note::
             Directory locking relies on ``fcntl.flock``, which is only available on POSIX platforms. On Windows
-            a warning is logged and the lock is skipped.
+            acquiring a lock fails with a :class:`RuntimeError`. Override this behavior by setting constructor
+            parameter ``strict_locking`` to `False`.
 
-        :raises RuntimeError: If the directory is already locked by another instance
+        :raises RuntimeError: If the directory is already locked by another instance or fcntl is unavailable
         """
         with self._locking_lock:  # Ensure only one dir_lock is acquired at a time
             if self._is_locked_flag:
@@ -79,8 +86,9 @@ class DirectoryLock:
             self._dir_lock_file = open(self.lock_path, "a")  # use "a" to not swap the inode as in "w"
 
             if _fcntl is None:
-                # Windows does not support locking files. For now, we raise a warning
-                # and continue to assure backwards compatibility
+                if self._strict_locking:
+                    raise RuntimeError("fcntl unavailable, directory locking not possible."
+                                        "Set strict_locking=False to continue unsafe operation on this system.")
 
                 logger.warning("fcntl unavailable; directory locking is disabled (Windows?)")
                 self._is_locked_flag = True
@@ -92,7 +100,8 @@ class DirectoryLock:
                 # dir_lock already taken by other process
                 self._dir_lock_file.close()
                 self._dir_lock_file = None
-                raise RuntimeError(f"Directory {self.directory_path} is already locked by another DirectoryLock")
+                raise LockedDirectoryError(f"Directory {self.directory_path} "
+                                           "is already locked by another DirectoryLock")
             else:
                 self._is_locked_flag = True
 
@@ -154,16 +163,22 @@ class LocalFileIdentifiableStore(
 
     Call :meth:`close` to release the directory lock when done.
 
-    .. note::
-        Directory locking relies on ``fcntl.flock``, which is only available on POSIX platforms. On Windows
-        a warning is logged and the lock is skipped.
+    .. warning::
+        This backend is intended for development and testing only.
+        Directory locking relies on ``fcntl.flock``, which is only available on POSIX platforms.
+        On Windows system no concurrency control across processes is provided: concurrent writes to the same object
+        (e.g. under a multi-worker WSGI server) will silently overwrite each other. Creating a store will result
+        in a :class:`RuntimeError`.
+        Use a dedicated database backend for any production deployment.
     """
 
-    def __init__(self, directory_path: str):
+    def __init__(self, directory_path: str, disable_strict_locking: bool = False):
         """
         Initializer of class LocalFileIdentifiableStore
 
         :param directory_path: Path to the local file backend (the path where you want to store your AAS JSON files).
+        :param disable_strict_locking: Set to ``True`` to not fail on systems without fcntl (e.g. Windows). Warning:
+                                        No concurrency control is provided!
         """
         self.directory_path: str = directory_path.rstrip("/")
 
@@ -181,14 +196,14 @@ class LocalFileIdentifiableStore(
 
         # We need to prevent multiple instances of LocalFileIdentifiableStore performing R/W operations on the same
         # directory in order to ensure cache validity. The directory is locked as soon as it exists.
-        self._dir_lock = DirectoryLock(self.directory_path)
+        self._dir_lock = DirectoryLock(self.directory_path, strict_locking=not disable_strict_locking)
         if os.path.exists(self.directory_path):
             self._acquire_dir_lock()
 
     def _acquire_dir_lock(self) -> None:
         try:
             self._dir_lock.acquire()
-        except RuntimeError as ex:
+        except LockedDirectoryError as ex:
             raise RuntimeError(f"Directory {self.directory_path} is already in use"
                                f" by another LocalFileIdentifiableStore instance.") from ex
 

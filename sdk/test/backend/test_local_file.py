@@ -11,7 +11,7 @@ import shutil
 import tempfile
 import threading
 from typing import Callable
-from unittest import TestCase
+from unittest import TestCase, mock
 
 from basyx.aas.backend import local_file
 from basyx.aas.examples.data.example_aas import *
@@ -34,6 +34,24 @@ def run_threads(fns: list[Callable]):
 
 
 class DirectoryLockTest(TestCase):
+
+    @mock.patch("basyx.aas.backend.local_file._fcntl", None)
+    def test_non_fcntl_strict(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            lock = local_file.DirectoryLock(tmpdir, strict_locking=True)
+
+            with self.assertRaises(RuntimeError) as cm:
+                lock.acquire()
+            self.assertIn("fcntl unavailable", cm.exception.args[0])
+
+    @mock.patch("basyx.aas.backend.local_file._fcntl", None)
+    def test_non_fcntl_non_strict(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            lock = local_file.DirectoryLock(tmpdir, strict_locking=False)
+
+            with self.assertLogs(level="WARNING") as cm:
+                lock.acquire()
+            self.assertTrue(any("fcntl unavailable" in log for log in cm.output))
 
     def test_double_locking(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -131,6 +149,14 @@ class LocalFileBackendTest(TestCase):
         finally:
             self.identifiable_store.close()
             shutil.rmtree(store_path)
+
+    @mock.patch("basyx.aas.backend.local_file._fcntl", None)
+    def test_fail_on_non_fcntl(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with self.assertRaises(RuntimeError) as cm:
+                local_file.LocalFileIdentifiableStore(tmpdir)
+
+        self.assertIn("fcntl unavailable", cm.exception.args[0])
 
     def test_multi_instance_fail_on_init(self):
         # Create second store for same path and expect it to fail
