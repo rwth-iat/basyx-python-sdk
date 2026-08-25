@@ -27,8 +27,13 @@ from basyx.aas import model
 
 from ..adapter.json import json_deserialization, json_serialization
 
-logger = logging.getLogger(__name__)
+try:
+    import fcntl as _fcntl
+except ImportError:
+    _fcntl = None  # type: ignore  # Windows: directory locking is unavailable
 
+
+logger = logging.getLogger(__name__)
 
 class DirectoryLock:
     """
@@ -56,13 +61,6 @@ class DirectoryLock:
         self._active_accesses = 0
         self._is_releasing = False
 
-    def _lazy_import_fcntl(self):
-        try:
-            import fcntl as _fcntl
-        except ImportError:
-            _fcntl = None  # Windows: directory locking is unavailable
-        return _fcntl
-
     def acquire(self) -> None:
         """
         Acquires the lock on the directory non-blocking. If the ``<directory>/.lock`` file is already locked
@@ -80,7 +78,6 @@ class DirectoryLock:
 
             self._dir_lock_file = open(self.lock_path, "a")  # use "a" to not swap the inode as in "w"
 
-            _fcntl = self._lazy_import_fcntl()
             if _fcntl is None:
                 # Windows does not support locking files. For now, we raise a warning
                 # and continue to assure backwards compatibility
