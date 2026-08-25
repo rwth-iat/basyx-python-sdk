@@ -91,7 +91,7 @@ class DirectoryLock:
 
             try:
                 _fcntl.flock(self._dir_lock_file.fileno(), _fcntl.LOCK_EX | _fcntl.LOCK_NB)
-            except OSError:
+            except BlockingIOError:
                 # dir_lock already taken by other process
                 self._dir_lock_file.close()
                 self._dir_lock_file = None
