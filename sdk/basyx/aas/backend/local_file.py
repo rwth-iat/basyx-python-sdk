@@ -178,7 +178,6 @@ class LocalFileIdentifiableStore(
         self._object_cache: weakref.WeakValueDictionary[
             model.Identifier, model.Identifiable
         ] = weakref.WeakValueDictionary()
-        self._object_cache_lock = threading.Lock()
 
         # Prevent concurrent write operations to avoid TOCTOU problems
         self._write_lock = threading.Lock()
@@ -235,7 +234,7 @@ class LocalFileIdentifiableStore(
                     hash_
                 )
             ) from e
-        with self._object_cache_lock:
+        with self._write_lock:
             if obj.id in self._object_cache:
                 return self._object_cache[obj.id]
             self._object_cache[obj.id] = obj
@@ -248,7 +247,7 @@ class LocalFileIdentifiableStore(
         :raises KeyError: If the respective file could not be found
         """
         with self._dir_lock.ensure_locked():
-            with self._object_cache_lock:
+            with self._write_lock:
                 if identifier in self._object_cache:
                     return self._object_cache[identifier]
             try:
@@ -302,7 +301,7 @@ class LocalFileIdentifiableStore(
                         )
                     )
                 self._write_atomic(x)
-        with self._object_cache_lock:
+
             self._object_cache[x.id] = x
 
     def commit(self, x: model.Identifiable) -> None:
@@ -340,7 +339,7 @@ class LocalFileIdentifiableStore(
                     raise KeyError(
                         "No AAS object with id {} exists in local file database".format(x.id)
                     ) from e
-        with self._object_cache_lock:
+
             self._object_cache.pop(x.id, None)
 
     def __contains__(self, x: object) -> bool:
