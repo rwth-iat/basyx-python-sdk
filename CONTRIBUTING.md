@@ -1,6 +1,7 @@
 # Contributing Guide
 
->[!NOTE] To contribute code, you must sign the [Eclipse Contributor Agreement (ECA)](#eclipse-contributor-agreement-eca).
+> [!NOTE] 
+> To contribute code, you must sign the [Eclipse Contributor Agreement (ECA)](#eclipse-contributor-agreement-eca).
 
 Thank you for investing your time in contributing to the Eclipse-BaSyx-Python SDK!
 
