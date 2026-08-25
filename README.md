@@ -167,15 +167,8 @@ next meeting. Security fixes may be released at any time.
 
 ## Contributing
 
-We welcome contributions of all kinds. Please read our [Contribution Guideline](./CONTRIBUTING.md) before
+We welcome contributions of all kinds. Please read our [Contribution Guidelines](./CONTRIBUTING.md) before
 getting started.
-
-### Eclipse Contributor Agreement
-
-To contribute code, you must sign the
-[Eclipse Contributor Agreement (ECA)](https://www.eclipse.org/legal/ECA.php).
-Create an Eclipse account with the same email address you use for Git commits, then submit
-the form at: https://accounts.eclipse.org/user/eca
 
 ---
 
