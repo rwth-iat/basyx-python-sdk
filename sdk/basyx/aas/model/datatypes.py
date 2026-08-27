@@ -121,6 +121,8 @@ class GYearMonth:
                 raise ValueError(
                     "Negative years are not supported by Python's `datetime` library."
                 ) from e
+            if self.year > datetime.MAXYEAR:
+                raise ValueError("Year of date exceeds Python's datetime.MAXYEAR.") from e
             raise e
 
     @classmethod
@@ -157,6 +159,8 @@ class GYear:
                 raise ValueError(
                     "Negative years are not supported by Python's `datetime` library."
                 ) from e
+            if self.year > datetime.MAXYEAR:
+                raise ValueError("Year of date exceeds Python's datetime.MAXYEAR.") from e
             raise e
 
     @classmethod
@@ -825,10 +829,10 @@ def _parse_xsd_bool(value: str) -> Boolean:
         raise ValueError("Invalid literal for XSD bool type")
 
 
-GYEAR_RE = re.compile(r"^(-?)(\d{4,})([+\-]\d\d:\d\d|Z)?$")
+GYEAR_RE = re.compile(r"^(-?)([1-9]\d{4,}|\d{4})([+\-]\d\d:\d\d|Z)?$")
 GMONTH_RE = re.compile(r"^--(\d\d)([+\-]\d\d:\d\d|Z)?$")
 GDAY_RE = re.compile(r"^---(\d\d)([+\-]\d\d:\d\d|Z)?$")
-GYEARMONTH_RE = re.compile(r"^(-?)(\d{4,})-(\d\d)([+\-]\d\d:\d\d|Z)?$")
+GYEARMONTH_RE = re.compile(r"^(-?)([1-9]\d{4,}|\d{4})-(\d\d)([+\-]\d\d:\d\d|Z)?$")
 GMONTHDAY_RE = re.compile(r"^--(\d\d)-(\d\d)([+\-]\d\d:\d\d|Z)?$")
 
 
