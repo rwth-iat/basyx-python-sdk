@@ -739,6 +739,12 @@ def _parse_xsd_date(value: str) -> Date:
             "Negative dates are not supported: Python stdlib datetime requires year >= 1. "
             "Report at https://github.com/eclipse-basyx/basyx-python-sdk/issues"
         )
+    year = int(match[2])
+    if year > datetime.MAXYEAR:
+        raise NotImplementedError(
+            "Year of date exceeds Python datetime.MAXYEAR "
+            "Report at https://github.com/eclipse-basyx/basyx-python-sdk/issues"
+        )
     return Date(
         year=int(match[2]),
         month=int(match[3]),
@@ -754,6 +760,12 @@ def _parse_xsd_datetime(value: str) -> DateTime:
     if match[1]:
         raise NotImplementedError(
             "Negative dates are not supported: Python stdlib datetime requires year >= 1. "
+            "Report at https://github.com/eclipse-basyx/basyx-python-sdk/issues"
+        )
+    year = int(match[2])
+    if year > datetime.MAXYEAR:
+        raise NotImplementedError(
+            "Year of date exceeds Python datetime.MAXYEAR. "
             "Report at https://github.com/eclipse-basyx/basyx-python-sdk/issues"
         )
     microseconds = int(float(match[8]) * 1e6) if match[8] else 0
