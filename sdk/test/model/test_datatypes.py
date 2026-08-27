@@ -232,8 +232,13 @@ class TestDateTimeTypes(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             model.datatypes.from_xsd("2020-01-24+11", model.datatypes.Date)
         self.assertEqual("Value is not a valid XSD date string", str(cm.exception))
+        with self.assertRaises(ValueError) as cm:
+            model.datatypes.from_xsd("02020-01-24", model.datatypes.Date)
+        self.assertEqual("Value is not a valid XSD date string", str(cm.exception))
         with self.assertRaises(NotImplementedError):
             model.datatypes.from_xsd("-2020-01-24", model.datatypes.Date)
+        with self.assertRaises(NotImplementedError):
+            model.datatypes.from_xsd(f"{datetime.MAXYEAR+1}-01-24", model.datatypes.Date)
 
     def test_serialize_date(self) -> None:
         self.assertEqual(
@@ -413,10 +418,14 @@ class TestDateTimeTypes(unittest.TestCase):
             "--2020-01-24T15:25:17-00:20 is not a valid XSD datetime string",
             str(cm.exception),
         )
+        with self.assertRaises(ValueError):
+            model.datatypes.from_xsd("02020-01-24T15:25:17", model.datatypes.DateTime)
         with self.assertRaises(NotImplementedError):
             model.datatypes.from_xsd(
                 "-2020-01-24T15:25:17+01:00", model.datatypes.DateTime
             )
+        with self.assertRaises(NotImplementedError):
+            model.datatypes.from_xsd(f"{datetime.MAXYEAR+1}-01-24T15:25:17", model.datatypes.DateTime)
 
     def test_serialize_datetime(self) -> None:
         self.assertEqual(
