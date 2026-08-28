@@ -114,7 +114,9 @@ class AssetInformation:
     @staticmethod
     def _validate_global_asset_id(global_asset_id: Optional[base.Identifier]) -> None:
         if global_asset_id is not None:
-            _string_constraints.check_identifier(global_asset_id)
+            _string_constraints.check_identifier(
+                global_asset_id, attribute="AssetInformation.global_asset_id"
+            )
 
     @staticmethod
     def _validate_aasd_131(
@@ -126,7 +128,9 @@ class AssetInformation:
                 "An AssetInformation has to have a globalAssetId or a specificAssetId",
             )
         if global_asset_id is not None:
-            _string_constraints.check_identifier(global_asset_id)
+            _string_constraints.check_identifier(
+                global_asset_id, attribute="AssetInformation.global_asset_id"
+            )
 
     def __repr__(self) -> str:
         return (
