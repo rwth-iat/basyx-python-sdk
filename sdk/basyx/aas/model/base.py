@@ -2359,7 +2359,7 @@ class NamespaceSet(MutableSet[_NSO], Generic[_NSO]):
         """
         Replace all objects of this set with the given ones, atomically.
 
-        This is the implementation of assignments to NamespaceSet attributes, see :meth:`Namespace.__setattr__`.
+        This is the implementation of assignments to NamespaceSet attributes, see ``Namespace.__setattr__()``.
         If adding one of the new items fails, the previous content of the set is restored.
 
         :param items: The objects this set should contain afterwards
