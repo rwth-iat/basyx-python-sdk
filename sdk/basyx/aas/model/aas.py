@@ -111,11 +111,13 @@ class AssetInformation:
     ) -> None:
         self._validate_aasd_131(self.global_asset_id, len(old_list) > 1)
 
-    @staticmethod
-    def _validate_global_asset_id(global_asset_id: Optional[base.Identifier]) -> None:
+    @classmethod
+    def _validate_global_asset_id(
+        cls, global_asset_id: Optional[base.Identifier]
+    ) -> None:
         if global_asset_id is not None:
             _string_constraints.check_identifier(
-                global_asset_id, attribute="AssetInformation.global_asset_id"
+                global_asset_id, attribute=f"{cls.__name__}.global_asset_id"
             )
 
     @staticmethod
@@ -126,10 +128,6 @@ class AssetInformation:
             raise base.AASConstraintViolation(
                 131,
                 "An AssetInformation has to have a globalAssetId or a specificAssetId",
-            )
-        if global_asset_id is not None:
-            _string_constraints.check_identifier(
-                global_asset_id, attribute="AssetInformation.global_asset_id"
             )
 
     def __repr__(self) -> str:

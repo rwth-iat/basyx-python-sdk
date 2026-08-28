@@ -491,7 +491,9 @@ class Key:
         """
         TODO: Add instruction what to do after construction
         """
-        _string_constraints.check_identifier(value, attribute="Key.value")
+        _string_constraints.check_identifier(
+            value, attribute=f"{type(self).__name__}.value"
+        )
         self.type: KeyTypes
         self.value: Identifier
         super().__setattr__("type", type_)
@@ -1474,7 +1476,7 @@ class AdministrativeInformation(HasDataSpecification):
             )
         if revision is not None:
             _string_constraints.check_revision_type(
-                revision, attribute="AdministrativeInformation.revision"
+                revision, attribute=f"{type(self).__name__}.revision"
             )
         self._revision = revision
 
@@ -2608,8 +2610,12 @@ class SpecificAssetId(HasSemantics):
         super().__init__()
         if value == "":
             raise ValueError("value is not allowed to be an empty string")
-        _string_constraints.check_label_type(name, attribute="SpecificAssetId.name")
-        _string_constraints.check_identifier(value, attribute="SpecificAssetId.value")
+        _string_constraints.check_label_type(
+            name, attribute=f"{type(self).__name__}.name"
+        )
+        _string_constraints.check_identifier(
+            value, attribute=f"{type(self).__name__}.value"
+        )
         self.name: LabelType
         self.value: Identifier
         self.external_subject_id: ExternalReference

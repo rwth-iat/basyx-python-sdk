@@ -208,3 +208,24 @@ class StringConstraintsAttributeTest(unittest.TestCase):
                 with self.assertRaises(ValueError) as cm:
                     construct()
                 self.assertEqual(expected_message, cm.exception.args[0])
+
+    def test_subclasses(self) -> None:
+        # Subclasses defined outside of this repository are reported by their own name as well
+        class MyProperty(model.Property):
+            pass
+
+        class MyEntity(model.Entity):
+            pass
+
+        with self.assertRaises(ValueError) as cm:
+            MyProperty("a" * 129, model.datatypes.Int)
+        self.assertEqual(
+            "MyProperty.id_short (NameType) has a maximum length of 128! (length: 129)",
+            cm.exception.args[0],
+        )
+        with self.assertRaises(ValueError) as cm:
+            MyEntity("Entity", model.EntityType.SELF_MANAGED_ENTITY, global_asset_id="")
+        self.assertEqual(
+            "MyEntity.global_asset_id (Identifier) has a minimum length of 1! (length: 0)",
+            cm.exception.args[0],
+        )
