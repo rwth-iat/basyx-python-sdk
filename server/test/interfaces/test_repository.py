@@ -1,133 +1,367 @@
-# Copyright (c) 2026 the Eclipse BaSyx Authors
-#
-# This program and the accompanying materials are made available under the terms of the MIT License, available in
-# the LICENSE file of this project.
-#
-# SPDX-License-Identifier: MIT
+import unittest
+from unittest import mock
 
-"""
-This test uses the schemathesis package to perform automated stateful testing on the implemented http api. Requests
-are created automatically based on the json schemata given in the api specification, responses are also validated
-against said schemata.
-
-For data generation schemathesis uses hypothesis and hypothesis-jsonschema, hence the name. hypothesis is a library
-for automated, property-based testing. It can generate test cases based on strategies. hypothesis-jsonschema is such
-a strategy for generating data that matches a given JSON schema.
-
-schemathesis allows stateful testing by generating a statemachine based on the OAS links contained in the specification.
-This is applied here with the APIWorkflowAAS and APIWorkflowSubmodel classes. They inherit the respective state machine
-and offer an automatically generated python unittest TestCase.
-"""
-
-# TODO: lookup schemathesis deps and add them to the readme
-# TODO: implement official Plattform I4.0 HTTP API
-# TODO: check required properties of schema
-# TODO: add id_short format to schemata
-
-import os
-import pathlib
-import random
-import urllib.parse
-from typing import Set
-
-import hypothesis.strategies
-import schemathesis
-from app.interfaces.repository import WSGIApp
+from app.interfaces import repository
+from app.util.converters import base64url_encode
 from basyx.aas import model
-from basyx.aas.adapter.aasx import DictSupplementaryFileContainer
-from basyx.aas.examples.data.example_aas import create_full_example
+from basyx.aas.adapter import aasx
+from basyx.aas.examples.data.example_aas_missing_attributes import (
+    create_example_asset_administration_shell,
+    create_example_submodel,
+)
+from werkzeug.test import Client, TestResponse
+
+from .format_utils import FormatClient, JsonFormatClient, XmlFormatClient
 
 
-def _encode_and_quote(identifier: model.Identifier) -> str:
-    return urllib.parse.quote(urllib.parse.quote(identifier, safe=""), safe="")
+class TestServiceDescription(unittest.TestCase):
+    def setUp(self) -> None:
+        object_store: model.DictIdentifiableStore = model.DictIdentifiableStore()
+        file_store = mock.Mock(spec=aasx.AbstractSupplementaryFileContainer)
+        self.client = Client(repository.WSGIApp(object_store, file_store, base_path=""))
 
+    def test_description(self):
+        response = self.client.get("/description")
+        self.assertEqual(200, response.status_code)
 
-def _check_transformed(response, case):
+class _ShellsEndpointsTest(unittest.TestCase):
     """
-    This helper function performs an additional checks on requests that have been *transformed*, i.e. requests, that
-    resulted from schemathesis using an OpenAPI Spec link. It asserts, that requests that are performed after a link has
-    been used, must be successful and result in a 2xx response. The exception are requests where hypothesis generates
-    invalid data (data, that validates against the schema, but is still semantically invalid). Such requests would
-    result in a 422 - Unprocessable Entity, which is why the 422 status code is ignored here.
+    Endpoint tests for the implemented ``/shells`` routes of :class:`~app.interfaces.repository.WSGIApp`.
+
+    Bodies are written once against the format-agnostic :attr:`fmt` helper; the concrete
+    :class:`TestShellsEndpointsJson` / :class:`TestShellsEndpointsXml` subclasses run them once per format by
+    swapping :attr:`format_client_cls`.
     """
-    if case.source is not None:
-        assert 200 <= response.status_code < 300 or response.status_code == 422
+
+    __test__ = False
+
+    format_client_cls: type[FormatClient] = None  # type: ignore
+
+    object_store: model.DictIdentifiableStore
+    file_store: mock.Mock
+    repository_server: repository.WSGIApp
+    fmt: FormatClient
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        if cls.format_client_cls is None:
+            raise unittest.SkipTest("abstract base class")
+        super().setUpClass()
+
+        cls.object_store = model.DictIdentifiableStore()
+        cls.file_store = mock.Mock(spec=aasx.AbstractSupplementaryFileContainer)
+        cls.repository_server = repository.WSGIApp(cls.object_store, cls.file_store, base_path="")
+        cls.fmt = cls.format_client_cls(Client(cls.repository_server))
+
+    def setUp(self) -> None:
+        self.object_store.clear()
+        self.file_store.reset_mock()
+
+    def two_shells_store(self):
+        store = model.DictIdentifiableStore()
+        store.add(create_example_asset_administration_shell())
+        second_shell = create_example_asset_administration_shell()
+        second_shell.id = "https://example.org/Test_AssetAdministrationShell_Second"
+        store.add(second_shell)
+        return store
+
+    # ------------------------------------------------------------------ shared assertion helpers
+
+    def assert_ok(self, response: TestResponse) -> None:
+        self.assertEqual(200, response.status_code, msg=response.get_data(as_text=True))
+        self.assertEqual(self.fmt.content_type, response.mimetype)
+
+    def assert_error(self, response: TestResponse, status_code: int) -> None:
+        self.assertEqual(status_code, response.status_code, msg=response.get_data(as_text=True))
+        self.assertFalse(self.fmt.result_success(response))
+
+    # ------------------------------------------------------------------ GET /shells
+
+    def test_shells_get(self):
+        self.object_store.update(self.two_shells_store())
+
+        response = self.fmt.get("/shells")
+
+        self.assert_ok(response)
+        self.assertEqual(2, len(self.fmt.parse_collection(response)))
+
+    # ------------------------------------------------------------------ POST /shells
+
+    def test_shells_post_success(self):
+        example_shell = create_example_asset_administration_shell()
+
+        response = self.fmt.post("/shells", obj=example_shell)
+
+        self.assertEqual(201, response.status_code)
+        self.assertIsNotNone(self.object_store.get(example_shell.id, None))
+
+    def test_shells_post_bad(self):
+        example_shell = create_example_asset_administration_shell()
+        example_shell.id = None  # type: ignore
+
+        response = self.fmt.post("/shells", obj=example_shell)
+
+        self.assert_error(response, 400)
+
+    def test_shells_post_conflict(self):
+        example_shell = create_example_asset_administration_shell()
+        self.object_store.add(example_shell)
+
+        response = self.fmt.post("/shells", obj=example_shell)
+
+        self.assert_error(response, 409)
+
+    # ------------------------------------------------------------------ GET /shells/$reference
+
+    def test_shells_reference_get(self):
+        self.object_store.update(self.two_shells_store())
+        example_shell = next(iter(self.object_store))
+
+        response = self.fmt.get("/shells/$reference")
+
+        self.assert_ok(response)
+        references = self.fmt.parse_collection(response)
+        self.assertEqual(2, len(references))
+        self.assertIn(example_shell.id, [self.fmt.reference_target(ref) for ref in references])
+
+    # ------------------------------------------------------------------ GET /shells/<aas_id>
+
+    def test_shell_get_success(self):
+        self.object_store.update(self.two_shells_store())
+        example_shell = next(iter(self.object_store))
+
+        response = self.fmt.get(f"/shells/{base64url_encode(example_shell.id)}")
+
+        self.assert_ok(response)
+        self.assertEqual(example_shell.id, self.fmt.identifier(self.fmt.parse_object(response)))
+
+    def test_shell_get_not_found(self):
+        response = self.fmt.get(f"/shells/{base64url_encode('https://example.org/unknown')}")
+
+        self.assert_error(response, 404)
+
+    # ------------------------------------------------------------------ GET /shells/<aas_id>/$reference
+
+    def test_shell_reference_get(self):
+        self.object_store.update(self.two_shells_store())
+        example_shell = next(iter(self.object_store))
+
+        response = self.fmt.get(f"/shells/{base64url_encode(example_shell.id)}/$reference")
+
+        self.assert_ok(response)
+        self.assertEqual(example_shell.id, self.fmt.reference_target(self.fmt.parse_object(response)))
+
+    # ------------------------------------------------------------------ PUT /shells/<aas_id>
+
+    def test_shell_put_success(self):
+        self.object_store.add(create_example_asset_administration_shell())
+        updated_shell = create_example_asset_administration_shell()
+        updated_shell.id_short = "UpdatedIdShort"
+
+        response = self.fmt.put(f"/shells/{base64url_encode(updated_shell.id)}", obj=updated_shell)
+
+        self.assertEqual(204, response.status_code)
+        retrieved_shell = self.object_store.get(updated_shell.id, None)
+        self.assertIsInstance(retrieved_shell, model.AssetAdministrationShell)
+        self.assertEqual("UpdatedIdShort", retrieved_shell.id_short)
+
+    def test_shell_put_not_found(self):
+        updated_shell = create_example_asset_administration_shell()
+
+        response = self.fmt.put(f"/shells/{base64url_encode('https://example.org/unknown')}", obj=updated_shell)
+
+        self.assert_error(response, 404)
+
+    # ------------------------------------------------------------------ DELETE /shells/<aas_id>
+
+    def test_shell_delete_success(self):
+        example_shell = create_example_asset_administration_shell()
+        self.object_store.add(example_shell)
+
+        response = self.fmt.delete(f"/shells/{base64url_encode(example_shell.id)}")
+
+        self.assertEqual(204, response.status_code)
+        self.assertIsNone(self.object_store.get(example_shell.id, None))
+
+    def test_shell_delete_not_found(self):
+        response = self.fmt.delete(f"/shells/{base64url_encode('https://example.org/unknown')}")
+
+        self.assert_error(response, 404)
+
+    # ------------------------------------------------------------------ GET /shells/<aas_id>/asset-information
+
+    def test_shell_asset_information_get(self):
+        example_shell = create_example_asset_administration_shell()
+        self.object_store.add(example_shell)
+
+        response = self.fmt.get(f"/shells/{base64url_encode(example_shell.id)}/asset-information")
+
+        self.assert_ok(response)
+        self.assertEqual(
+            example_shell.asset_information.global_asset_id,
+            self.fmt.field(self.fmt.parse_object(response), "globalAssetId"),
+        )
+
+    # ------------------------------------------------------------------ PUT /shells/<aas_id>/asset-information
+
+    def test_shell_asset_information_put(self):
+        example_shell = create_example_asset_administration_shell()
+        self.object_store.add(example_shell)
+        new_asset_information = model.AssetInformation(
+            asset_kind=model.AssetKind.INSTANCE,
+            global_asset_id="http://example.org/changed_asset",
+        )
+
+        response = self.fmt.put(
+            f"/shells/{base64url_encode(example_shell.id)}/asset-information",
+            obj=new_asset_information,
+        )
+
+        self.assertEqual(204, response.status_code)
+        retrieved_shell = self.object_store.get(example_shell.id)
+        self.assertIsInstance(retrieved_shell, model.AssetAdministrationShell)
+        self.assertEqual(
+            "http://example.org/changed_asset",
+            retrieved_shell.asset_information.global_asset_id,
+        )
+
+    # ------------------------------------------------------------------ GET /shells/<aas_id>/submodel-refs
+
+    def test_shell_submodel_refs_get(self):
+        example_shell = create_example_asset_administration_shell()
+        self.object_store.add(example_shell)
+
+        response = self.fmt.get(f"/shells/{base64url_encode(example_shell.id)}/submodel-refs")
+
+        self.assert_ok(response)
+        references = self.fmt.parse_collection(response)
+        self.assertEqual(1, len(references))
+        self.assertEqual("https://example.org/Test_Submodel_Missing", self.fmt.reference_target(references[0]))
+
+    # ------------------------------------------------------------------ POST /shells/<aas_id>/submodel-refs
+
+    def test_shell_submodel_refs_post_success(self):
+        example_shell = create_example_asset_administration_shell()
+        self.object_store.add(example_shell)
+        new_ref = model.ModelReference(
+            (model.Key(model.KeyTypes.SUBMODEL, "https://example.org/NewSubmodel"),), model.Submodel
+        )
+
+        response = self.fmt.post(f"/shells/{base64url_encode(example_shell.id)}/submodel-refs", obj=new_ref)
+
+        self.assertEqual(201, response.status_code)
+        retrieved_shell = self.object_store.get(example_shell.id)
+        self.assertIsInstance(retrieved_shell, model.AssetAdministrationShell)
+        identifiers = {ref.get_identifier() for ref in retrieved_shell.submodel}
+        self.assertIn("https://example.org/NewSubmodel", identifiers)
+
+    def test_shell_submodel_refs_post_conflict(self):
+        example_shell = create_example_asset_administration_shell()
+        self.object_store.add(example_shell)
+        existing_ref = model.ModelReference(
+            (model.Key(model.KeyTypes.SUBMODEL, "https://example.org/Test_Submodel_Missing"),), model.Submodel
+        )
+
+        response = self.fmt.post(f"/shells/{base64url_encode(example_shell.id)}/submodel-refs", obj=existing_ref)
+
+        self.assert_error(response, 409)
+
+    # ------------------------------------------------------------------ DELETE /shells/<aas_id>/submodel-refs/<sm_id>
+
+    def test_shell_submodel_refs_delete_success(self):
+        example_shell = create_example_asset_administration_shell()
+        self.object_store.add(example_shell)
+        submodel_id = "https://example.org/Test_Submodel_Missing"
+
+        response = self.fmt.delete(
+            f"/shells/{base64url_encode(example_shell.id)}/submodel-refs/{base64url_encode(submodel_id)}"
+        )
+
+        self.assertEqual(204, response.status_code)
+        retrieved_shell = self.object_store.get(example_shell.id)
+        self.assertIsInstance(retrieved_shell, model.AssetAdministrationShell)
+        self.assertEqual(0, len(list(retrieved_shell.submodel)))
+
+    def test_shell_submodel_refs_delete_not_found(self):
+        example_shell = create_example_asset_administration_shell()
+        self.object_store.add(example_shell)
+
+        response = self.fmt.delete(
+            f"/shells/{base64url_encode(example_shell.id)}/submodel-refs/"
+            f"{base64url_encode('https://example.org/unknown')}"
+        )
+
+        self.assert_error(response, 404)
+
+    # ------------------------------------------------------------------ PUT /shells/<aas_id>/submodels/<sm_id>
+
+    def test_shell_submodel_refs_submodel_put(self):
+        example_shell = create_example_asset_administration_shell()
+        self.object_store.add(example_shell)
+        self.object_store.add(create_example_submodel())
+        updated_submodel = create_example_submodel()
+        updated_submodel.id_short = "UpdatedSubmodel"
+
+        response = self.fmt.put(
+            f"/shells/{base64url_encode(example_shell.id)}/submodels/{base64url_encode(updated_submodel.id)}",
+            obj=updated_submodel,
+        )
+
+        self.assertEqual(204, response.status_code)
+        retrieved_sm = self.object_store.get(updated_submodel.id)
+        self.assertIsInstance(retrieved_sm, model.Submodel)
+        self.assertEqual("UpdatedSubmodel", retrieved_sm.id_short)
+
+    # ------------------------------------------------------------------ DELETE /shells/<aas_id>/submodels/<sm_id>
+
+    def test_shell_submodel_refs_submodel_delete(self):
+        example_shell = create_example_asset_administration_shell()
+        self.object_store.add(example_shell)
+        example_submodel = create_example_submodel()
+        self.object_store.add(example_submodel)
+
+        response = self.fmt.delete(
+            f"/shells/{base64url_encode(example_shell.id)}/submodels/{base64url_encode(example_submodel.id)}"
+        )
+
+        self.assertEqual(204, response.status_code)
+        self.assertIsNone(self.object_store.get(example_submodel.id, None))
+        retrieved_shell = self.object_store.get(example_shell.id)
+        self.assertIsInstance(retrieved_shell, model.AssetAdministrationShell)
+        self.assertEqual(0, len(list(retrieved_shell.submodel)))
+
+    # ------------------------------------------------------------------ /shells/<aas_id>/submodels/<sm_id> redirect
+
+    def test_shell_submodel_refs_submodel_redirect(self):
+        example_shell = create_example_asset_administration_shell()
+        self.object_store.add(example_shell)
+        submodel_id = "https://example.org/Test_Submodel_Missing"
+
+        response = self.fmt.get(
+            f"/shells/{base64url_encode(example_shell.id)}/submodels/{base64url_encode(submodel_id)}"
+        )
+
+        self.assertEqual(307, response.status_code)
+        self.assertIn(f"/submodels/{base64url_encode(submodel_id)}", response.headers["Location"])
+
+    def test_shell_submodel_refs_submodel_redirect_with_path(self):
+        example_shell = create_example_asset_administration_shell()
+        self.object_store.add(example_shell)
+        submodel_id = "https://example.org/Test_Submodel_Missing"
+
+        response = self.fmt.get(
+            f"/shells/{base64url_encode(example_shell.id)}/submodels/{base64url_encode(submodel_id)}/submodel-elements"
+        )
+
+        self.assertEqual(307, response.status_code)
+        self.assertTrue(response.headers["Location"].endswith("/submodel-elements"))
 
 
-# define some settings for hypothesis, used in both api test cases
-HYPOTHESIS_SETTINGS = hypothesis.settings(
-    max_examples=int(os.getenv("HYPOTHESIS_MAX_EXAMPLES", 10)),
-    stateful_step_count=5,
-    # disable the filter_too_much health check, which triggers if a strategy filters too much data, raising an error
-    suppress_health_check=[hypothesis.HealthCheck.filter_too_much],
-    # disable data generation deadlines, which would result in an error if data generation takes too much time
-    deadline=None,
-)
-
-BASE_URL = "/api/v1"
-IDENTIFIER_AAS: Set[str] = set()
-IDENTIFIER_SUBMODEL: Set[str] = set()
-
-# register hypothesis strategy for generating valid idShorts
-ID_SHORT_STRATEGY = hypothesis.strategies.from_regex(r"\A[A-Za-z_][0-9A-Za-z_]*\Z")
-schemathesis.register_string_format("id_short", ID_SHORT_STRATEGY)
-
-# store identifiers of available AAS and Submodels
-for obj in create_full_example():
-    if isinstance(obj, model.AssetAdministrationShell):
-        IDENTIFIER_AAS.add(_encode_and_quote(obj.id))
-    if isinstance(obj, model.Submodel):
-        IDENTIFIER_SUBMODEL.add(_encode_and_quote(obj.id))
-
-# load aas and submodel api specs
-AAS_SCHEMA = schemathesis.from_path(
-    pathlib.Path(__file__).parent / "http-api-oas-aas.yaml",
-    app=WSGIApp(create_full_example(), DictSupplementaryFileContainer()),
-)
-
-SUBMODEL_SCHEMA = schemathesis.from_path(
-    pathlib.Path(__file__).parent / "http-api-oas-submodel.yaml",
-    app=WSGIApp(create_full_example(), DictSupplementaryFileContainer()),
-)
+class TestShellsEndpointsJson(_ShellsEndpointsTest):
+    __test__ = True
+    format_client_cls = JsonFormatClient
 
 
-class APIWorkflowAAS(AAS_SCHEMA.as_state_machine()):  # type: ignore
-    def setup(self):
-        self.schema.app.identifiable_store = create_full_example()
-        # select random identifier for each test scenario
-        self.schema.base_url = BASE_URL + "/aas/" + random.choice(tuple(IDENTIFIER_AAS))
-
-    def transform(self, result, direction, case):
-        out = super().transform(result, direction, case)
-        print("transformed")
-        print(out)
-        print(result.response, direction.name)
-        return out
-
-    def validate_response(self, response, case, additional_checks=()) -> None:
-        super().validate_response(response, case, additional_checks + (_check_transformed,))
-
-
-class APIWorkflowSubmodel(SUBMODEL_SCHEMA.as_state_machine()):  # type: ignore
-    def setup(self):
-        self.schema.app.identifiable_store = create_full_example()
-        self.schema.base_url = BASE_URL + "/submodels/" + random.choice(tuple(IDENTIFIER_SUBMODEL))
-
-    def transform(self, result, direction, case):
-        out = super().transform(result, direction, case)
-        print("transformed")
-        print(out)
-        print(result.response, direction.name)
-        return out
-
-    def validate_response(self, response, case, additional_checks=()) -> None:
-        super().validate_response(response, case, additional_checks + (_check_transformed,))
-
-
-# APIWorkflow.TestCase is a standard python unittest.TestCase
-# TODO: Fix HTTP API Tests
-# ApiTestAAS = APIWorkflowAAS.TestCase
-# ApiTestAAS.settings = HYPOTHESIS_SETTINGS
-
-# ApiTestSubmodel = APIWorkflowSubmodel.TestCase
-# ApiTestSubmodel.settings = HYPOTHESIS_SETTINGS
+class TestShellsEndpointsXml(_ShellsEndpointsTest):
+    __test__ = True
+    format_client_cls = XmlFormatClient

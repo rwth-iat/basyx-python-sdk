@@ -1,0 +1,164 @@
+import abc
+import json
+from typing import Any, Optional
+
+from basyx.aas import adapter
+from basyx.aas.adapter._generic import XML_NS_MAP
+from lxml import etree
+from werkzeug.test import Client, TestResponse
+
+
+class FormatClient(abc.ABC):
+    """
+    Wraps a :class:`werkzeug.test.Client` and hides the request/response *format* (JSON or XML) behind a small,
+    format-agnostic API, so an endpoint test can be written once and run against every format.
+
+    * request helpers (:meth:`get` / :meth:`post` / ...) inject the ``Accept`` / ``Content-Type`` headers and
+      serialize model objects passed as ``obj`` with :meth:`serialize`,
+    * parsing helpers (:meth:`parse_object` / :meth:`parse_collection` / :meth:`identifier` / ...) turn a response
+      body into plain Python values that are identical for both formats.
+    """
+
+    content_type: str
+
+    def __init__(self, client: Client):
+        self.client = client
+
+    def request(self, method: str, path: str, obj: Optional[object] = None, data: Any = None, **kwargs) -> TestResponse:
+        """
+        Issue a request, setting the ``Accept`` header to the class' :attr:`content_type`.
+
+        :param method: HTTP method to perform the request with
+        :param path: path to perform the request to
+        :param obj: If given, the object is parsed to :attr:`content_type` using :meth:`serialize` and sent as body.
+        :param data: If given, this is directly sent as body. Caution: gets overridden by :param:`obj`
+        :param kwargs: Additional arguments passed directly to :meth:`werkzeug.test.Client.open`. Can be used to set
+                        different ``Content-Type`` for :param:`data`.
+        :return: The :class:`~werkzeug.test.TestResponse` object
+        """
+        headers = dict(kwargs or {})
+        headers["Accept"] = self.content_type
+
+        if obj is not None:
+            data = self.serialize(obj)
+            kwargs.pop("content_type", None)
+
+        return self.client.open(
+            path, method=method, headers=headers, data=data, content_type=self.content_type, **kwargs
+        )
+
+    def get(self, path: str, **kwargs) -> TestResponse:
+        return self.request("GET", path, **kwargs)
+
+    def post(self, path: str, obj: Optional[object] = None, **kwargs: Any) -> TestResponse:
+        return self.request("POST", path, obj=obj, **kwargs)
+
+    def put(self, path: str, obj: Optional[object] = None, **kwargs: Any) -> TestResponse:
+        return self.request("PUT", path, obj=obj, **kwargs)
+
+    def patch(self, path: str, obj: Optional[object] = None, **kwargs: Any) -> TestResponse:
+        return self.request("PATCH", path, obj=obj, **kwargs)
+
+    def delete(self, path: str, **kwargs: Any) -> TestResponse:
+        return self.request("DELETE", path, **kwargs)
+
+    # ------------------------------------------------------------------ format-specific hooks
+
+    @abc.abstractmethod
+    def serialize(self, obj: object) -> bytes:
+        """Serialize a model object to a request body in the format under test."""
+
+    @abc.abstractmethod
+    def parse_object(self, response: TestResponse) -> Any:
+        """Return the single-object node of an object response (accepted by :meth:`identifier`, :meth:`field`, ...)."""
+
+    @abc.abstractmethod
+    def parse_collection(self, response: TestResponse) -> list[Any]:
+        """Return the list of item nodes of a collection response, in document order."""
+
+    @abc.abstractmethod
+    def identifier(self, node: Any) -> str:
+        """The ``id`` of an Identifiable from a :meth:`parse_object` / :meth:`parse_collection` node."""
+
+    @abc.abstractmethod
+    def reference_target(self, node: Any) -> str:
+        """The value of the last key of a Reference node (a single-reference response or a collection item)."""
+
+    @abc.abstractmethod
+    def field(self, node: Any, name: str) -> Optional[str]:
+        """The text of a direct scalar child ``name`` of ``node`` (JSON member / ``aas:``-prefixed XML element)."""
+
+    @abc.abstractmethod
+    def result_success(self, response: TestResponse) -> bool:
+        """The value of the ``success`` flag in a ``Result`` body."""
+
+
+class JsonFormatClient(FormatClient):
+    content_type = "application/json"
+
+    def serialize(self, obj: object) -> bytes:
+        return json.dumps(obj, cls=adapter.json.AASToJsonEncoder).encode("utf-8")
+
+    def _payload(self, response: TestResponse) -> Any:
+        return json.loads(response.get_data(as_text=True))
+
+    def parse_object(self, response: TestResponse) -> Any:
+        return self._payload(response)
+
+    def parse_collection(self, response: TestResponse) -> list[Any]:
+        payload = self._payload(response)
+        if isinstance(payload, dict) and "result" in payload:
+            return list(payload["result"])
+        return list(payload)
+
+    def identifier(self, node: Any) -> str:
+        return node["id"]
+
+    def reference_target(self, node: Any) -> str:
+        return node["keys"][-1]["value"]
+
+    def field(self, node: Any, name: str) -> Optional[str]:
+        return node.get(name)
+
+    def result_success(self, response: TestResponse) -> bool:
+        body = self._payload(response)
+        return "success" not in body or bool(body["success"])
+
+
+class XmlFormatClient(FormatClient):
+    content_type = "application/xml"
+
+    def serialize(self, obj: object) -> bytes:
+        item_elem = adapter.xml.object_to_xml_element(obj)
+        etree.cleanup_namespaces(item_elem, top_nsmap=XML_NS_MAP)
+        return etree.tostring(item_elem, xml_declaration=True, encoding="utf-8")
+
+    def _root(self, response: TestResponse) -> etree._Element:
+        return etree.fromstring(response.data)
+
+    def parse_object(self, response: TestResponse) -> Any:
+        # An object response is <response> with the object's children hoisted onto it, so the root itself is the
+        # object node and `identifier` / `field` find e.g. <aas:id> directly beneath it.
+        return self._root(response)
+
+    def parse_collection(self, response: TestResponse) -> list[Any]:
+        # A collection response is <response> with one child element per item.
+        return list(self._root(response))
+
+    def identifier(self, node: Any) -> str:
+        found = node.findtext("aas:id", namespaces=XML_NS_MAP)
+        assert found is not None
+        return found
+
+    def reference_target(self, node: Any) -> str:
+        values = node.findall(".//aas:key/aas:value", namespaces=XML_NS_MAP)
+        assert values, "no keys in reference node"
+        return values[-1].text
+
+    def field(self, node: Any, name: str) -> Optional[str]:
+        return node.findtext(f"aas:{name}", namespaces=XML_NS_MAP)
+
+    def result_success(self, response: TestResponse) -> bool:
+        # <response><success>true|false</success>...</response> -- not namespaced in Result bodies.
+        success_elem = self._root(response).find("success")
+        return success_elem is None or success_elem.text == "true"
