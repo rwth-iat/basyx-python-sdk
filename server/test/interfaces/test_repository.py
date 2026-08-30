@@ -13,21 +13,17 @@ from basyx.aas.examples.data.example_aas_missing_attributes import (
 )
 from werkzeug.test import Client, TestResponse
 
-from .format_utils import FormatClient, JsonFormatClient, XmlFormatClient
+from .format_utils import FormatClient, JsonFormatClient, XmlFormatClient, with_json_client, with_formatted_clients, \
+    with_xml_client
 
 
-class RespsitoryEdpointTestBase(unittest.TestCase, abc.ABC):
+class RespsitoryEdpointTestBase(unittest.TestCase):
     __test__ = False
 
     object_store: model.DictIdentifiableStore
     file_store: mock.Mock
     repository_server: repository.WSGIApp
-    fmt: FormatClient
-
-    @classmethod
-    @abc.abstractmethod
-    def build_format_client(cls) -> FormatClient:
-        raise NotImplementedError()
+    client: Client
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -36,7 +32,7 @@ class RespsitoryEdpointTestBase(unittest.TestCase, abc.ABC):
         cls.object_store = model.DictIdentifiableStore()
         cls.file_store = mock.Mock(spec=aasx.AbstractSupplementaryFileContainer)
         cls.repository_server = repository.WSGIApp(cls.object_store, cls.file_store, base_path="")
-        cls.fmt = cls.build_format_client()
+        cls.client = Client(cls.repository_server)
 
     def setUp(self) -> None:
         self.object_store.clear()
@@ -55,31 +51,22 @@ class RespsitoryEdpointTestBase(unittest.TestCase, abc.ABC):
 
     def assert_ok(self, response: TestResponse) -> None:
         self.assertEqual(200, response.status_code, msg=response.get_data(as_text=True))
-        self.assertEqual(self.fmt.content_type, response.mimetype)
 
     def assert_error(self, response: TestResponse, status_code: int) -> None:
         self.assertEqual(status_code, response.status_code, msg=response.get_data(as_text=True))
-        self.assertFalse(self.fmt.result_success(response))
+        self.assertIn("success", response.get_data(as_text=True), msg=response.get_data(as_text=True))
 
 
 class TestServiceDescription(RespsitoryEdpointTestBase):
     __test__ = True
-    
-    @classmethod
-    def build_format_client(cls) -> FormatClient:
-        return JsonFormatClient(Client(cls.repository_server))
 
     def test_description(self):
-        response = self.fmt.get("/description")
+        response = self.client.get("/description")
         self.assertEqual(200, response.status_code)
 
 
 class TestShellsThumbnailEndpoint(RespsitoryEdpointTestBase):
     __test__ = True
-
-    @classmethod
-    def build_format_client(cls) -> FormatClient:
-        return JsonFormatClient(Client(cls.repository_server))
 
     # ------------------------------------------------------------------ GET .../asset-information/thumbnail
 
@@ -92,7 +79,7 @@ class TestShellsThumbnailEndpoint(RespsitoryEdpointTestBase):
         self.object_store.add(example_shell)
         self.file_store.write_file.side_effect = lambda name, stream: stream.write(b"thumbnail-bytes")
 
-        response = self.fmt.get(self.thumbnail_path(example_shell.id))
+        response = self.client.get(self.thumbnail_path(example_shell.id))
 
         self.assertEqual(200, response.status_code)
         self.assertEqual("image/png", response.mimetype)
@@ -104,7 +91,7 @@ class TestShellsThumbnailEndpoint(RespsitoryEdpointTestBase):
         example_shell.asset_information.default_thumbnail = None
         self.object_store.add(example_shell)
 
-        response = self.fmt.get(self.thumbnail_path(example_shell.id))
+        response = self.client.get(self.thumbnail_path(example_shell.id))
 
         self.assert_error(response, 404)
 
@@ -115,7 +102,7 @@ class TestShellsThumbnailEndpoint(RespsitoryEdpointTestBase):
         )
         self.object_store.add(example_shell)
 
-        response = self.fmt.get(self.thumbnail_path(example_shell.id))
+        response = self.client.get(self.thumbnail_path(example_shell.id))
 
         self.assert_error(response, 400)
 
@@ -129,13 +116,12 @@ class TestShellsThumbnailEndpoint(RespsitoryEdpointTestBase):
         self.object_store.add(example_shell)
         self.file_store.add_file.return_value = "/new.png"
 
-        response = self.fmt.put(
+        response = self.client.put(
             self.thumbnail_path(example_shell.id),
             data={
                 "fileName": "/new.png",
                 "file": (io.BytesIO(b"thumbnail-bytes"), "new.png", "image/png"),
             },
-            headers={"Accept": self.fmt.content_type},
             content_type="multipart/form-data"
         )
 
@@ -153,22 +139,20 @@ class TestShellsThumbnailEndpoint(RespsitoryEdpointTestBase):
         example_shell = create_example_asset_administration_shell()
         self.object_store.add(example_shell)
 
-        response = self.fmt.client.put(
+        response = self.client.put(
             self.thumbnail_path(example_shell.id),
-            data={"file": (io.BytesIO(b"thumbnail-bytes"), "thumbnail.png", "image/png")},
-            headers={"Accept": self.fmt.content_type},
+            data={"file": (io.BytesIO(b"thumbnail-bytes"), "thumbnail.png", "image/png")}
         )
 
         self.assert_error(response, 400)
 
     def test_shell_thumbnail_put_shell_not_found(self):
-        response = self.fmt.client.put(
+        response = self.client.put(
             self.thumbnail_path("https://example.org/unknown"),
             data={
                 "fileName": "/thumbnail.png",
                 "file": (io.BytesIO(b"thumbnail-bytes"), "thumbnail.png", "image/png"),
-            },
-            headers={"Accept": self.fmt.content_type},
+            }
         )
 
         self.assert_error(response, 404)
@@ -180,7 +164,7 @@ class TestShellsThumbnailEndpoint(RespsitoryEdpointTestBase):
         example_shell.asset_information.default_thumbnail = model.Resource("/thumbnail.png", "image/png")
         self.object_store.add(example_shell)
 
-        response = self.fmt.delete(self.thumbnail_path(example_shell.id))
+        response = self.client.delete(self.thumbnail_path(example_shell.id))
 
         self.assertEqual(204, response.status_code)
         self.file_store.delete_file.assert_called_once_with("/thumbnail.png")
@@ -193,7 +177,7 @@ class TestShellsThumbnailEndpoint(RespsitoryEdpointTestBase):
         example_shell.asset_information.default_thumbnail = None
         self.object_store.add(example_shell)
 
-        response = self.fmt.delete(self.thumbnail_path(example_shell.id))
+        response = self.client.delete(self.thumbnail_path(example_shell.id))
 
         self.assert_error(response, 404)
 
@@ -204,9 +188,24 @@ class TestShellsThumbnailEndpoint(RespsitoryEdpointTestBase):
         )
         self.object_store.add(example_shell)
 
-        response = self.fmt.delete(self.thumbnail_path(example_shell.id))
+        response = self.client.delete(self.thumbnail_path(example_shell.id))
 
         self.assert_error(response, 400)
+
+@with_formatted_clients
+class ExampleTest(RespsitoryEdpointTestBase):
+    __test__ = True
+
+    @with_json_client
+    @with_xml_client
+    def test_shells_get(self, format_client: FormatClient):
+        self.object_store.update(self.two_shells_store())
+
+        response = format_client.get("/shells")
+
+        self.assert_ok(response)
+        self.assertEqual(2, len(format_client.parse_collection(response)))
+
 
 
 class _ShellsEndpointsTest(RespsitoryEdpointTestBase, abc.ABC):
@@ -219,14 +218,6 @@ class _ShellsEndpointsTest(RespsitoryEdpointTestBase, abc.ABC):
     """
 
     __test__ = False
-
-    def two_shells_store(self):
-        store = model.DictIdentifiableStore()
-        store.add(create_example_asset_administration_shell())
-        second_shell = create_example_asset_administration_shell()
-        second_shell.id = "https://example.org/Test_AssetAdministrationShell_Second"
-        store.add(second_shell)
-        return store
 
     # ------------------------------------------------------------------ GET /shells
 

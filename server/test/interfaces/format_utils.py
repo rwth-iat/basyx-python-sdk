@@ -164,3 +164,38 @@ class XmlFormatClient(FormatClient):
         # <response><success>true|false</success>...</response> -- not namespaced in Result bodies.
         success_elem = self._root(response).find("success")
         return success_elem is None or success_elem.text == "true"
+
+
+def with_json_client(func):
+    client_types = getattr(func, "_client_types", [])
+    client_types.append("json")
+    func._client_types = client_types
+    return func
+
+def with_xml_client(func):
+    client_types = getattr(func, "_client_types", [])
+    client_types.append("xml")
+    func._client_types = client_types
+    return func
+
+def with_formatted_clients(cls):
+    format_map: dict[str, type[FormatClient]] = {"json": JsonFormatClient, "xml": XmlFormatClient}
+
+    def build_test(method, format_client_type):
+        def wrapper(self):
+            formatted_client = format_client_type(getattr(cls, "client"))
+            return method(self, formatted_client)
+
+        return wrapper
+
+    for name, method in list(vars(cls).items()):
+        method_client_type: Optional[list[str]] = getattr(method, "_client_types", None)
+        if method_client_type is None:
+            continue
+
+        # Method was decorated -> remove original method and insert new methods
+        delattr(cls, name)
+        for format_name in method_client_type:
+            format_client_type = format_map[format_name]
+            setattr(cls, f"{name}_{format_name}", build_test(method, format_client_type))
+    return cls
