@@ -36,15 +36,17 @@ class FormatClient(abc.ABC):
                         different ``Content-Type`` for :param:`data`.
         :return: The :class:`~werkzeug.test.TestResponse` object
         """
-        headers = dict(kwargs or {})
+        headers = dict(kwargs.get("headers", {}))
         headers["Accept"] = self.content_type
 
         if obj is not None:
             data = self.serialize(obj)
-            kwargs.pop("content_type", None)
+            kwargs["content_type"] = self.content_type
+
+        kwargs.update({"data": data, "headers": headers})
 
         return self.client.open(
-            path, method=method, headers=headers, data=data, content_type=self.content_type, **kwargs
+            path, method=method, **kwargs
         )
 
     def get(self, path: str, **kwargs) -> TestResponse:

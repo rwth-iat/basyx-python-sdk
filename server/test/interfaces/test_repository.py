@@ -1,3 +1,4 @@
+import abc
 import io
 import unittest
 from unittest import mock
@@ -15,28 +16,8 @@ from werkzeug.test import Client, TestResponse
 from .format_utils import FormatClient, JsonFormatClient, XmlFormatClient
 
 
-class TestServiceDescription(unittest.TestCase):
-    def setUp(self) -> None:
-        object_store: model.DictIdentifiableStore = model.DictIdentifiableStore()
-        file_store = mock.Mock(spec=aasx.AbstractSupplementaryFileContainer)
-        self.client = Client(repository.WSGIApp(object_store, file_store, base_path=""))
-
-    def test_description(self):
-        response = self.client.get("/description")
-        self.assertEqual(200, response.status_code)
-
-class _ShellsEndpointsTest(unittest.TestCase):
-    """
-    Endpoint tests for the implemented ``/shells`` routes of :class:`~app.interfaces.repository.WSGIApp`.
-
-    Bodies are written once against the format-agnostic :attr:`fmt` helper; the concrete
-    :class:`TestShellsEndpointsJson` / :class:`TestShellsEndpointsXml` subclasses run them once per format by
-    swapping :attr:`format_client_cls`.
-    """
-
+class RespsitoryEdpointTestBase(unittest.TestCase, abc.ABC):
     __test__ = False
-
-    format_client_cls: type[FormatClient] = None  # type: ignore
 
     object_store: model.DictIdentifiableStore
     file_store: mock.Mock
@@ -44,21 +25,25 @@ class _ShellsEndpointsTest(unittest.TestCase):
     fmt: FormatClient
 
     @classmethod
+    @abc.abstractmethod
+    def build_format_client(cls) -> FormatClient:
+        raise NotImplementedError()
+
+    @classmethod
     def setUpClass(cls) -> None:
-        if cls.format_client_cls is None:
-            raise unittest.SkipTest("abstract base class")
         super().setUpClass()
 
         cls.object_store = model.DictIdentifiableStore()
         cls.file_store = mock.Mock(spec=aasx.AbstractSupplementaryFileContainer)
         cls.repository_server = repository.WSGIApp(cls.object_store, cls.file_store, base_path="")
-        cls.fmt = cls.format_client_cls(Client(cls.repository_server))
+        cls.fmt = cls.build_format_client()
 
     def setUp(self) -> None:
         self.object_store.clear()
         self.file_store.reset_mock()
 
-    def two_shells_store(self):
+    @classmethod
+    def two_shells_store(cls):
         store = model.DictIdentifiableStore()
         store.add(create_example_asset_administration_shell())
         second_shell = create_example_asset_administration_shell()
@@ -75,6 +60,173 @@ class _ShellsEndpointsTest(unittest.TestCase):
     def assert_error(self, response: TestResponse, status_code: int) -> None:
         self.assertEqual(status_code, response.status_code, msg=response.get_data(as_text=True))
         self.assertFalse(self.fmt.result_success(response))
+
+
+class TestServiceDescription(RespsitoryEdpointTestBase):
+    __test__ = True
+    
+    @classmethod
+    def build_format_client(cls) -> FormatClient:
+        return JsonFormatClient(Client(cls.repository_server))
+
+    def test_description(self):
+        response = self.fmt.get("/description")
+        self.assertEqual(200, response.status_code)
+
+
+class TestShellsThumbnailEndpoint(RespsitoryEdpointTestBase):
+    __test__ = True
+
+    @classmethod
+    def build_format_client(cls) -> FormatClient:
+        return JsonFormatClient(Client(cls.repository_server))
+
+    # ------------------------------------------------------------------ GET .../asset-information/thumbnail
+
+    def thumbnail_path(self, aas_id: str) -> str:
+        return f"/shells/{base64url_encode(aas_id)}/asset-information/thumbnail"
+
+    def test_shell_thumbnail_get_success(self):
+        example_shell = create_example_asset_administration_shell()
+        example_shell.asset_information.default_thumbnail = model.Resource("/thumbnail.png", "image/png")
+        self.object_store.add(example_shell)
+        self.file_store.write_file.side_effect = lambda name, stream: stream.write(b"thumbnail-bytes")
+
+        response = self.fmt.get(self.thumbnail_path(example_shell.id))
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("image/png", response.mimetype)
+        self.assertEqual(b"thumbnail-bytes", response.get_data())
+        self.file_store.write_file.assert_called_once_with("/thumbnail.png", mock.ANY)
+
+    def test_shell_thumbnail_get_no_thumbnail_set(self):
+        example_shell = create_example_asset_administration_shell()
+        example_shell.asset_information.default_thumbnail = None
+        self.object_store.add(example_shell)
+
+        response = self.fmt.get(self.thumbnail_path(example_shell.id))
+
+        self.assert_error(response, 404)
+
+    def test_shell_thumbnail_get_external_reference(self):
+        example_shell = create_example_asset_administration_shell()
+        example_shell.asset_information.default_thumbnail = model.Resource(
+            "https://example.org/thumbnail.png", "image/png"
+        )
+        self.object_store.add(example_shell)
+
+        response = self.fmt.get(self.thumbnail_path(example_shell.id))
+
+        self.assert_error(response, 400)
+
+    # ------------------------------------------------------------------ PUT .../asset-information/thumbnail
+
+    def test_shell_thumbnail_put_success(self):
+        # Also exercises the "replace an existing local thumbnail" branch, since the fixture shell already
+        # carries a (non-local) default_thumbnail; a fresh local one is added on top of that here.
+        example_shell = create_example_asset_administration_shell()
+        example_shell.asset_information.default_thumbnail = model.Resource("/old.png", "image/png")
+        self.object_store.add(example_shell)
+        self.file_store.add_file.return_value = "/new.png"
+
+        response = self.fmt.put(
+            self.thumbnail_path(example_shell.id),
+            data={
+                "fileName": "/new.png",
+                "file": (io.BytesIO(b"thumbnail-bytes"), "new.png", "image/png"),
+            },
+            headers={"Accept": self.fmt.content_type},
+            content_type="multipart/form-data"
+        )
+
+        self.assertEqual(204, response.status_code)
+        self.file_store.add_file.assert_called_once_with("/new.png", mock.ANY, "image/png")
+        self.file_store.delete_file.assert_called_once_with("/old.png")
+        retrieved_shell = self.object_store.get(example_shell.id)
+        self.assertIsInstance(retrieved_shell, model.AssetAdministrationShell)
+        new_thumbnail = retrieved_shell.asset_information.default_thumbnail
+        self.assertIsNotNone(new_thumbnail)
+        self.assertEqual("/new.png", new_thumbnail.path)
+        self.assertEqual("image/png", new_thumbnail.content_type)
+
+    def test_shell_thumbnail_put_missing_filename(self):
+        example_shell = create_example_asset_administration_shell()
+        self.object_store.add(example_shell)
+
+        response = self.fmt.client.put(
+            self.thumbnail_path(example_shell.id),
+            data={"file": (io.BytesIO(b"thumbnail-bytes"), "thumbnail.png", "image/png")},
+            headers={"Accept": self.fmt.content_type},
+        )
+
+        self.assert_error(response, 400)
+
+    def test_shell_thumbnail_put_shell_not_found(self):
+        response = self.fmt.client.put(
+            self.thumbnail_path("https://example.org/unknown"),
+            data={
+                "fileName": "/thumbnail.png",
+                "file": (io.BytesIO(b"thumbnail-bytes"), "thumbnail.png", "image/png"),
+            },
+            headers={"Accept": self.fmt.content_type},
+        )
+
+        self.assert_error(response, 404)
+
+    # ------------------------------------------------------------------ DELETE .../asset-information/thumbnail
+
+    def test_shell_thumbnail_delete_success(self):
+        example_shell = create_example_asset_administration_shell()
+        example_shell.asset_information.default_thumbnail = model.Resource("/thumbnail.png", "image/png")
+        self.object_store.add(example_shell)
+
+        response = self.fmt.delete(self.thumbnail_path(example_shell.id))
+
+        self.assertEqual(204, response.status_code)
+        self.file_store.delete_file.assert_called_once_with("/thumbnail.png")
+        retrieved_shell = self.object_store.get(example_shell.id)
+        self.assertIsInstance(retrieved_shell, model.AssetAdministrationShell)
+        self.assertIsNone(retrieved_shell.asset_information.default_thumbnail)
+
+    def test_shell_thumbnail_delete_no_thumbnail_set(self):
+        example_shell = create_example_asset_administration_shell()
+        example_shell.asset_information.default_thumbnail = None
+        self.object_store.add(example_shell)
+
+        response = self.fmt.delete(self.thumbnail_path(example_shell.id))
+
+        self.assert_error(response, 404)
+
+    def test_shell_thumbnail_delete_external_reference(self):
+        example_shell = create_example_asset_administration_shell()
+        example_shell.asset_information.default_thumbnail = model.Resource(
+            "https://example.org/thumbnail.png", "image/png"
+        )
+        self.object_store.add(example_shell)
+
+        response = self.fmt.delete(self.thumbnail_path(example_shell.id))
+
+        self.assert_error(response, 400)
+
+
+class _ShellsEndpointsTest(RespsitoryEdpointTestBase, abc.ABC):
+    """
+    Endpoint tests for the implemented ``/shells`` routes of :class:`~app.interfaces.repository.WSGIApp`.
+
+    Bodies are written once against the format-agnostic :attr:`fmt` helper; the concrete
+    :class:`TestShellsEndpointsJson` / :class:`TestShellsEndpointsXml` subclasses run them once per format by
+    swapping :attr:`format_client_cls`.
+    """
+
+    __test__ = False
+
+    def two_shells_store(self):
+        store = model.DictIdentifiableStore()
+        store.add(create_example_asset_administration_shell())
+        second_shell = create_example_asset_administration_shell()
+        second_shell.id = "https://example.org/Test_AssetAdministrationShell_Second"
+        store.add(second_shell)
+        return store
 
     # ------------------------------------------------------------------ GET /shells
 
@@ -226,132 +378,6 @@ class _ShellsEndpointsTest(unittest.TestCase):
             retrieved_shell.asset_information.global_asset_id,
         )
 
-    # ------------------------------------------------------------------ GET .../asset-information/thumbnail
-
-    def thumbnail_path(self, aas_id: str) -> str:
-        return f"/shells/{base64url_encode(aas_id)}/asset-information/thumbnail"
-
-    def test_shell_thumbnail_get_success(self):
-        example_shell = create_example_asset_administration_shell()
-        example_shell.asset_information.default_thumbnail = model.Resource("/thumbnail.png", "image/png")
-        self.object_store.add(example_shell)
-        self.file_store.write_file.side_effect = lambda name, stream: stream.write(b"thumbnail-bytes")
-
-        response = self.fmt.get(self.thumbnail_path(example_shell.id))
-
-        self.assertEqual(200, response.status_code)
-        self.assertEqual("image/png", response.mimetype)
-        self.assertEqual(b"thumbnail-bytes", response.get_data())
-        self.file_store.write_file.assert_called_once_with("/thumbnail.png", mock.ANY)
-
-    def test_shell_thumbnail_get_no_thumbnail_set(self):
-        example_shell = create_example_asset_administration_shell()
-        example_shell.asset_information.default_thumbnail = None
-        self.object_store.add(example_shell)
-
-        response = self.fmt.get(self.thumbnail_path(example_shell.id))
-
-        self.assert_error(response, 404)
-
-    def test_shell_thumbnail_get_external_reference(self):
-        example_shell = create_example_asset_administration_shell()
-        example_shell.asset_information.default_thumbnail = model.Resource(
-            "https://example.org/thumbnail.png", "image/png"
-        )
-        self.object_store.add(example_shell)
-
-        response = self.fmt.get(self.thumbnail_path(example_shell.id))
-
-        self.assert_error(response, 400)
-
-    # ------------------------------------------------------------------ PUT .../asset-information/thumbnail
-
-    def test_shell_thumbnail_put_success(self):
-        # Also exercises the "replace an existing local thumbnail" branch, since the fixture shell already
-        # carries a (non-local) default_thumbnail; a fresh local one is added on top of that here.
-        example_shell = create_example_asset_administration_shell()
-        example_shell.asset_information.default_thumbnail = model.Resource("/old.png", "image/png")
-        self.object_store.add(example_shell)
-        self.file_store.add_file.return_value = "/new.png"
-
-        response = self.fmt.client.put(
-            self.thumbnail_path(example_shell.id),
-            data={
-                "fileName": "/new.png",
-                "file": (io.BytesIO(b"thumbnail-bytes"), "new.png", "image/png"),
-            },
-            headers={"Accept": self.fmt.content_type},
-        )
-
-        self.assertEqual(204, response.status_code)
-        self.file_store.add_file.assert_called_once_with("/new.png", mock.ANY, "image/png")
-        self.file_store.delete_file.assert_called_once_with("/old.png")
-        retrieved_shell = self.object_store.get(example_shell.id)
-        self.assertIsInstance(retrieved_shell, model.AssetAdministrationShell)
-        new_thumbnail = retrieved_shell.asset_information.default_thumbnail
-        self.assertIsNotNone(new_thumbnail)
-        self.assertEqual("/new.png", new_thumbnail.path)
-        self.assertEqual("image/png", new_thumbnail.content_type)
-
-    def test_shell_thumbnail_put_missing_filename(self):
-        example_shell = create_example_asset_administration_shell()
-        self.object_store.add(example_shell)
-
-        response = self.fmt.client.put(
-            self.thumbnail_path(example_shell.id),
-            data={"file": (io.BytesIO(b"thumbnail-bytes"), "thumbnail.png", "image/png")},
-            headers={"Accept": self.fmt.content_type},
-        )
-
-        self.assert_error(response, 400)
-
-    def test_shell_thumbnail_put_shell_not_found(self):
-        response = self.fmt.client.put(
-            self.thumbnail_path("https://example.org/unknown"),
-            data={
-                "fileName": "/thumbnail.png",
-                "file": (io.BytesIO(b"thumbnail-bytes"), "thumbnail.png", "image/png"),
-            },
-            headers={"Accept": self.fmt.content_type},
-        )
-
-        self.assert_error(response, 404)
-
-    # ------------------------------------------------------------------ DELETE .../asset-information/thumbnail
-
-    def test_shell_thumbnail_delete_success(self):
-        example_shell = create_example_asset_administration_shell()
-        example_shell.asset_information.default_thumbnail = model.Resource("/thumbnail.png", "image/png")
-        self.object_store.add(example_shell)
-
-        response = self.fmt.delete(self.thumbnail_path(example_shell.id))
-
-        self.assertEqual(204, response.status_code)
-        self.file_store.delete_file.assert_called_once_with("/thumbnail.png")
-        retrieved_shell = self.object_store.get(example_shell.id)
-        self.assertIsInstance(retrieved_shell, model.AssetAdministrationShell)
-        self.assertIsNone(retrieved_shell.asset_information.default_thumbnail)
-
-    def test_shell_thumbnail_delete_no_thumbnail_set(self):
-        example_shell = create_example_asset_administration_shell()
-        example_shell.asset_information.default_thumbnail = None
-        self.object_store.add(example_shell)
-
-        response = self.fmt.delete(self.thumbnail_path(example_shell.id))
-
-        self.assert_error(response, 404)
-
-    def test_shell_thumbnail_delete_external_reference(self):
-        example_shell = create_example_asset_administration_shell()
-        example_shell.asset_information.default_thumbnail = model.Resource(
-            "https://example.org/thumbnail.png", "image/png"
-        )
-        self.object_store.add(example_shell)
-
-        response = self.fmt.delete(self.thumbnail_path(example_shell.id))
-
-        self.assert_error(response, 400)
-
     # ------------------------------------------------------------------ GET /shells/<aas_id>/submodel-refs
 
     def test_shell_submodel_refs_get(self):
@@ -486,9 +512,15 @@ class _ShellsEndpointsTest(unittest.TestCase):
 
 class TestShellsEndpointsJson(_ShellsEndpointsTest):
     __test__ = True
-    format_client_cls = JsonFormatClient
+
+    @classmethod
+    def build_format_client(cls) -> FormatClient:
+        return JsonFormatClient(Client(cls.repository_server))
 
 
 class TestShellsEndpointsXml(_ShellsEndpointsTest):
     __test__ = True
-    format_client_cls = XmlFormatClient
+
+    @classmethod
+    def build_format_client(cls) -> FormatClient:
+        return XmlFormatClient(Client(cls.repository_server))
