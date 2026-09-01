@@ -1,4 +1,6 @@
+import io
 import json
+from unittest import mock
 
 from app.util.converters import base64url_encode
 from basyx.aas import model
@@ -287,6 +289,7 @@ class SubmodelsEndpointsTest(RepositoryEndpointTestBase):
         self.assertEqual(204, response.status_code)
         retrieved_submodel = self.object_store.get(updated_submodel.id, None)
         self.assertIsInstance(retrieved_submodel, model.Submodel)
+        assert isinstance(retrieved_submodel, model.Submodel)  # make mypy happy
         self.assertEqual("UpdatedIdShort", retrieved_submodel.id_short)
 
     @with_json_client
@@ -381,6 +384,580 @@ class SubmodelsEndpointsTest(RepositoryEndpointTestBase):
     def test_submodel_reference_get_not_found(self, format_client: FormatClient):
         response = format_client.get(
             f"/submodels/{base64url_encode('https://example.org/unknown')}/$reference"
+        )
+
+        self.assert_error(response, 404)
+
+
+# ExampleSubmodelCollection (a nested namespace) and one of its children, carried by
+# ``create_example_submodel()``; used as ready-made id_short paths in the tests below.
+NESTED_COLLECTION = "ExampleSubmodelCollection"
+NESTED_PROPERTY = "ExampleSubmodelCollection.ExampleProperty"
+NESTED_BLOB = "ExampleSubmodelCollection.ExampleBlob"
+NESTED_FILE = "ExampleSubmodelCollection.ExampleFile"
+EXAMPLE_QUALIFIER_TYPE = "http://example.org/Qualifier/ExampleQualifier"
+
+
+@inject_format_clients
+class SubmodelElementsEndpointsTest(RepositoryEndpointTestBase):
+    """
+    Endpoint tests for the ``/submodels/<id>/submodel-elements`` subtree of
+    :class:`~app.interfaces.repository.WSGIApp`, including the ``$metadata`` / ``$reference`` modifiers,
+    the ``attachment`` file routes and the ``qualifiers`` routes.
+
+    Bodies are written once against the format-agnostic ``format_client`` helper.
+    For each test two variants are generated where the :class:`~..format_utils.JsonFormatClient` and
+    :class:`~..format_utils.XmlFormatClient` are injected respectively.
+    """
+
+    __test__ = True
+
+    #: Number of top-level submodel elements in ``create_example_submodel()``.
+    TOP_LEVEL_COUNT = 6
+
+    def add_example_submodel(self) -> model.Submodel:
+        submodel = create_example_submodel()
+        self.object_store.add(submodel)
+        return submodel
+
+    def _stored_submodel(self, submodel_id: str) -> model.Submodel:
+        submodel = self.object_store.get(submodel_id)
+        assert isinstance(submodel, model.Submodel)
+        return submodel
+
+    @staticmethod
+    def elements_path(submodel_id: str, id_short_path: str = "") -> str:
+        base = f"/submodels/{base64url_encode(submodel_id)}/submodel-elements"
+        return f"{base}/{id_short_path}" if id_short_path else base
+
+    def _nested_element(self, submodel: model.Submodel, id_short_path: str) -> model.SubmodelElement:
+        referable: model.Referable = submodel
+        for id_short in id_short_path.split("."):
+            assert isinstance(referable, model.UniqueIdShortNamespace)
+            referable = referable.get_referable(id_short)
+        assert isinstance(referable, model.SubmodelElement)
+        return referable
+
+    def _nested_property(self, submodel: model.Submodel, id_short_path: str) -> model.Property:
+        element = self._nested_element(submodel, id_short_path)
+        assert isinstance(element, model.Property)
+        return element
+
+    def _nested_file(self, submodel: model.Submodel, id_short_path: str) -> model.File:
+        element = self._nested_element(submodel, id_short_path)
+        assert isinstance(element, model.File)
+        return element
+
+    def _nested_blob(self, submodel: model.Submodel, id_short_path: str) -> model.Blob:
+        element = self._nested_element(submodel, id_short_path)
+        assert isinstance(element, model.Blob)
+        return element
+
+    # ------------------------------------------------------------------ GET .../submodel-elements
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_elements_get(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+
+        response = format_client.get(self.elements_path(submodel.id))
+
+        self.assert_ok(response)
+        self.assertEqual(self.TOP_LEVEL_COUNT, len(format_client.parse_collection(response)))
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_elements_get_pagination_limit(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+
+        response = format_client.get(f"{self.elements_path(submodel.id)}?limit=2")
+
+        self.assert_ok(response)
+        self.assertEqual(2, len(format_client.parse_collection(response)))
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_elements_get_submodel_not_found(self, format_client: FormatClient):
+        response = format_client.get(self.elements_path("https://example.org/unknown"))
+
+        self.assert_error(response, 404)
+
+    # ------------------------------------------------------------------ POST .../submodel-elements
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_elements_post_success(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+        new_element = model.Property("NewProperty", model.datatypes.String, "some-value")
+
+        response = format_client.post(self.elements_path(submodel.id), obj=new_element)
+
+        self.assertEqual(201, response.status_code)
+        self.assertIn("Location", response.headers)
+        retrieved = self._stored_submodel(submodel.id)
+        self.assertIsInstance(retrieved.get_referable("NewProperty"), model.Property)
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_elements_post_conflict(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+        duplicate = model.Property("ExampleCapability", model.datatypes.String, "v")
+
+        response = format_client.post(self.elements_path(submodel.id), obj=duplicate)
+
+        self.assert_error(response, 409)
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_elements_post_submodel_not_found(self, format_client: FormatClient):
+        new_element = model.Property("NewProperty", model.datatypes.String, "v")
+
+        response = format_client.post(
+            self.elements_path("https://example.org/unknown"), obj=new_element
+        )
+
+        self.assert_error(response, 404)
+
+    # ------------------------------------------------------------------ GET .../submodel-elements/$metadata
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_elements_metadata_get(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+
+        response = format_client.get(f"{self.elements_path(submodel.id)}/$metadata")
+
+        self.assert_ok(response)
+        self.assertEqual(self.TOP_LEVEL_COUNT, len(format_client.parse_collection(response)))
+
+    def test_submodel_elements_metadata_get_rejects_level(self):
+        submodel = self.add_example_submodel()
+
+        response = self.client.get(f"{self.elements_path(submodel.id)}/$metadata?level=deep")
+
+        self.assert_error(response, 400)
+
+    # ------------------------------------------------------------------ GET .../submodel-elements/$reference
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_elements_reference_get(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+
+        response = format_client.get(f"{self.elements_path(submodel.id)}/$reference")
+
+        self.assert_ok(response)
+        references = format_client.parse_collection(response)
+        self.assertEqual(self.TOP_LEVEL_COUNT, len(references))
+        self.assertIn(
+            "ExampleCapability", {format_client.reference_target(ref) for ref in references}
+        )
+
+    # ------------------------------------------------------------------ GET .../submodel-elements/<idShortPath>
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_element_get_top_level(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+
+        response = format_client.get(self.elements_path(submodel.id, "ExampleCapability"))
+
+        self.assert_ok(response)
+        self.assertEqual(
+            "ExampleCapability", format_client.field(format_client.parse_object(response), "idShort")
+        )
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_element_get_nested(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+
+        response = format_client.get(self.elements_path(submodel.id, NESTED_PROPERTY))
+
+        self.assert_ok(response)
+        self.assertEqual(
+            "ExampleProperty", format_client.field(format_client.parse_object(response), "idShort")
+        )
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_element_get_not_found(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+
+        response = format_client.get(self.elements_path(submodel.id, "DoesNotExist"))
+
+        self.assert_error(response, 404)
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_element_get_nested_not_found(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+
+        response = format_client.get(
+            self.elements_path(submodel.id, f"{NESTED_COLLECTION}.DoesNotExist")
+        )
+
+        self.assert_error(response, 404)
+
+    def test_submodel_element_get_path_through_non_namespace_returns_400(self):
+        submodel = self.add_example_submodel()
+
+        response = self.client.get(self.elements_path(submodel.id, f"{NESTED_PROPERTY}.Child"))
+
+        self.assert_error(response, 400)
+
+    def test_submodel_element_get_malformed_id_short_path_returns_400(self):
+        submodel = self.add_example_submodel()
+
+        response = self.client.get(self.elements_path(submodel.id, "a..b"))
+
+        self.assert_error(response, 400)
+
+    # ------------------------------------------------------------------ POST .../submodel-elements/<idShortPath>
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_element_post_child_success(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+        new_element = model.Property("AddedChild", model.datatypes.String, "v")
+
+        response = format_client.post(
+            self.elements_path(submodel.id, NESTED_COLLECTION), obj=new_element
+        )
+
+        self.assertEqual(201, response.status_code)
+        retrieved = self._stored_submodel(submodel.id)
+        self.assertIsInstance(
+            self._nested_element(retrieved, f"{NESTED_COLLECTION}.AddedChild"), model.Property
+        )
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_element_post_child_conflict(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+        duplicate = model.Property("ExampleProperty", model.datatypes.String, "v")
+
+        response = format_client.post(
+            self.elements_path(submodel.id, NESTED_COLLECTION), obj=duplicate
+        )
+
+        self.assert_error(response, 409)
+
+    def test_submodel_element_post_into_non_namespace_returns_400(self):
+        submodel = self.add_example_submodel()
+        payload = json.dumps(
+            model.Property("Child", model.datatypes.String, "v"), cls=AASToJsonEncoder
+        )
+
+        response = self.client.post(
+            self.elements_path(submodel.id, NESTED_PROPERTY),
+            data=payload,
+            content_type="application/json",
+        )
+
+        self.assert_error(response, 400)
+
+    # ------------------------------------------------------------------ PUT .../submodel-elements/<idShortPath>
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_element_put_success(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+        updated = model.Property("ExampleProperty", model.datatypes.String, "updated-value")
+
+        response = format_client.put(
+            self.elements_path(submodel.id, NESTED_PROPERTY), obj=updated
+        )
+
+        self.assertEqual(204, response.status_code)
+        retrieved = self._nested_property(self._stored_submodel(submodel.id), NESTED_PROPERTY)
+        self.assertEqual("updated-value", retrieved.value)
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_element_put_not_found(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+        updated = model.Property("DoesNotExist", model.datatypes.String, "v")
+
+        response = format_client.put(
+            self.elements_path(submodel.id, "DoesNotExist"), obj=updated
+        )
+
+        self.assert_error(response, 404)
+
+    # ------------------------------------------------------------------ DELETE .../submodel-elements/<idShortPath>
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_element_delete_success(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+
+        response = format_client.delete(self.elements_path(submodel.id, NESTED_PROPERTY))
+
+        self.assertEqual(204, response.status_code)
+        follow_up = format_client.get(self.elements_path(submodel.id, NESTED_PROPERTY))
+        self.assert_error(follow_up, 404)
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_element_delete_not_found(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+
+        response = format_client.delete(self.elements_path(submodel.id, "DoesNotExist"))
+
+        self.assert_error(response, 404)
+
+    # ------------------------------------------------------------------ GET .../<idShortPath>/$metadata
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_element_metadata_get(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+
+        response = format_client.get(f"{self.elements_path(submodel.id, NESTED_PROPERTY)}/$metadata")
+
+        self.assert_ok(response)
+        self.assertEqual(
+            "ExampleProperty", format_client.field(format_client.parse_object(response), "idShort")
+        )
+
+    def test_submodel_element_metadata_get_rejects_capability(self):
+        submodel = self.add_example_submodel()
+
+        response = self.client.get(
+            f"{self.elements_path(submodel.id, 'ExampleCapability')}/$metadata"
+        )
+
+        self.assert_error(response, 400)
+
+    def test_submodel_element_metadata_get_rejects_level(self):
+        submodel = self.add_example_submodel()
+
+        response = self.client.get(
+            f"{self.elements_path(submodel.id, NESTED_PROPERTY)}/$metadata?level=core"
+        )
+
+        self.assert_error(response, 400)
+
+    # ------------------------------------------------------------------ GET .../<idShortPath>/$reference
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_element_reference_get(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+
+        response = format_client.get(f"{self.elements_path(submodel.id, NESTED_PROPERTY)}/$reference")
+
+        self.assert_ok(response)
+        self.assertEqual(
+            "ExampleProperty", format_client.reference_target(format_client.parse_object(response))
+        )
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_element_reference_get_not_found(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+
+        response = format_client.get(
+            f"{self.elements_path(submodel.id, 'DoesNotExist')}/$reference"
+        )
+
+        self.assert_error(response, 404)
+
+    # ------------------------------------------------------------------ .../<idShortPath>/attachment
+
+    def test_submodel_element_attachment_get_blob(self):
+        submodel = self.add_example_submodel()
+
+        response = self.client.get(f"{self.elements_path(submodel.id, NESTED_BLOB)}/attachment")
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("application/pdf", response.mimetype)
+        self.assertEqual(bytes([1, 2, 3, 4, 5]), response.get_data())
+
+    def test_submodel_element_attachment_get_on_non_file_returns_400(self):
+        submodel = self.add_example_submodel()
+
+        response = self.client.get(f"{self.elements_path(submodel.id, NESTED_PROPERTY)}/attachment")
+
+        self.assert_error(response, 400)
+
+    def test_submodel_element_attachment_get_file_without_value_returns_404(self):
+        submodel = create_example_submodel()
+        self._nested_file(submodel, NESTED_FILE).value = None
+        self.object_store.add(submodel)
+
+        response = self.client.get(f"{self.elements_path(submodel.id, NESTED_FILE)}/attachment")
+
+        self.assert_error(response, 404)
+
+    def test_submodel_element_attachment_put_success(self):
+        submodel = create_example_submodel()
+        self._nested_file(submodel, NESTED_FILE).value = None
+        self.object_store.add(submodel)
+        self.file_store.add_file.return_value = "/uploaded.pdf"
+
+        response = self.client.put(
+            f"{self.elements_path(submodel.id, NESTED_FILE)}/attachment",
+            data={
+                "fileName": "/uploaded.pdf",
+                "file": (io.BytesIO(b"pdf-bytes"), "uploaded.pdf", "application/pdf"),
+            },
+            content_type="multipart/form-data",
+        )
+
+        self.assertEqual(204, response.status_code)
+        self.file_store.add_file.assert_called_once_with("/uploaded.pdf", mock.ANY, "application/pdf")
+        self.assertEqual(
+            "/uploaded.pdf", self._nested_file(self._stored_submodel(submodel.id), NESTED_FILE).value
+        )
+
+    def test_submodel_element_attachment_put_conflict_when_value_present(self):
+        submodel = self.add_example_submodel()
+
+        response = self.client.put(
+            f"{self.elements_path(submodel.id, NESTED_FILE)}/attachment",
+            data={
+                "fileName": "/uploaded.pdf",
+                "file": (io.BytesIO(b"pdf-bytes"), "uploaded.pdf", "application/pdf"),
+            },
+            content_type="multipart/form-data",
+        )
+
+        self.assert_error(response, 409)
+
+    def test_submodel_element_attachment_put_on_non_file_returns_400(self):
+        submodel = self.add_example_submodel()
+
+        response = self.client.put(
+            f"{self.elements_path(submodel.id, NESTED_PROPERTY)}/attachment",
+            data={"fileName": "/x.pdf", "file": (io.BytesIO(b"x"), "x.pdf", "application/pdf")},
+            content_type="multipart/form-data",
+        )
+
+        self.assert_error(response, 400)
+
+    def test_submodel_element_attachment_delete_blob(self):
+        submodel = self.add_example_submodel()
+
+        response = self.client.delete(f"{self.elements_path(submodel.id, NESTED_BLOB)}/attachment")
+
+        self.assertEqual(204, response.status_code)
+        self.assertIsNone(self._nested_blob(self._stored_submodel(submodel.id), NESTED_BLOB).value)
+
+    def test_submodel_element_attachment_delete_on_non_attachment_returns_400(self):
+        submodel = self.add_example_submodel()
+
+        response = self.client.delete(
+            f"{self.elements_path(submodel.id, NESTED_PROPERTY)}/attachment"
+        )
+
+        self.assert_error(response, 400)
+
+    # ------------------------------------------------------------------ .../<idShortPath>/qualifiers
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_element_qualifiers_get_list(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+
+        response = format_client.get(f"{self.elements_path(submodel.id, NESTED_PROPERTY)}/qualifiers")
+
+        self.assert_ok(response)
+        types = {format_client.field(node, "type") for node in format_client.parse_collection(response)}
+        self.assertEqual({EXAMPLE_QUALIFIER_TYPE}, types)
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_element_qualifier_get_by_type(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+
+        response = format_client.get(
+            f"{self.elements_path(submodel.id, NESTED_PROPERTY)}/qualifiers/"
+            f"{base64url_encode(EXAMPLE_QUALIFIER_TYPE)}"
+        )
+
+        self.assert_ok(response)
+        self.assertEqual(
+            EXAMPLE_QUALIFIER_TYPE, format_client.field(format_client.parse_object(response), "type")
+        )
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_element_qualifier_get_by_type_not_found(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+
+        response = format_client.get(
+            f"{self.elements_path(submodel.id, NESTED_PROPERTY)}/qualifiers/"
+            f"{base64url_encode('urn:unknown-qualifier')}"
+        )
+
+        self.assert_error(response, 404)
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_element_qualifiers_post_success(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+        qualifier = model.Qualifier("AddedQualifier", model.datatypes.String, "v")
+
+        response = format_client.post(
+            f"{self.elements_path(submodel.id, NESTED_PROPERTY)}/qualifiers", obj=qualifier
+        )
+
+        self.assertEqual(201, response.status_code)
+        retrieved = self._nested_element(self._stored_submodel(submodel.id), NESTED_PROPERTY)
+        self.assertTrue(retrieved.qualifier.contains_id("type", "AddedQualifier"))
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_element_qualifiers_post_conflict(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+        qualifier = model.Qualifier(EXAMPLE_QUALIFIER_TYPE, model.datatypes.String, "v")
+
+        response = format_client.post(
+            f"{self.elements_path(submodel.id, NESTED_PROPERTY)}/qualifiers", obj=qualifier
+        )
+
+        self.assert_error(response, 409)
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_element_qualifier_put_success(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+        updated = model.Qualifier(EXAMPLE_QUALIFIER_TYPE, model.datatypes.String, "changed-value")
+
+        response = format_client.put(
+            f"{self.elements_path(submodel.id, NESTED_PROPERTY)}/qualifiers/"
+            f"{base64url_encode(EXAMPLE_QUALIFIER_TYPE)}",
+            obj=updated,
+        )
+
+        self.assert_ok(response)
+        retrieved = self._nested_element(self._stored_submodel(submodel.id), NESTED_PROPERTY)
+        self.assertEqual("changed-value", retrieved.get_qualifier_by_type(EXAMPLE_QUALIFIER_TYPE).value)
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_element_qualifier_delete_success(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+
+        response = format_client.delete(
+            f"{self.elements_path(submodel.id, NESTED_PROPERTY)}/qualifiers/"
+            f"{base64url_encode(EXAMPLE_QUALIFIER_TYPE)}"
+        )
+
+        self.assertEqual(204, response.status_code)
+        retrieved = self._nested_element(self._stored_submodel(submodel.id), NESTED_PROPERTY)
+        self.assertFalse(retrieved.qualifier.contains_id("type", EXAMPLE_QUALIFIER_TYPE))
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_element_qualifier_delete_not_found(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+
+        response = format_client.delete(
+            f"{self.elements_path(submodel.id, NESTED_PROPERTY)}/qualifiers/"
+            f"{base64url_encode('urn:unknown-qualifier')}"
         )
 
         self.assert_error(response, 404)
