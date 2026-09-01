@@ -1,6 +1,6 @@
 import abc
 import json
-from typing import Any, Optional, Callable
+from typing import Any, Callable, Optional
 
 from basyx.aas import adapter
 from basyx.aas.adapter._generic import XML_NS_MAP
