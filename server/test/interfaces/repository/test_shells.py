@@ -9,13 +9,14 @@ from basyx.aas.examples.data.example_aas_missing_attributes import (
     create_example_asset_administration_shell,
     create_example_submodel,
 )
-from interfaces.format_utils import (
+
+from ..format_utils import (
     FormatClient,
     inject_format_clients,
     with_json_client,
     with_xml_client,
 )
-from interfaces.repository.test_base import RepositoryEndpointTestBase
+from .test_base import RepositoryEndpointTestBase
 
 
 def _encode_name_value_pair(name: str, value: str) -> str:
@@ -36,9 +37,9 @@ class ShellsEndpointsTest(RepositoryEndpointTestBase):
     """
     Endpoint tests for the implemented ``/shells`` routes of :class:`~app.interfaces.repository.WSGIApp`.
 
-    Bodies are written once against the format-agnostic :attr:`fmt` helper; the concrete
-    :class:`TestShellsEndpointsJson` / :class:`TestShellsEndpointsXml` subclasses run them once per format by
-    swapping :attr:`format_client_cls`.
+    Bodies are written once against the format-agnostic ``format_client`` helper.
+    For each test two variants are generated where the :class:`~..format_utils.JsonFormatClient` and
+    :class:`~..format_utils.XmlFormatClient` are injected respectively.
     """
 
     __test__ = True
