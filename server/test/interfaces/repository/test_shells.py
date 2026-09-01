@@ -1,8 +1,12 @@
+import base64
 import io
+import json
+from typing import Iterable
 from unittest import mock
 
 from app.util.converters import base64url_encode
 from basyx.aas import model
+from basyx.aas.adapter.json import AASToJsonEncoder
 from basyx.aas.examples.data.example_aas_missing_attributes import (
     create_example_asset_administration_shell,
     create_example_submodel,
@@ -14,6 +18,19 @@ from interfaces.format_utils import (
     with_xml_client,
 )
 from interfaces.repository.test_base import RepositoryEndpointTestBase
+
+
+def _encode_name_value_pair(name: str, value: str) -> str:
+    payload = json.dumps({"name": name, "value": value})
+    return base64.urlsafe_b64encode(payload.encode()).decode()
+
+
+def _encode_global_asset_id(value: str) -> str:
+    return _encode_name_value_pair("globalAssetId", value)
+
+
+def _encode_specific_asset_id(specific_asset_id: model.SpecificAssetId) -> str:
+    return _encode_name_value_pair("specificAssetId", json.dumps(specific_asset_id, cls=AASToJsonEncoder))
 
 
 @inject_format_clients
@@ -39,6 +56,193 @@ class ShellsEndpointsTest(RepositoryEndpointTestBase):
 
         self.assert_ok(response)
         self.assertEqual(2, len(format_client.parse_collection(response)))
+
+    # ------------------------------------------------------------------ GET /shells?idShort=...&assetIds=...
+
+    @staticmethod
+    def _specific_asset_id(name: str, value: str, subject: str) -> model.SpecificAssetId:
+        return model.SpecificAssetId(
+            name=name,
+            value=value,
+            external_subject_id=model.ExternalReference((model.Key(model.KeyTypes.GLOBAL_REFERENCE, subject),)),
+        )
+
+    @staticmethod
+    def _shell(
+        id_: str,
+        id_short: str,
+        global_asset_id: str,
+        specific_asset_ids: Iterable[model.SpecificAssetId] = (),
+    ) -> model.AssetAdministrationShell:
+        return model.AssetAdministrationShell(
+            asset_information=model.AssetInformation(
+                asset_kind=model.AssetKind.INSTANCE,
+                global_asset_id=global_asset_id,
+                specific_asset_id=specific_asset_ids,
+            ),
+            id_=id_,
+            id_short=id_short,
+        )
+
+    def shells_for_filtering_store(self):
+        store = model.DictIdentifiableStore()
+        store.add(
+            self._shell(
+                "https://example.org/shell-alpha",
+                "Alpha",
+                "https://example.org/asset-alpha",
+                [self._specific_asset_id("Serial", "111", "https://example.org/subject-alpha")],
+            )
+        )
+        store.add(
+            self._shell(
+                "https://example.org/shell-beta",
+                "Beta",
+                "https://example.org/asset-beta",
+                [
+                    self._specific_asset_id("Serial", "222", "https://example.org/subject-beta"),
+                    self._specific_asset_id("Batch", "xyz", "https://example.org/subject-beta"),
+                ],
+            )
+        )
+        store.add(self._shell("https://example.org/shell-gamma", "Alpha", "https://example.org/asset-alpha"))
+        return store
+
+    def _get_shell_ids(self, format_client: FormatClient, query: str) -> set:
+        response = format_client.get(f"/shells?{query}")
+        self.assert_ok(response)
+        return {format_client.identifier(node) for node in format_client.parse_collection(response)}
+
+    @with_json_client
+    @with_xml_client
+    def test_shells_get_filter_by_id_short(self, format_client: FormatClient):
+        self.object_store.update(self.shells_for_filtering_store())
+
+        ids = self._get_shell_ids(format_client, "idShort=Alpha")
+
+        self.assertEqual(
+            {"https://example.org/shell-alpha", "https://example.org/shell-gamma"}, ids
+        )
+
+    @with_json_client
+    @with_xml_client
+    def test_shells_get_filter_by_id_short_no_match(self, format_client: FormatClient):
+        self.object_store.update(self.shells_for_filtering_store())
+
+        ids = self._get_shell_ids(format_client, "idShort=Unknown")
+
+        self.assertEqual(set(), ids)
+
+    @with_json_client
+    @with_xml_client
+    def test_shells_get_filter_by_global_asset_id(self, format_client: FormatClient):
+        self.object_store.update(self.shells_for_filtering_store())
+
+        query = f"assetIds={_encode_global_asset_id('https://example.org/asset-alpha')}"
+        ids = self._get_shell_ids(format_client, query)
+
+        self.assertEqual(
+            {"https://example.org/shell-alpha", "https://example.org/shell-gamma"}, ids
+        )
+
+    @with_json_client
+    @with_xml_client
+    def test_shells_get_filter_by_multiple_global_asset_ids_is_or(self, format_client: FormatClient):
+        self.object_store.update(self.shells_for_filtering_store())
+
+        query = "&".join(
+            [
+                f"assetIds={_encode_global_asset_id('https://example.org/asset-beta')}",
+                f"assetIds={_encode_global_asset_id('https://example.org/nonexistent-asset')}",
+            ]
+        )
+        ids = self._get_shell_ids(format_client, query)
+
+        self.assertEqual({"https://example.org/shell-beta"}, ids)
+
+    @with_json_client
+    @with_xml_client
+    def test_shells_get_filter_by_specific_asset_id(self, format_client: FormatClient):
+        self.object_store.update(self.shells_for_filtering_store())
+        specific_id = self._specific_asset_id("Serial", "222", "https://example.org/subject-beta")
+
+        query = f"assetIds={_encode_specific_asset_id(specific_id)}"
+        ids = self._get_shell_ids(format_client, query)
+
+        self.assertEqual({"https://example.org/shell-beta"}, ids)
+
+    @with_json_client
+    @with_xml_client
+    def test_shells_get_filter_by_multiple_specific_asset_ids_requires_all(self, format_client: FormatClient):
+        self.object_store.update(self.shells_for_filtering_store())
+        serial = self._specific_asset_id("Serial", "222", "https://example.org/subject-beta")
+        batch = self._specific_asset_id("Batch", "xyz", "https://example.org/subject-beta")
+
+        query = "&".join(
+            [f"assetIds={_encode_specific_asset_id(serial)}", f"assetIds={_encode_specific_asset_id(batch)}"]
+        )
+        ids = self._get_shell_ids(format_client, query)
+
+        self.assertEqual({"https://example.org/shell-beta"}, ids)
+
+    @with_json_client
+    @with_xml_client
+    def test_shells_get_filter_by_specific_asset_ids_from_different_shells_matches_none(
+        self, format_client: FormatClient
+    ):
+        self.object_store.update(self.shells_for_filtering_store())
+        alpha_specific_id = self._specific_asset_id("Serial", "111", "https://example.org/subject-alpha")
+        beta_specific_id = self._specific_asset_id("Serial", "222", "https://example.org/subject-beta")
+
+        query = "&".join(
+            [
+                f"assetIds={_encode_specific_asset_id(alpha_specific_id)}",
+                f"assetIds={_encode_specific_asset_id(beta_specific_id)}",
+            ]
+        )
+        ids = self._get_shell_ids(format_client, query)
+
+        self.assertEqual(set(), ids)
+
+    @with_json_client
+    @with_xml_client
+    def test_shells_get_filter_by_specific_and_global_asset_id_is_and(self, format_client: FormatClient):
+        # shell-beta has this specificAssetId, but not this globalAssetId (that's shell-alpha's) -- combining
+        # both must AND the two conditions together, so neither shell matches.
+        self.object_store.update(self.shells_for_filtering_store())
+        beta_specific_id = self._specific_asset_id("Serial", "222", "https://example.org/subject-beta")
+
+        query = "&".join(
+            [
+                f"assetIds={_encode_specific_asset_id(beta_specific_id)}",
+                f"assetIds={_encode_global_asset_id('https://example.org/asset-alpha')}",
+            ]
+        )
+        ids = self._get_shell_ids(format_client, query)
+
+        self.assertEqual(set(), ids)
+
+    @with_json_client
+    @with_xml_client
+    def test_shells_get_filter_by_id_short_and_asset_ids_is_and(self, format_client: FormatClient):
+        # idShort=Alpha matches shell-alpha and shell-gamma, but only shell-alpha carries this specificAssetId.
+        self.object_store.update(self.shells_for_filtering_store())
+        alpha_specific_id = self._specific_asset_id("Serial", "111", "https://example.org/subject-alpha")
+
+        query = f"idShort=Alpha&assetIds={_encode_specific_asset_id(alpha_specific_id)}"
+        ids = self._get_shell_ids(format_client, query)
+
+        self.assertEqual({"https://example.org/shell-alpha"}, ids)
+
+    @with_json_client
+    @with_xml_client
+    def test_shells_get_filter_by_malformed_asset_id_returns_400(self, format_client: FormatClient):
+        self.object_store.update(self.shells_for_filtering_store())
+        malformed = base64.urlsafe_b64encode(json.dumps({"name": "globalAssetId"}).encode()).decode()
+
+        response = format_client.get(f"/shells?assetIds={malformed}")
+
+        self.assert_error(response, 400)
 
     # ------------------------------------------------------------------ POST /shells
 
