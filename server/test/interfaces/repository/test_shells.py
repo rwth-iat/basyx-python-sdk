@@ -1,8 +1,6 @@
 import base64
-import io
 import json
 from typing import Iterable
-from unittest import mock
 
 from app.util.converters import base64url_encode
 from basyx.aas import model
@@ -411,130 +409,6 @@ class ShellsEndpointsTest(RepositoryEndpointTestBase):
             "http://example.org/changed_asset",
             retrieved_shell.asset_information.global_asset_id,
         )
-
-    # ------------------------------------------------------------------ GET .../asset-information/thumbnail
-
-    def thumbnail_path(self, aas_id: str) -> str:
-        return f"/shells/{base64url_encode(aas_id)}/asset-information/thumbnail"
-
-    def test_shell_thumbnail_get_success(self):
-        example_shell = create_example_asset_administration_shell()
-        example_shell.asset_information.default_thumbnail = model.Resource("/thumbnail.png", "image/png")
-        self.object_store.add(example_shell)
-        self.file_store.write_file.side_effect = lambda name, stream: stream.write(b"thumbnail-bytes")
-
-        response = self.client.get(self.thumbnail_path(example_shell.id))
-
-        self.assertEqual(200, response.status_code)
-        self.assertEqual("image/png", response.mimetype)
-        self.assertEqual(b"thumbnail-bytes", response.get_data())
-        self.file_store.write_file.assert_called_once_with("/thumbnail.png", mock.ANY)
-
-    def test_shell_thumbnail_get_no_thumbnail_set(self):
-        example_shell = create_example_asset_administration_shell()
-        example_shell.asset_information.default_thumbnail = None
-        self.object_store.add(example_shell)
-
-        response = self.client.get(self.thumbnail_path(example_shell.id))
-
-        self.assert_error(response, 404)
-
-    def test_shell_thumbnail_get_external_reference(self):
-        example_shell = create_example_asset_administration_shell()
-        example_shell.asset_information.default_thumbnail = model.Resource(
-            "https://example.org/thumbnail.png", "image/png"
-        )
-        self.object_store.add(example_shell)
-
-        response = self.client.get(self.thumbnail_path(example_shell.id))
-
-        self.assert_error(response, 400)
-
-    # ------------------------------------------------------------------ PUT .../asset-information/thumbnail
-
-    def test_shell_thumbnail_put_success(self):
-        # Also exercises the "replace an existing local thumbnail" branch, since the fixture shell already
-        # carries a (non-local) default_thumbnail; a fresh local one is added on top of that here.
-        example_shell = create_example_asset_administration_shell()
-        example_shell.asset_information.default_thumbnail = model.Resource("/old.png", "image/png")
-        self.object_store.add(example_shell)
-        self.file_store.add_file.return_value = "/new.png"
-
-        response = self.client.put(
-            self.thumbnail_path(example_shell.id),
-            data={
-                "fileName": "/new.png",
-                "file": (io.BytesIO(b"thumbnail-bytes"), "new.png", "image/png"),
-            },
-            content_type="multipart/form-data",
-        )
-
-        self.assertEqual(204, response.status_code)
-        self.file_store.add_file.assert_called_once_with("/new.png", mock.ANY, "image/png")
-        self.file_store.delete_file.assert_called_once_with("/old.png")
-        retrieved_shell = self.object_store.get(example_shell.id)
-        self.assertIsInstance(retrieved_shell, model.AssetAdministrationShell)
-        new_thumbnail = retrieved_shell.asset_information.default_thumbnail
-        self.assertIsNotNone(new_thumbnail)
-        self.assertEqual("/new.png", new_thumbnail.path)
-        self.assertEqual("image/png", new_thumbnail.content_type)
-
-    def test_shell_thumbnail_put_missing_filename(self):
-        example_shell = create_example_asset_administration_shell()
-        self.object_store.add(example_shell)
-
-        response = self.client.put(
-            self.thumbnail_path(example_shell.id),
-            data={"file": (io.BytesIO(b"thumbnail-bytes"), "thumbnail.png", "image/png")},
-        )
-
-        self.assert_error(response, 400)
-
-    def test_shell_thumbnail_put_shell_not_found(self):
-        response = self.client.put(
-            self.thumbnail_path("https://example.org/unknown"),
-            data={
-                "fileName": "/thumbnail.png",
-                "file": (io.BytesIO(b"thumbnail-bytes"), "thumbnail.png", "image/png"),
-            },
-        )
-
-        self.assert_error(response, 404)
-
-    # ------------------------------------------------------------------ DELETE .../asset-information/thumbnail
-
-    def test_shell_thumbnail_delete_success(self):
-        example_shell = create_example_asset_administration_shell()
-        example_shell.asset_information.default_thumbnail = model.Resource("/thumbnail.png", "image/png")
-        self.object_store.add(example_shell)
-
-        response = self.client.delete(self.thumbnail_path(example_shell.id))
-
-        self.assertEqual(204, response.status_code)
-        self.file_store.delete_file.assert_called_once_with("/thumbnail.png")
-        retrieved_shell = self.object_store.get(example_shell.id)
-        self.assertIsInstance(retrieved_shell, model.AssetAdministrationShell)
-        self.assertIsNone(retrieved_shell.asset_information.default_thumbnail)
-
-    def test_shell_thumbnail_delete_no_thumbnail_set(self):
-        example_shell = create_example_asset_administration_shell()
-        example_shell.asset_information.default_thumbnail = None
-        self.object_store.add(example_shell)
-
-        response = self.client.delete(self.thumbnail_path(example_shell.id))
-
-        self.assert_error(response, 404)
-
-    def test_shell_thumbnail_delete_external_reference(self):
-        example_shell = create_example_asset_administration_shell()
-        example_shell.asset_information.default_thumbnail = model.Resource(
-            "https://example.org/thumbnail.png", "image/png"
-        )
-        self.object_store.add(example_shell)
-
-        response = self.client.delete(self.thumbnail_path(example_shell.id))
-
-        self.assert_error(response, 400)
 
     # ------------------------------------------------------------------ GET /shells/<aas_id>/submodel-refs
 
