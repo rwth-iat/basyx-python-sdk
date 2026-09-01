@@ -13,11 +13,11 @@ from basyx.aas.examples.data.example_aas_missing_attributes import (
 )
 from werkzeug.test import Client, TestResponse
 
-from .format_utils import FormatClient, JsonFormatClient, XmlFormatClient, with_json_client, with_formatted_clients, \
+from .format_utils import FormatClient, JsonFormatClient, XmlFormatClient, with_json_client, inject_format_clients, \
     with_xml_client
 
 
-class RespsitoryEdpointTestBase(unittest.TestCase):
+class RepositoryEndpointTestBase(unittest.TestCase):
     __test__ = False
 
     object_store: model.DictIdentifiableStore
@@ -57,7 +57,7 @@ class RespsitoryEdpointTestBase(unittest.TestCase):
         self.assertIn("success", response.get_data(as_text=True), msg=response.get_data(as_text=True))
 
 
-class TestServiceDescription(RespsitoryEdpointTestBase):
+class TestServiceDescription(RepositoryEndpointTestBase):
     __test__ = True
 
     def test_description(self):
@@ -65,8 +65,197 @@ class TestServiceDescription(RespsitoryEdpointTestBase):
         self.assertEqual(200, response.status_code)
 
 
-class TestShellsThumbnailEndpoint(RespsitoryEdpointTestBase):
+@inject_format_clients
+class ShellsEndpointsTest(RepositoryEndpointTestBase):
+    """
+    Endpoint tests for the implemented ``/shells`` routes of :class:`~app.interfaces.repository.WSGIApp`.
+
+    Bodies are written once against the format-agnostic :attr:`fmt` helper; the concrete
+    :class:`TestShellsEndpointsJson` / :class:`TestShellsEndpointsXml` subclasses run them once per format by
+    swapping :attr:`format_client_cls`.
+    """
+
     __test__ = True
+
+    # ------------------------------------------------------------------ GET /shells
+
+    @with_json_client
+    @with_xml_client
+    def test_shells_get(self, format_client: FormatClient):
+        self.object_store.update(self.two_shells_store())
+
+        response = format_client.get("/shells")
+
+        self.assert_ok(response)
+        self.assertEqual(2, len(format_client.parse_collection(response)))
+
+    # ------------------------------------------------------------------ POST /shells
+
+    @with_json_client
+    @with_xml_client
+    def test_shells_post_success(self, format_client: FormatClient):
+        example_shell = create_example_asset_administration_shell()
+
+        response = format_client.post("/shells", obj=example_shell)
+
+        self.assertEqual(201, response.status_code)
+        self.assertIsNotNone(self.object_store.get(example_shell.id, None))
+
+    @with_json_client
+    @with_xml_client
+    def test_shells_post_bad(self, format_client: FormatClient):
+        example_shell = create_example_asset_administration_shell()
+        example_shell.id = None  # type: ignore
+
+        response = format_client.post("/shells", obj=example_shell)
+
+        self.assert_error(response, 400)
+
+    @with_json_client
+    @with_xml_client
+    def test_shells_post_conflict(self, format_client: FormatClient):
+        example_shell = create_example_asset_administration_shell()
+        self.object_store.add(example_shell)
+
+        response = format_client.post("/shells", obj=example_shell)
+
+        self.assert_error(response, 409)
+
+    # ------------------------------------------------------------------ GET /shells/$reference
+
+    @with_json_client
+    @with_xml_client
+    def test_shells_reference_get(self, format_client: FormatClient):
+        self.object_store.update(self.two_shells_store())
+        example_shell = next(iter(self.object_store))
+
+        response = format_client.get("/shells/$reference")
+
+        self.assert_ok(response)
+        references = format_client.parse_collection(response)
+        self.assertEqual(2, len(references))
+        self.assertIn(example_shell.id, [format_client.reference_target(ref) for ref in references])
+
+    # ------------------------------------------------------------------ GET /shells/<aas_id>
+
+    @with_json_client
+    @with_xml_client
+    def test_shell_get_success(self, format_client: FormatClient):
+        self.object_store.update(self.two_shells_store())
+        example_shell = next(iter(self.object_store))
+
+        response = format_client.get(f"/shells/{base64url_encode(example_shell.id)}")
+
+        self.assert_ok(response)
+        self.assertEqual(example_shell.id, format_client.identifier(format_client.parse_object(response)))
+
+    @with_json_client
+    @with_xml_client
+    def test_shell_get_not_found(self, format_client: FormatClient):
+        response = format_client.get(f"/shells/{base64url_encode('https://example.org/unknown')}")
+
+        self.assert_error(response, 404)
+
+    # ------------------------------------------------------------------ GET /shells/<aas_id>/$reference
+
+    @with_json_client
+    @with_xml_client
+    def test_shell_reference_get(self, format_client: FormatClient):
+        self.object_store.update(self.two_shells_store())
+        example_shell = next(iter(self.object_store))
+
+        response = format_client.get(f"/shells/{base64url_encode(example_shell.id)}/$reference")
+
+        self.assert_ok(response)
+        self.assertEqual(example_shell.id, format_client.reference_target(format_client.parse_object(response)))
+
+    # ------------------------------------------------------------------ PUT /shells/<aas_id>
+
+    @with_json_client
+    @with_xml_client
+    def test_shell_put_success(self, format_client: FormatClient):
+        self.object_store.add(create_example_asset_administration_shell())
+        updated_shell = create_example_asset_administration_shell()
+        updated_shell.id_short = "UpdatedIdShort"
+
+        response = format_client.put(f"/shells/{base64url_encode(updated_shell.id)}", obj=updated_shell)
+
+        self.assertEqual(204, response.status_code)
+        retrieved_shell = self.object_store.get(updated_shell.id, None)
+        self.assertIsInstance(retrieved_shell, model.AssetAdministrationShell)
+        self.assertEqual("UpdatedIdShort", retrieved_shell.id_short)
+
+    @with_json_client
+    @with_xml_client
+    def test_shell_put_not_found(self, format_client: FormatClient):
+        updated_shell = create_example_asset_administration_shell()
+
+        response = format_client.put(
+            f"/shells/{base64url_encode('https://example.org/unknown')}", obj=updated_shell
+        )
+
+        self.assert_error(response, 404)
+
+    # ------------------------------------------------------------------ DELETE /shells/<aas_id>
+
+    @with_json_client
+    @with_xml_client
+    def test_shell_delete_success(self, format_client: FormatClient):
+        example_shell = create_example_asset_administration_shell()
+        self.object_store.add(example_shell)
+
+        response = format_client.delete(f"/shells/{base64url_encode(example_shell.id)}")
+
+        self.assertEqual(204, response.status_code)
+        self.assertIsNone(self.object_store.get(example_shell.id, None))
+
+    @with_json_client
+    @with_xml_client
+    def test_shell_delete_not_found(self, format_client: FormatClient):
+        response = format_client.delete(f"/shells/{base64url_encode('https://example.org/unknown')}")
+
+        self.assert_error(response, 404)
+
+    # ------------------------------------------------------------------ GET /shells/<aas_id>/asset-information
+
+    @with_json_client
+    @with_xml_client
+    def test_shell_asset_information_get(self, format_client: FormatClient):
+        example_shell = create_example_asset_administration_shell()
+        self.object_store.add(example_shell)
+
+        response = format_client.get(f"/shells/{base64url_encode(example_shell.id)}/asset-information")
+
+        self.assert_ok(response)
+        self.assertEqual(
+            example_shell.asset_information.global_asset_id,
+            format_client.field(format_client.parse_object(response), "globalAssetId"),
+        )
+
+    # ------------------------------------------------------------------ PUT /shells/<aas_id>/asset-information
+
+    @with_json_client
+    @with_xml_client
+    def test_shell_asset_information_put(self, format_client: FormatClient):
+        example_shell = create_example_asset_administration_shell()
+        self.object_store.add(example_shell)
+        new_asset_information = model.AssetInformation(
+            asset_kind=model.AssetKind.INSTANCE,
+            global_asset_id="http://example.org/changed_asset",
+        )
+
+        response = format_client.put(
+            f"/shells/{base64url_encode(example_shell.id)}/asset-information",
+            obj=new_asset_information,
+        )
+
+        self.assertEqual(204, response.status_code)
+        retrieved_shell = self.object_store.get(example_shell.id)
+        self.assertIsInstance(retrieved_shell, model.AssetAdministrationShell)
+        self.assertEqual(
+            "http://example.org/changed_asset",
+            retrieved_shell.asset_information.global_asset_id,
+        )
 
     # ------------------------------------------------------------------ GET .../asset-information/thumbnail
 
@@ -122,7 +311,7 @@ class TestShellsThumbnailEndpoint(RespsitoryEdpointTestBase):
                 "fileName": "/new.png",
                 "file": (io.BytesIO(b"thumbnail-bytes"), "new.png", "image/png"),
             },
-            content_type="multipart/form-data"
+            content_type="multipart/form-data",
         )
 
         self.assertEqual(204, response.status_code)
@@ -141,7 +330,7 @@ class TestShellsThumbnailEndpoint(RespsitoryEdpointTestBase):
 
         response = self.client.put(
             self.thumbnail_path(example_shell.id),
-            data={"file": (io.BytesIO(b"thumbnail-bytes"), "thumbnail.png", "image/png")}
+            data={"file": (io.BytesIO(b"thumbnail-bytes"), "thumbnail.png", "image/png")},
         )
 
         self.assert_error(response, 400)
@@ -152,7 +341,7 @@ class TestShellsThumbnailEndpoint(RespsitoryEdpointTestBase):
             data={
                 "fileName": "/thumbnail.png",
                 "file": (io.BytesIO(b"thumbnail-bytes"), "thumbnail.png", "image/png"),
-            }
+            },
         )
 
         self.assert_error(response, 404)
@@ -192,206 +381,35 @@ class TestShellsThumbnailEndpoint(RespsitoryEdpointTestBase):
 
         self.assert_error(response, 400)
 
-@with_formatted_clients
-class ExampleTest(RespsitoryEdpointTestBase):
-    __test__ = True
+    # ------------------------------------------------------------------ GET /shells/<aas_id>/submodel-refs
 
     @with_json_client
     @with_xml_client
-    def test_shells_get(self, format_client: FormatClient):
-        self.object_store.update(self.two_shells_store())
-
-        response = format_client.get("/shells")
-
-        self.assert_ok(response)
-        self.assertEqual(2, len(format_client.parse_collection(response)))
-
-
-
-class _ShellsEndpointsTest(RespsitoryEdpointTestBase, abc.ABC):
-    """
-    Endpoint tests for the implemented ``/shells`` routes of :class:`~app.interfaces.repository.WSGIApp`.
-
-    Bodies are written once against the format-agnostic :attr:`fmt` helper; the concrete
-    :class:`TestShellsEndpointsJson` / :class:`TestShellsEndpointsXml` subclasses run them once per format by
-    swapping :attr:`format_client_cls`.
-    """
-
-    __test__ = False
-
-    # ------------------------------------------------------------------ GET /shells
-
-    def test_shells_get(self):
-        self.object_store.update(self.two_shells_store())
-
-        response = self.fmt.get("/shells")
-
-        self.assert_ok(response)
-        self.assertEqual(2, len(self.fmt.parse_collection(response)))
-
-    # ------------------------------------------------------------------ POST /shells
-
-    def test_shells_post_success(self):
-        example_shell = create_example_asset_administration_shell()
-
-        response = self.fmt.post("/shells", obj=example_shell)
-
-        self.assertEqual(201, response.status_code)
-        self.assertIsNotNone(self.object_store.get(example_shell.id, None))
-
-    def test_shells_post_bad(self):
-        example_shell = create_example_asset_administration_shell()
-        example_shell.id = None  # type: ignore
-
-        response = self.fmt.post("/shells", obj=example_shell)
-
-        self.assert_error(response, 400)
-
-    def test_shells_post_conflict(self):
+    def test_shell_submodel_refs_get(self, format_client: FormatClient):
         example_shell = create_example_asset_administration_shell()
         self.object_store.add(example_shell)
 
-        response = self.fmt.post("/shells", obj=example_shell)
-
-        self.assert_error(response, 409)
-
-    # ------------------------------------------------------------------ GET /shells/$reference
-
-    def test_shells_reference_get(self):
-        self.object_store.update(self.two_shells_store())
-        example_shell = next(iter(self.object_store))
-
-        response = self.fmt.get("/shells/$reference")
+        response = format_client.get(f"/shells/{base64url_encode(example_shell.id)}/submodel-refs")
 
         self.assert_ok(response)
-        references = self.fmt.parse_collection(response)
-        self.assertEqual(2, len(references))
-        self.assertIn(example_shell.id, [self.fmt.reference_target(ref) for ref in references])
-
-    # ------------------------------------------------------------------ GET /shells/<aas_id>
-
-    def test_shell_get_success(self):
-        self.object_store.update(self.two_shells_store())
-        example_shell = next(iter(self.object_store))
-
-        response = self.fmt.get(f"/shells/{base64url_encode(example_shell.id)}")
-
-        self.assert_ok(response)
-        self.assertEqual(example_shell.id, self.fmt.identifier(self.fmt.parse_object(response)))
-
-    def test_shell_get_not_found(self):
-        response = self.fmt.get(f"/shells/{base64url_encode('https://example.org/unknown')}")
-
-        self.assert_error(response, 404)
-
-    # ------------------------------------------------------------------ GET /shells/<aas_id>/$reference
-
-    def test_shell_reference_get(self):
-        self.object_store.update(self.two_shells_store())
-        example_shell = next(iter(self.object_store))
-
-        response = self.fmt.get(f"/shells/{base64url_encode(example_shell.id)}/$reference")
-
-        self.assert_ok(response)
-        self.assertEqual(example_shell.id, self.fmt.reference_target(self.fmt.parse_object(response)))
-
-    # ------------------------------------------------------------------ PUT /shells/<aas_id>
-
-    def test_shell_put_success(self):
-        self.object_store.add(create_example_asset_administration_shell())
-        updated_shell = create_example_asset_administration_shell()
-        updated_shell.id_short = "UpdatedIdShort"
-
-        response = self.fmt.put(f"/shells/{base64url_encode(updated_shell.id)}", obj=updated_shell)
-
-        self.assertEqual(204, response.status_code)
-        retrieved_shell = self.object_store.get(updated_shell.id, None)
-        self.assertIsInstance(retrieved_shell, model.AssetAdministrationShell)
-        self.assertEqual("UpdatedIdShort", retrieved_shell.id_short)
-
-    def test_shell_put_not_found(self):
-        updated_shell = create_example_asset_administration_shell()
-
-        response = self.fmt.put(f"/shells/{base64url_encode('https://example.org/unknown')}", obj=updated_shell)
-
-        self.assert_error(response, 404)
-
-    # ------------------------------------------------------------------ DELETE /shells/<aas_id>
-
-    def test_shell_delete_success(self):
-        example_shell = create_example_asset_administration_shell()
-        self.object_store.add(example_shell)
-
-        response = self.fmt.delete(f"/shells/{base64url_encode(example_shell.id)}")
-
-        self.assertEqual(204, response.status_code)
-        self.assertIsNone(self.object_store.get(example_shell.id, None))
-
-    def test_shell_delete_not_found(self):
-        response = self.fmt.delete(f"/shells/{base64url_encode('https://example.org/unknown')}")
-
-        self.assert_error(response, 404)
-
-    # ------------------------------------------------------------------ GET /shells/<aas_id>/asset-information
-
-    def test_shell_asset_information_get(self):
-        example_shell = create_example_asset_administration_shell()
-        self.object_store.add(example_shell)
-
-        response = self.fmt.get(f"/shells/{base64url_encode(example_shell.id)}/asset-information")
-
-        self.assert_ok(response)
-        self.assertEqual(
-            example_shell.asset_information.global_asset_id,
-            self.fmt.field(self.fmt.parse_object(response), "globalAssetId"),
-        )
-
-    # ------------------------------------------------------------------ PUT /shells/<aas_id>/asset-information
-
-    def test_shell_asset_information_put(self):
-        example_shell = create_example_asset_administration_shell()
-        self.object_store.add(example_shell)
-        new_asset_information = model.AssetInformation(
-            asset_kind=model.AssetKind.INSTANCE,
-            global_asset_id="http://example.org/changed_asset",
-        )
-
-        response = self.fmt.put(
-            f"/shells/{base64url_encode(example_shell.id)}/asset-information",
-            obj=new_asset_information,
-        )
-
-        self.assertEqual(204, response.status_code)
-        retrieved_shell = self.object_store.get(example_shell.id)
-        self.assertIsInstance(retrieved_shell, model.AssetAdministrationShell)
-        self.assertEqual(
-            "http://example.org/changed_asset",
-            retrieved_shell.asset_information.global_asset_id,
-        )
-
-    # ------------------------------------------------------------------ GET /shells/<aas_id>/submodel-refs
-
-    def test_shell_submodel_refs_get(self):
-        example_shell = create_example_asset_administration_shell()
-        self.object_store.add(example_shell)
-
-        response = self.fmt.get(f"/shells/{base64url_encode(example_shell.id)}/submodel-refs")
-
-        self.assert_ok(response)
-        references = self.fmt.parse_collection(response)
+        references = format_client.parse_collection(response)
         self.assertEqual(1, len(references))
-        self.assertEqual("https://example.org/Test_Submodel_Missing", self.fmt.reference_target(references[0]))
+        self.assertEqual(
+            "https://example.org/Test_Submodel_Missing", format_client.reference_target(references[0])
+        )
 
     # ------------------------------------------------------------------ POST /shells/<aas_id>/submodel-refs
 
-    def test_shell_submodel_refs_post_success(self):
+    @with_json_client
+    @with_xml_client
+    def test_shell_submodel_refs_post_success(self, format_client: FormatClient):
         example_shell = create_example_asset_administration_shell()
         self.object_store.add(example_shell)
         new_ref = model.ModelReference(
             (model.Key(model.KeyTypes.SUBMODEL, "https://example.org/NewSubmodel"),), model.Submodel
         )
 
-        response = self.fmt.post(f"/shells/{base64url_encode(example_shell.id)}/submodel-refs", obj=new_ref)
+        response = format_client.post(f"/shells/{base64url_encode(example_shell.id)}/submodel-refs", obj=new_ref)
 
         self.assertEqual(201, response.status_code)
         retrieved_shell = self.object_store.get(example_shell.id)
@@ -399,25 +417,31 @@ class _ShellsEndpointsTest(RespsitoryEdpointTestBase, abc.ABC):
         identifiers = {ref.get_identifier() for ref in retrieved_shell.submodel}
         self.assertIn("https://example.org/NewSubmodel", identifiers)
 
-    def test_shell_submodel_refs_post_conflict(self):
+    @with_json_client
+    @with_xml_client
+    def test_shell_submodel_refs_post_conflict(self, format_client: FormatClient):
         example_shell = create_example_asset_administration_shell()
         self.object_store.add(example_shell)
         existing_ref = model.ModelReference(
             (model.Key(model.KeyTypes.SUBMODEL, "https://example.org/Test_Submodel_Missing"),), model.Submodel
         )
 
-        response = self.fmt.post(f"/shells/{base64url_encode(example_shell.id)}/submodel-refs", obj=existing_ref)
+        response = format_client.post(
+            f"/shells/{base64url_encode(example_shell.id)}/submodel-refs", obj=existing_ref
+        )
 
         self.assert_error(response, 409)
 
     # ------------------------------------------------------------------ DELETE /shells/<aas_id>/submodel-refs/<sm_id>
 
-    def test_shell_submodel_refs_delete_success(self):
+    @with_json_client
+    @with_xml_client
+    def test_shell_submodel_refs_delete_success(self, format_client: FormatClient):
         example_shell = create_example_asset_administration_shell()
         self.object_store.add(example_shell)
         submodel_id = "https://example.org/Test_Submodel_Missing"
 
-        response = self.fmt.delete(
+        response = format_client.delete(
             f"/shells/{base64url_encode(example_shell.id)}/submodel-refs/{base64url_encode(submodel_id)}"
         )
 
@@ -426,11 +450,13 @@ class _ShellsEndpointsTest(RespsitoryEdpointTestBase, abc.ABC):
         self.assertIsInstance(retrieved_shell, model.AssetAdministrationShell)
         self.assertEqual(0, len(list(retrieved_shell.submodel)))
 
-    def test_shell_submodel_refs_delete_not_found(self):
+    @with_json_client
+    @with_xml_client
+    def test_shell_submodel_refs_delete_not_found(self, format_client: FormatClient):
         example_shell = create_example_asset_administration_shell()
         self.object_store.add(example_shell)
 
-        response = self.fmt.delete(
+        response = format_client.delete(
             f"/shells/{base64url_encode(example_shell.id)}/submodel-refs/"
             f"{base64url_encode('https://example.org/unknown')}"
         )
@@ -439,14 +465,16 @@ class _ShellsEndpointsTest(RespsitoryEdpointTestBase, abc.ABC):
 
     # ------------------------------------------------------------------ PUT /shells/<aas_id>/submodels/<sm_id>
 
-    def test_shell_submodel_refs_submodel_put(self):
+    @with_json_client
+    @with_xml_client
+    def test_shell_submodel_refs_submodel_put(self, format_client: FormatClient):
         example_shell = create_example_asset_administration_shell()
         self.object_store.add(example_shell)
         self.object_store.add(create_example_submodel())
         updated_submodel = create_example_submodel()
         updated_submodel.id_short = "UpdatedSubmodel"
 
-        response = self.fmt.put(
+        response = format_client.put(
             f"/shells/{base64url_encode(example_shell.id)}/submodels/{base64url_encode(updated_submodel.id)}",
             obj=updated_submodel,
         )
@@ -458,13 +486,15 @@ class _ShellsEndpointsTest(RespsitoryEdpointTestBase, abc.ABC):
 
     # ------------------------------------------------------------------ DELETE /shells/<aas_id>/submodels/<sm_id>
 
-    def test_shell_submodel_refs_submodel_delete(self):
+    @with_json_client
+    @with_xml_client
+    def test_shell_submodel_refs_submodel_delete(self, format_client: FormatClient):
         example_shell = create_example_asset_administration_shell()
         self.object_store.add(example_shell)
         example_submodel = create_example_submodel()
         self.object_store.add(example_submodel)
 
-        response = self.fmt.delete(
+        response = format_client.delete(
             f"/shells/{base64url_encode(example_shell.id)}/submodels/{base64url_encode(example_submodel.id)}"
         )
 
@@ -476,42 +506,31 @@ class _ShellsEndpointsTest(RespsitoryEdpointTestBase, abc.ABC):
 
     # ------------------------------------------------------------------ /shells/<aas_id>/submodels/<sm_id> redirect
 
-    def test_shell_submodel_refs_submodel_redirect(self):
+    @with_json_client
+    @with_xml_client
+    def test_shell_submodel_refs_submodel_redirect(self, format_client: FormatClient):
         example_shell = create_example_asset_administration_shell()
         self.object_store.add(example_shell)
         submodel_id = "https://example.org/Test_Submodel_Missing"
 
-        response = self.fmt.get(
+        response = format_client.get(
             f"/shells/{base64url_encode(example_shell.id)}/submodels/{base64url_encode(submodel_id)}"
         )
 
         self.assertEqual(307, response.status_code)
         self.assertIn(f"/submodels/{base64url_encode(submodel_id)}", response.headers["Location"])
 
-    def test_shell_submodel_refs_submodel_redirect_with_path(self):
+    @with_json_client
+    @with_xml_client
+    def test_shell_submodel_refs_submodel_redirect_with_path(self, format_client: FormatClient):
         example_shell = create_example_asset_administration_shell()
         self.object_store.add(example_shell)
         submodel_id = "https://example.org/Test_Submodel_Missing"
 
-        response = self.fmt.get(
-            f"/shells/{base64url_encode(example_shell.id)}/submodels/{base64url_encode(submodel_id)}/submodel-elements"
+        response = format_client.get(
+            f"/shells/{base64url_encode(example_shell.id)}/submodels/{base64url_encode(submodel_id)}"
+            f"/submodel-elements"
         )
 
         self.assertEqual(307, response.status_code)
         self.assertTrue(response.headers["Location"].endswith("/submodel-elements"))
-
-
-class TestShellsEndpointsJson(_ShellsEndpointsTest):
-    __test__ = True
-
-    @classmethod
-    def build_format_client(cls) -> FormatClient:
-        return JsonFormatClient(Client(cls.repository_server))
-
-
-class TestShellsEndpointsXml(_ShellsEndpointsTest):
-    __test__ = True
-
-    @classmethod
-    def build_format_client(cls) -> FormatClient:
-        return XmlFormatClient(Client(cls.repository_server))

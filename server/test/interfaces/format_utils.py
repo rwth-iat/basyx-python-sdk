@@ -1,6 +1,6 @@
 import abc
 import json
-from typing import Any, Optional
+from typing import Any, Optional, Callable
 
 from basyx.aas import adapter
 from basyx.aas.adapter._generic import XML_NS_MAP
@@ -168,24 +168,36 @@ class XmlFormatClient(FormatClient):
 
 def with_json_client(func):
     client_types = getattr(func, "_client_types", [])
-    client_types.append("json")
+    client_types.append(("json", JsonFormatClient))
     func._client_types = client_types
     return func
 
 def with_xml_client(func):
     client_types = getattr(func, "_client_types", [])
-    client_types.append("xml")
+    client_types.append(("xml", XmlFormatClient))
     func._client_types = client_types
     return func
 
-def with_formatted_clients(cls):
-    format_map: dict[str, type[FormatClient]] = {"json": JsonFormatClient, "xml": XmlFormatClient}
+def with_custom_client(name: str, client_type: type[FormatClient]):
+    def wrapper(func):
+        client_types = getattr(func, "_client_types", [])
+        client_types.append((name, client_type))
+        func._client_types = client_types
+        return func
+    return wrapper
 
-    def build_test(method, format_client_type):
+def inject_format_clients(cls):
+    """Decorator to use on :class:`unittest.TestCase` when decorating functions with
+    :meth:`with_json_client`, :meth:`with_xml_client` or :meth:`with_custom_client`. For each
+    :class:`FormatClient` that is defined via these decorators on a function, a new function is
+    added to the class. The new function gets the specfied :class:`FormatcClient` injected as second
+    parameter. The name of the new function gets the format name as suffix.
+    """
+
+    def build_test(method: Callable[[Any, FormatClient], Any], format_client_type: type[FormatClient]):
         def wrapper(self):
             formatted_client = format_client_type(getattr(cls, "client"))
             return method(self, formatted_client)
-
         return wrapper
 
     for name, method in list(vars(cls).items()):
@@ -195,7 +207,6 @@ def with_formatted_clients(cls):
 
         # Method was decorated -> remove original method and insert new methods
         delattr(cls, name)
-        for format_name in method_client_type:
-            format_client_type = format_map[format_name]
+        for (format_name, format_client_type) in method_client_type:
             setattr(cls, f"{name}_{format_name}", build_test(method, format_client_type))
     return cls
