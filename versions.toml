@@ -12,7 +12,7 @@ ruff = "0.16.0"
 aas = "v3.1.2"
 api_version = "v3.1"
 
-# This section lists entries that are expected in a certain modules config.yaml
+# This section lists entries that are expected in a certain modules config.toml
 [config.server]
 api_base_path = "/api/v3.1"
 

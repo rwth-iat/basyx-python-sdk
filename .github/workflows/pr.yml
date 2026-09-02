@@ -36,8 +36,8 @@ jobs:
 
   check-global-versions:
     # Verifies that (1) the supported Python versions are not EoL and (2) the values
-    # declared in `versions.yaml` coincide with every module's `pyproject.toml` and
-    # any listed `config.yaml` file.
+    # declared in `versions.toml` coincide with every module's `pyproject.toml` and
+    # any listed `config.toml` file.
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -61,7 +61,7 @@ jobs:
             ${{ env.X_PYTHON_MIN_VERSION }} \
             ${{ env.X_PYTHON_MAX_VERSION }}
 
-      - name: Check versions.yaml coincides with pyproject.toml and config files
+      - name: Check versions.toml coincides with pyproject.toml and config files
         run: |
           python check_global_versions_coincide.py
 
