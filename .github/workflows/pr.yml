@@ -250,6 +250,13 @@ jobs:
         # Need tags so setuptools_scm builds the local sdk as >=1.0.0, else the loose
         # `basyx-python-sdk>=1.0.0` pin lets pip replace it with the PyPI release.
         fetch-depth: 0
+    - uses: ./.github/actions/load-versions
+    - name: Verify Matrix Version matches Global Version
+      run: |
+        if [ "${{ matrix.python-version }}" != "${{ env.X_PYTHON_MIN_VERSION }}" ] && [ "${{ matrix.python-version }}" != "${{ env.X_PYTHON_MAX_VERSION }}" ]; then
+          echo "Error: Matrix version ${{ matrix.python-version }} does not match global version."
+          exit 1
+        fi
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v7
       with:
