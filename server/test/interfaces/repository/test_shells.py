@@ -56,6 +56,15 @@ class ShellsEndpointsTest(RepositoryEndpointTestBase):
         self.assert_ok(response)
         self.assertEqual(2, len(format_client.parse_collection(response)))
 
+    @with_json_client
+    @with_xml_client
+    def test_shells_get_supports_pagination(self, format_client: FormatClient):
+        self.object_store.update(self.two_shells_store())
+
+        pages = format_client.get_paginated("/shells", limit=1, max_pages=2)
+
+        self.assertEqual([1, 1], [len(page) for page in pages])
+
     # ------------------------------------------------------------------ GET /shells?idShort=...&assetIds=...
 
     @staticmethod
@@ -290,6 +299,15 @@ class ShellsEndpointsTest(RepositoryEndpointTestBase):
         self.assertEqual(2, len(references))
         self.assertIn(example_shell.id, [format_client.reference_target(ref) for ref in references])
 
+    @with_json_client
+    @with_xml_client
+    def test_shells_reference_get_supports_pagination(self, format_client: FormatClient):
+        self.object_store.update(self.two_shells_store())
+
+        pages = format_client.get_paginated("/shells/$reference", limit=1, max_pages=2)
+
+        self.assertEqual([1, 1], [len(page) for page in pages])
+
     # ------------------------------------------------------------------ GET /shells/<aas_id>
 
     @with_json_client
@@ -427,6 +445,23 @@ class ShellsEndpointsTest(RepositoryEndpointTestBase):
         self.assertEqual(
             "https://example.org/Test_Submodel_Missing", format_client.reference_target(references[0])
         )
+
+    @with_json_client
+    @with_xml_client
+    def test_shell_submodel_refs_get_supports_pagination(self, format_client: FormatClient):
+        example_shell = create_example_asset_administration_shell()
+        example_shell.submodel.add(
+            model.ModelReference(
+                (model.Key(model.KeyTypes.SUBMODEL, "https://example.org/Second_Submodel_Ref"),), model.Submodel
+            )
+        )
+        self.object_store.add(example_shell)
+
+        pages = format_client.get_paginated(
+            f"/shells/{base64url_encode(example_shell.id)}/submodel-refs", limit=1, max_pages=2
+        )
+
+        self.assertEqual([1, 1], [len(page) for page in pages])
 
     # ------------------------------------------------------------------ POST /shells/<aas_id>/submodel-refs
 

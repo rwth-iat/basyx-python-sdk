@@ -76,6 +76,15 @@ class ConceptDescriptionsEndpointsTest(RepositoryEndpointTestBase):
 
         self.assertEqual({self.EXAMPLE_ID}, ids)
 
+    @with_json_client
+    @with_xml_client
+    def test_concept_descriptions_get_supports_pagination(self, format_client: FormatClient):
+        self.object_store.update(self.two_concept_descriptions_store())
+
+        pages = format_client.get_paginated("/concept-descriptions", limit=1, max_pages=2)
+
+        self.assertEqual([1, 1], [len(page) for page in pages])
+
     # ------------------------------------------------------------------ POST /concept-descriptions
 
     @with_json_client

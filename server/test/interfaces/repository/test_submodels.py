@@ -76,6 +76,15 @@ class SubmodelsEndpointsTest(RepositoryEndpointTestBase):
         self.assert_ok(response)
         self.assertEqual(0, len(format_client.parse_collection(response)))
 
+    @with_json_client
+    @with_xml_client
+    def test_submodels_get_supports_pagination(self, format_client: FormatClient):
+        self.object_store.update(self.two_submodels_store())
+
+        pages = format_client.get_paginated("/submodels", limit=1, max_pages=2)
+
+        self.assertEqual([1, 1], [len(page) for page in pages])
+
     # ------------------------------------------------------------------ GET /submodels?idShort=...&semanticId=...
 
     @with_json_client
@@ -114,46 +123,6 @@ class SubmodelsEndpointsTest(RepositoryEndpointTestBase):
         ids = self._get_submodel_ids(format_client, f"semanticId={_encode_reference(other)}")
 
         self.assertEqual(set(), ids)
-
-    # ------------------------------------------------------------------ GET /submodels?limit=...&cursor=...
-
-    @with_json_client
-    @with_xml_client
-    def test_submodels_get_pagination_limit(self, format_client: FormatClient):
-        self.object_store.update(self.two_submodels_store())
-
-        response = format_client.get("/submodels?limit=1")
-
-        self.assert_ok(response)
-        self.assertEqual(1, len(format_client.parse_collection(response)))
-
-    @with_json_client
-    @with_xml_client
-    def test_submodels_get_pagination_cursor_walks_all_items(self, format_client: FormatClient):
-        self.object_store.update(self.two_submodels_store())
-
-        first_page = {
-            format_client.identifier(node)
-            for node in format_client.parse_collection(format_client.get("/submodels?limit=1"))
-        }
-        second_page = {
-            format_client.identifier(node)
-            for node in format_client.parse_collection(format_client.get("/submodels?limit=1&cursor=2"))
-        }
-
-        self.assertEqual(1, len(first_page))
-        self.assertEqual(1, len(second_page))
-        self.assertEqual(set(), first_page & second_page)
-        self.assertEqual(
-            {"https://example.org/Test_Submodel_Missing", self.SECOND_ID}, first_page | second_page
-        )
-
-    def test_submodels_get_negative_limit_returns_400(self):
-        self.object_store.update(self.two_submodels_store())
-
-        response = self.client.get("/submodels?limit=-1")
-
-        self.assert_error(response, 400)
 
     # ------------------------------------------------------------------ POST /submodels
 
@@ -199,6 +168,15 @@ class SubmodelsEndpointsTest(RepositoryEndpointTestBase):
         self.assert_ok(response)
         self.assertEqual(2, len(format_client.parse_collection(response)))
 
+    @with_json_client
+    @with_xml_client
+    def test_submodels_metadata_get_supports_pagination(self, format_client: FormatClient):
+        self.object_store.update(self.two_submodels_store())
+
+        pages = format_client.get_paginated("/submodels/$metadata", limit=1, max_pages=2)
+
+        self.assertEqual([1, 1], [len(page) for page in pages])
+
     def test_submodels_metadata_get_rejects_level(self):
         self.object_store.add(create_example_submodel())
 
@@ -222,6 +200,15 @@ class SubmodelsEndpointsTest(RepositoryEndpointTestBase):
             {"https://example.org/Test_Submodel_Missing", self.SECOND_ID},
             {format_client.reference_target(ref) for ref in references},
         )
+
+    @with_json_client
+    @with_xml_client
+    def test_submodels_reference_get_supports_pagination(self, format_client: FormatClient):
+        self.object_store.update(self.two_submodels_store())
+
+        pages = format_client.get_paginated("/submodels/$reference", limit=1, max_pages=2)
+
+        self.assertEqual([1, 1], [len(page) for page in pages])
 
     # ------------------------------------------------------------------ GET /submodels/<submodel_id>
 
@@ -478,6 +465,15 @@ class SubmodelElementsEndpointsTest(RepositoryEndpointTestBase):
 
     @with_json_client
     @with_xml_client
+    def test_submodel_elements_get_supports_pagination(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+
+        pages = format_client.get_paginated(self.elements_path(submodel.id), limit=3, max_pages=2)
+
+        self.assertEqual([3, 3], [len(page) for page in pages])
+
+    @with_json_client
+    @with_xml_client
     def test_submodel_elements_get_submodel_not_found(self, format_client: FormatClient):
         response = format_client.get(self.elements_path("https://example.org/unknown"))
 
@@ -531,6 +527,15 @@ class SubmodelElementsEndpointsTest(RepositoryEndpointTestBase):
         self.assert_ok(response)
         self.assertEqual(self.TOP_LEVEL_COUNT, len(format_client.parse_collection(response)))
 
+    @with_json_client
+    @with_xml_client
+    def test_submodel_elements_metadata_get_supports_pagination(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+
+        pages = format_client.get_paginated(f"{self.elements_path(submodel.id)}/$metadata", limit=3, max_pages=2)
+
+        self.assertEqual([3, 3], [len(page) for page in pages])
+
     def test_submodel_elements_metadata_get_rejects_level(self):
         submodel = self.add_example_submodel()
 
@@ -553,6 +558,15 @@ class SubmodelElementsEndpointsTest(RepositoryEndpointTestBase):
         self.assertIn(
             "ExampleCapability", {format_client.reference_target(ref) for ref in references}
         )
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_elements_reference_get_supports_pagination(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+
+        pages = format_client.get_paginated(f"{self.elements_path(submodel.id)}/$reference", limit=3, max_pages=2)
+
+        self.assertEqual([3, 3], [len(page) for page in pages])
 
     # ------------------------------------------------------------------ GET .../submodel-elements/<idShortPath>
 

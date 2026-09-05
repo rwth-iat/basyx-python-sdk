@@ -52,6 +52,36 @@ class FormatClient(abc.ABC):
     def get(self, path: str, **kwargs) -> TestResponse:
         return self.request("GET", path, **kwargs)
 
+    def get_paginated(self, path: str, limit: int, max_pages:int, **kwargs) -> list[list[Any]]:
+        """
+        Iteratively query the paginated endpoint :param:`path` with the given :param:`limit` until
+        the server indicates the complete collection was read.
+
+        :param path: path to perform the request to.
+        :param limit: the limit for the paginated request, controls maximum size of each page.
+        :param max_pages: request fails if more than these pages are returned by endpoint.
+        :param kwargs: additional arguments to pass to the query.
+        :return: list of returned pages, each page is a list as returned by :meth:`parse_collection`.
+        """
+        pages: list[list[str]] = []
+        cursor: str | None = None
+        while True:
+            start_or_and = "?" if "?" not in path else "&"
+            query = f"{path}{start_or_and}limit={limit}"
+            if cursor is not None:
+                query += f"&cursor={cursor}"
+            response = self.get(query, **kwargs)
+            assert 200 == response.status_code
+            page_content = self.parse_collection(response)
+            assert limit >= len(page_content), "paginated result contains more than limit items"
+            pages.append(page_content)
+            cursor = self.next_cursor(response)
+            if cursor is None:
+                break
+            assert len(pages) <= max_pages, "cursor never signalled the last page"
+
+        return pages
+
     def post(self, path: str, obj: Optional[object] = None, **kwargs: Any) -> TestResponse:
         return self.request("POST", path, obj=obj, **kwargs)
 
@@ -94,6 +124,10 @@ class FormatClient(abc.ABC):
     def result_success(self, response: TestResponse) -> bool:
         """The value of the ``success`` flag in a ``Result`` body."""
 
+    @abc.abstractmethod
+    def next_cursor(self, response: TestResponse) -> Optional[str]:
+        """The paging cursor pointing at the next page, or ``None`` once the last page has been returned."""
+
 
 class JsonFormatClient(FormatClient):
     content_type = "application/json"
@@ -125,6 +159,12 @@ class JsonFormatClient(FormatClient):
     def result_success(self, response: TestResponse) -> bool:
         body = self._payload(response)
         return "success" not in body or bool(body["success"])
+
+    def next_cursor(self, response: TestResponse) -> Optional[str]:
+        payload = self._payload(response)
+        if isinstance(payload, dict):
+            return payload.get("paging_metadata", {}).get("cursor")
+        return None
 
 
 class XmlFormatClient(FormatClient):
@@ -164,6 +204,12 @@ class XmlFormatClient(FormatClient):
         # <response><success>true|false</success>...</response> -- not namespaced in Result bodies.
         success_elem = self._root(response).find("success")
         return success_elem is None or success_elem.text == "true"
+
+    def next_cursor(self, response: TestResponse) -> Optional[str]:
+        # The cursor is an attribute on the <response> root; it is unconditionally serialized, so a
+        # missing next page shows up as the literal string "None" rather than an absent attribute.
+        cursor = self._root(response).get("cursor")
+        return cursor if cursor not in (None, "None") else None
 
 
 def with_json_client(func):
