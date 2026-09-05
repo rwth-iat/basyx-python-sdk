@@ -514,6 +514,28 @@ class ShellsEndpointsTest(RepositoryEndpointTestBase):
         self.assertIsInstance(retrieved_sm, model.Submodel)
         self.assertEqual("UpdatedSubmodel", retrieved_sm.id_short)
 
+    @with_json_client
+    @with_xml_client
+    def test_shell_submodel_refs_submodel_put_changed_id_success(self, format_client: FormatClient):
+        example_shell = create_example_asset_administration_shell()
+        self.object_store.add(example_shell)
+        self.object_store.add(create_example_submodel())
+        updated_submodel = create_example_submodel()
+        old_sm_id = updated_submodel.id
+        updated_submodel.id = "https://example.org/Test_Submodel_Updated"
+
+        response = format_client.put(
+            f"/shells/{base64url_encode(example_shell.id)}/submodels/{base64url_encode(old_sm_id)}",
+            obj=updated_submodel,
+        )
+
+        self.assertEqual(204, response.status_code)
+        retrieved_shell = self.object_store.get(example_shell.id)
+        self.assertIsInstance(retrieved_shell, model.AssetAdministrationShell)
+
+        self.assertIn(model.ModelReference.from_referable(updated_submodel), retrieved_shell.submodel)
+        self.assertNotIn(model.ModelReference.from_referable(create_example_submodel()), retrieved_shell.submodel)
+
     # ------------------------------------------------------------------ DELETE /shells/<aas_id>/submodels/<sm_id>
 
     @with_json_client

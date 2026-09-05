@@ -1,5 +1,6 @@
 import io
 import json
+from io import BytesIO
 from unittest import mock
 
 from app.util.converters import base64url_encode
@@ -775,6 +776,20 @@ class SubmodelElementsEndpointsTest(RepositoryEndpointTestBase):
         self.assertEqual("application/pdf", response.mimetype)
         self.assertEqual(bytes([1, 2, 3, 4, 5]), response.get_data())
 
+    def test_submodel_element_attachment_get_file(self):
+        submodel = self.add_example_submodel()
+        self._nested_file(submodel, NESTED_FILE).value = "/TestFile.pdf"
+        self._nested_file(submodel, NESTED_FILE).content_type = "application/pdf"
+
+        self.file_store.write_file.side_effect = lambda name, stream: stream.write(b"file-content")
+
+        response = self.client.get(f"{self.elements_path(submodel.id, NESTED_FILE)}/attachment")
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("application/pdf", response.content_type)
+        self.file_store.write_file.assert_any_call("/TestFile.pdf", mock.ANY)
+        self.assertEqual(b"file-content", response.data)
+
     def test_submodel_element_attachment_get_on_non_file_returns_400(self):
         submodel = self.add_example_submodel()
 
@@ -787,6 +802,24 @@ class SubmodelElementsEndpointsTest(RepositoryEndpointTestBase):
         self._nested_file(submodel, NESTED_FILE).value = None
         self.object_store.add(submodel)
 
+        response = self.client.get(f"{self.elements_path(submodel.id, NESTED_FILE)}/attachment")
+
+        self.assert_error(response, 404)
+
+    def test_submodel_element_attachment_get_external_file_return_400(self):
+        submodel = create_example_submodel()
+        self._nested_file(submodel, NESTED_FILE).value = "C:\\Users\\Test\\File.pdf"
+        self.object_store.add(submodel)
+
+        response = self.client.get(f"{self.elements_path(submodel.id, NESTED_FILE)}/attachment")
+
+        self.assert_error(response, 400)
+
+    def test_submodel_element_attachment_get_missing_file_return_404(self):
+        submodel = create_example_submodel()
+        self.object_store.add(submodel)
+
+        self.file_store.write_file.side_effect = KeyError
         response = self.client.get(f"{self.elements_path(submodel.id, NESTED_FILE)}/attachment")
 
         self.assert_error(response, 404)
@@ -837,6 +870,54 @@ class SubmodelElementsEndpointsTest(RepositoryEndpointTestBase):
 
         self.assert_error(response, 400)
 
+    def test_submodel_element_attachment_put_missing_filename_returns_400(self):
+        submodel = self.add_example_submodel()
+        self._nested_file(submodel, NESTED_FILE).value = None
+
+        response = self.client.put(
+            f"{self.elements_path(submodel.id, NESTED_FILE)}/attachment",
+            data={"file": (io.BytesIO(b"x"), "x.pdf", "application/pdf")},
+            content_type="multipart/form-data",
+        )
+
+        self.assert_error(response, 400)
+
+    def test_submodel_element_attachment_put_external_filename_returns_400(self):
+        submodel = self.add_example_submodel()
+        self._nested_file(submodel, NESTED_FILE).value = None
+
+        response = self.client.put(
+            f"{self.elements_path(submodel.id, NESTED_FILE)}/attachment",
+            data={"fileName": "C:\\Users\\Test\\x.pdf", "file": (io.BytesIO(b"x"), "x.pdf", "application/pdf")},
+            content_type="multipart/form-data",
+        )
+
+        self.assert_error(response, 400)
+
+    def test_submodel_element_attachment_put_missing_file_returns_400(self):
+        submodel = self.add_example_submodel()
+        self._nested_file(submodel, NESTED_FILE).value = None
+
+        response = self.client.put(
+            f"{self.elements_path(submodel.id, NESTED_FILE)}/attachment",
+            data={"fileName": "/x.pdf"},
+            content_type="multipart/form-data",
+        )
+
+        self.assert_error(response, 400)
+
+    def test_submodel_element_attachment_put_mimetype_mismatch_returns_400(self):
+        submodel = self.add_example_submodel()
+        self._nested_file(submodel, NESTED_FILE).value = None
+
+        response = self.client.put(
+            f"{self.elements_path(submodel.id, NESTED_FILE)}/attachment",
+            data={"fileName": "/x.pdf", "file": (io.BytesIO(b"x"), "x.pdf", "application/xml")},
+            content_type="multipart/form-data",
+        )
+
+        self.assert_error(response, 415)
+
     def test_submodel_element_attachment_delete_blob(self):
         submodel = self.add_example_submodel()
 
@@ -844,6 +925,28 @@ class SubmodelElementsEndpointsTest(RepositoryEndpointTestBase):
 
         self.assertEqual(204, response.status_code)
         self.assertIsNone(self._nested_blob(self._stored_submodel(submodel.id), NESTED_BLOB).value)
+
+    def test_submodel_element_attachment_delete_file(self):
+        submodel = self.add_example_submodel()
+        self._nested_file(submodel, NESTED_FILE).value = "/TestFile.pdf"
+
+        response = self.client.delete(f"{self.elements_path(submodel.id, NESTED_FILE)}/attachment")
+
+        self.assertEqual(204, response.status_code)
+        self.file_store.delete_file.assert_any_call("/TestFile.pdf")
+        self.assertIsNone(self._nested_file(self._stored_submodel(submodel.id), NESTED_FILE).value)
+
+    def test_submodel_element_attachment_delete_file_ignores_store_error(self):
+        submodel = self.add_example_submodel()
+        self._nested_file(submodel, NESTED_FILE).value = "/TestFile.pdf"
+
+        self.file_store.delete_file.side_effect = KeyError
+
+        response = self.client.delete(f"{self.elements_path(submodel.id, NESTED_FILE)}/attachment")
+
+        self.assertEqual(204, response.status_code)
+        self.file_store.delete_file.assert_any_call("/TestFile.pdf")
+        self.assertIsNone(self._nested_file(self._stored_submodel(submodel.id), NESTED_FILE).value)
 
     def test_submodel_element_attachment_delete_on_non_attachment_returns_400(self):
         submodel = self.add_example_submodel()
@@ -853,6 +956,24 @@ class SubmodelElementsEndpointsTest(RepositoryEndpointTestBase):
         )
 
         self.assert_error(response, 400)
+
+    def test_submodel_element_attachment_delete_no_value_returns_404(self):
+        submodel = self.add_example_submodel()
+        self._nested_blob(submodel, NESTED_BLOB).value = None
+
+        response = self.client.delete(
+            f"{self.elements_path(submodel.id, NESTED_BLOB)}/attachment"
+        )
+
+        self.assert_error(response, 404)
+
+    def test_submodel_element_attachment_delete_external_file_returns_400(self):
+        submodel = self.add_example_submodel()
+        self._nested_file(submodel, NESTED_FILE).value = "C:\\Users\\Test\\x.pdf"
+
+        response = self.client.delete(f"{self.elements_path(submodel.id, NESTED_FILE)}/attachment")
+
+        self.assertEqual(400, response.status_code)
 
     # ------------------------------------------------------------------ .../<idShortPath>/qualifiers
 
@@ -935,6 +1056,41 @@ class SubmodelElementsEndpointsTest(RepositoryEndpointTestBase):
         self.assert_ok(response)
         retrieved = self._nested_element(self._stored_submodel(submodel.id), NESTED_PROPERTY)
         self.assertEqual("changed-value", retrieved.get_qualifier_by_type(EXAMPLE_QUALIFIER_TYPE).value)
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_element_qualifier_put_changed_type_success(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+        new_type = "http://example.org/Qualifier/ExampleQualifier_Changed"
+        updated = model.Qualifier(new_type, model.datatypes.String, "changed-value")
+
+        response = format_client.put(
+            f"{self.elements_path(submodel.id, NESTED_PROPERTY)}/qualifiers/{base64url_encode(EXAMPLE_QUALIFIER_TYPE)}",
+            obj=updated,
+        )
+
+        self.assertEqual(201, response.status_code)
+        retrieved = self._nested_element(self._stored_submodel(submodel.id), NESTED_PROPERTY)
+        self.assertTrue(retrieved.qualifier.contains_id("type", new_type))
+        self.assertEqual(new_type, format_client.field(format_client.parse_object(response), "type"))
+
+    @with_json_client
+    @with_xml_client
+    def test_submodel_element_qualifier_put_conflict(self, format_client: FormatClient):
+        submodel = self.add_example_submodel()
+        new_type = "http://example.org/Qualifier/ExampleQualifier_Changed"
+        self._nested_property(submodel, NESTED_PROPERTY).qualifier.add(
+            model.Qualifier(type_=new_type, value_type=model.datatypes.String, value="test")
+        )
+        self.object_store.commit(submodel)
+
+        updated = model.Qualifier(new_type, model.datatypes.String, "changed-value")
+        response = format_client.put(
+            f"{self.elements_path(submodel.id, NESTED_PROPERTY)}/qualifiers/{base64url_encode(EXAMPLE_QUALIFIER_TYPE)}",
+            obj=updated,
+        )
+
+        self.assertEqual(409, response.status_code)
 
     @with_json_client
     @with_xml_client

@@ -7,13 +7,14 @@ from basyx.aas.adapter import aasx
 from basyx.aas.examples.data.example_aas_missing_attributes import (
     create_example_asset_administration_shell,
 )
+from basyx.aas.model import Identifiable
 from werkzeug.test import Client, TestResponse
 
 
 class RepositoryEndpointTestBase(unittest.TestCase):
     __test__ = False
 
-    object_store: model.DictIdentifiableStore
+    object_store: model.SetIdentifiableStore[Identifiable]
     file_store: mock.Mock
     repository_server: repository.WSGIApp
     client: Client
@@ -22,7 +23,7 @@ class RepositoryEndpointTestBase(unittest.TestCase):
     def setUpClass(cls) -> None:
         super().setUpClass()
 
-        cls.object_store = model.DictIdentifiableStore()
+        cls.object_store = model.SetIdentifiableStore()  # DictIdentifiableStore breaks, when IDs change
         cls.file_store = mock.Mock(spec=aasx.AbstractSupplementaryFileContainer)
         cls.repository_server = repository.WSGIApp(cls.object_store, cls.file_store, base_path="")
         cls.client = Client(cls.repository_server)
