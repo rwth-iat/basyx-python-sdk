@@ -4,13 +4,18 @@
 
 <h1 align="center">Eclipse BaSyx Python SDK</h1>
 
-[![CI](https://github.com/eclipse-basyx/basyx-python-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/eclipse-basyx/basyx-python-sdk/actions/workflows/ci.yml)
-[![PyPI Version](https://img.shields.io/pypi/v/basyx-python-sdk)](https://pypi.org/project/basyx-python-sdk/)
-[![Conda Version](https://img.shields.io/conda/vn/conda-forge/basyx-python-sdk)](https://anaconda.org/conda-forge/basyx-python-sdk)
-[![PyPI Downloads](https://img.shields.io/pypi/dm/basyx-python-sdk)](https://pypi.org/project/basyx-python-sdk/)
-[![License](https://img.shields.io/github/license/eclipse-basyx/basyx-python-sdk)](LICENSE)
-![Min](https://img.shields.io/badge/dynamic/toml?url=https://raw.githubusercontent.com/eclipse-basyx/basyx-python-sdk/7192d207fa8f17afe1a35bdebcff3291a85facef/versions.toml&query=$.python.min&label=python%20min)
-![Max](https://img.shields.io/badge/dynamic/toml?url=https://raw.githubusercontent.com/eclipse-basyx/basyx-python-sdk/7192d207fa8f17afe1a35bdebcff3291a85facef/versions.toml&query=$.python.max&label=python%20max)
+<p align="center">
+  <a href="https://github.com/eclipse-basyx/basyx-python-sdk/actions/workflows/ci.yml"><img src="https://github.com/eclipse-basyx/basyx-python-sdk/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://pypi.org/project/basyx-python-sdk/"><img src="https://img.shields.io/pypi/v/basyx-python-sdk" alt="PyPI Version"></a>
+  <a href="https://anaconda.org/conda-forge/basyx-python-sdk"><img src="https://img.shields.io/conda/vn/conda-forge/basyx-python-sdk" alt="Conda Version"></a>
+  <a href="https://pypi.org/project/basyx-python-sdk/"><img src="https://img.shields.io/pypi/dm/basyx-python-sdk" alt="PyPI Downloads"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/eclipse-basyx/basyx-python-sdk" alt="License"></a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/dynamic/toml?url=https://raw.githubusercontent.com/eclipse-basyx/basyx-python-sdk/refs/heads/develop/versions.toml&query=$.python.min&label=python%20min&color=3776ab&logo=python&logoColor=white" alt="Python min">
+  <img src="https://img.shields.io/badge/dynamic/toml?url=https://raw.githubusercontent.com/eclipse-basyx/basyx-python-sdk/refs/heads/develop/versions.toml&query=$.python.max&label=python%20max&color=3776ab&logo=python&logoColor=white" alt="Python max">
+</p>
 
 The Eclipse BaSyx Python SDK is a Python implementation of the
 [Asset Administration Shell (AAS)](https://industrialdigitaltwin.org/en/content-hub/aasspecifications)
