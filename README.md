@@ -13,8 +13,8 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/dynamic/toml?url=https://raw.githubusercontent.com/eclipse-basyx/basyx-python-sdk/refs/heads/develop/versions.toml&query=$.python.min&label=python%20min&color=3776ab&logo=python&logoColor=white" alt="Python min">
-  <img src="https://img.shields.io/badge/dynamic/toml?url=https://raw.githubusercontent.com/eclipse-basyx/basyx-python-sdk/refs/heads/develop/versions.toml&query=$.python.max&label=python%20max&color=3776ab&logo=python&logoColor=white" alt="Python max">
+  <img src="https://img.shields.io/badge/dynamic/toml?url=https://raw.githubusercontent.com/eclipse-basyx/basyx-python-sdk/refs/heads/main/versions.toml&query=$.python.min&label=python%20min&color=3776ab&logo=python&logoColor=white" alt="Python min">
+  <img src="https://img.shields.io/badge/dynamic/toml?url=https://raw.githubusercontent.com/eclipse-basyx/basyx-python-sdk/refs/heads/main/versions.toml&query=$.python.max&label=python%20max&color=3776ab&logo=python&logoColor=white" alt="Python max">
 </p>
 
 The Eclipse BaSyx Python SDK is a Python implementation of the
