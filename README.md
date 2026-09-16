@@ -159,10 +159,10 @@ This mode is not suitable for production.
 **Q: I need a newer Python version than the latest release supports. Where can I find it?**
 
 A: The [`develop`](https://github.com/eclipse-basyx/basyx-python-sdk/tree/develop) branch
-may adopt new Python versions ahead of the next release. It currently supports Python
-<img src="https://img.shields.io/badge/dynamic/toml?url=https://raw.githubusercontent.com/eclipse-basyx/basyx-python-sdk/refs/heads/develop/versions.toml&query=$.python.min&label=&color=grey&style=flat-square" alt="develop min" valign="bottom">
-to
-<img src="https://img.shields.io/badge/dynamic/toml?url=https://raw.githubusercontent.com/eclipse-basyx/basyx-python-sdk/refs/heads/develop/versions.toml&query=$.python.max&label=&color=grey&style=flat-square" alt="develop max" valign="bottom">.
+may adopt new Python versions ahead of the next release. It currently supports Python 
+<sub><img src="https://img.shields.io/badge/dynamic/toml?url=https://raw.githubusercontent.com/eclipse-basyx/basyx-python-sdk/refs/heads/develop/versions.toml&query=$.python.min&label=&color=grey&style=flat-square" alt="develop min" height="16"></sub>
+to 
+<sub><img src="https://img.shields.io/badge/dynamic/toml?url=https://raw.githubusercontent.com/eclipse-basyx/basyx-python-sdk/refs/heads/develop/versions.toml&query=$.python.max&label=&color=grey&style=flat-square" alt="develop max" height="16"></sub>.
 
 ---
 
