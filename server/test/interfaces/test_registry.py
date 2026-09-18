@@ -17,11 +17,11 @@ from typing import Any
 from app.interfaces.registry import RegistryAPI
 from app.model import DictDescriptorStore
 from app.model.descriptor import AssetAdministrationShellDescriptor, SubmodelDescriptor
-from app.model.endpoint import Endpoint, ProtocolInformation
 from app.util.converters import base64url_encode
 from basyx.aas import model
 from werkzeug.test import Client, TestResponse
 
+from ..adapter.descriptor_utils import example_aas_descriptor, example_submodel_descriptor
 from .format_utils import JsonFormatClient
 
 
@@ -39,20 +39,6 @@ class _InMemoryDescriptorStore(DictDescriptorStore):
 
     def clear(self) -> None:
         self._backend.clear()
-
-
-def _endpoint(interface: str = "AAS-3.0", href: str = "https://example.org/endpoint") -> Endpoint:
-    return Endpoint(interface=interface, protocol_information=ProtocolInformation(href=href))
-
-
-def _aas_descriptor(id_: str, **kwargs: Any) -> AssetAdministrationShellDescriptor:
-    kwargs.setdefault("endpoints", [_endpoint("AAS-3.0")])
-    return AssetAdministrationShellDescriptor(id_=id_, **kwargs)
-
-
-def _submodel_descriptor(id_: str, **kwargs: Any) -> SubmodelDescriptor:
-    kwargs.setdefault("endpoints", [_endpoint("SUBMODEL-3.0")])
-    return SubmodelDescriptor(id_=id_, **kwargs)
 
 
 class RegistryEndpointTestBase(unittest.TestCase):
@@ -131,8 +117,8 @@ class ShellDescriptorsEndpointTest(RegistryEndpointTestBase):
         self.assertEqual([], self.format_client.parse_collection(response))
 
     def test_get_all_returns_registered_descriptors(self) -> None:
-        self.store.add(_aas_descriptor(self.AAS_ID))
-        self.store.add(_aas_descriptor(self.AAS_ID_2))
+        self.store.add(example_aas_descriptor(self.AAS_ID))
+        self.store.add(example_aas_descriptor(self.AAS_ID_2))
 
         response = self.format_client.get("/shell-descriptors")
 
@@ -141,8 +127,8 @@ class ShellDescriptorsEndpointTest(RegistryEndpointTestBase):
 
     def test_get_all_only_returns_aas_descriptors(self) -> None:
         # The store is shared between the AAS- and Submodel-registry routes, so this route must filter by type.
-        self.store.add(_aas_descriptor(self.AAS_ID))
-        self.store.add(_submodel_descriptor(self.SM_ID))
+        self.store.add(example_aas_descriptor(self.AAS_ID))
+        self.store.add(example_submodel_descriptor(self.SM_ID))
 
         response = self.format_client.get("/shell-descriptors")
 
@@ -150,8 +136,8 @@ class ShellDescriptorsEndpointTest(RegistryEndpointTestBase):
         self.assertEqual([self.AAS_ID], self.ids(response))
 
     def test_get_all_supports_pagination(self) -> None:
-        self.store.add(_aas_descriptor(self.AAS_ID))
-        self.store.add(_aas_descriptor(self.AAS_ID_2))
+        self.store.add(example_aas_descriptor(self.AAS_ID))
+        self.store.add(example_aas_descriptor(self.AAS_ID_2))
 
         pages = self.format_client.get_paginated("/shell-descriptors", limit=1, max_pages=2)
 
@@ -161,13 +147,13 @@ class ShellDescriptorsEndpointTest(RegistryEndpointTestBase):
         self.assertEqual(len(seen), len(set(seen)), "an item was returned on more than one page")
 
     def test_get_all_negative_limit_returns_400(self) -> None:
-        self.store.add(_aas_descriptor(self.AAS_ID))
+        self.store.add(example_aas_descriptor(self.AAS_ID))
 
         self.assert_error(self.format_client.get("/shell-descriptors?limit=-1"), 400)
 
     def test_get_all_filter_by_asset_kind(self) -> None:
-        self.store.add(_aas_descriptor(self.AAS_ID, asset_kind=model.AssetKind.INSTANCE))
-        self.store.add(_aas_descriptor(self.AAS_ID_2, asset_kind=model.AssetKind.TYPE))
+        self.store.add(example_aas_descriptor(self.AAS_ID, asset_kind=model.AssetKind.INSTANCE))
+        self.store.add(example_aas_descriptor(self.AAS_ID_2, asset_kind=model.AssetKind.TYPE))
 
         response = self.format_client.get("/shell-descriptors?assetKind=INSTANCE")
 
@@ -175,14 +161,14 @@ class ShellDescriptorsEndpointTest(RegistryEndpointTestBase):
         self.assertEqual([self.AAS_ID], self.ids(response))
 
     def test_get_all_filter_by_asset_kind_invalid_returns_400(self) -> None:
-        self.store.add(_aas_descriptor(self.AAS_ID, asset_kind=model.AssetKind.INSTANCE))
+        self.store.add(example_aas_descriptor(self.AAS_ID, asset_kind=model.AssetKind.INSTANCE))
 
         # The enum member names are upper-case; the serialized ("Instance") spelling is rejected.
         self.assert_error(self.format_client.get("/shell-descriptors?assetKind=Instance"), 400)
 
     def test_get_all_filter_by_asset_type(self) -> None:
-        self.store.add(_aas_descriptor(self.AAS_ID, asset_type="https://example.org/type/a"))
-        self.store.add(_aas_descriptor(self.AAS_ID_2, asset_type="https://example.org/type/b"))
+        self.store.add(example_aas_descriptor(self.AAS_ID, asset_type="https://example.org/type/a"))
+        self.store.add(example_aas_descriptor(self.AAS_ID_2, asset_type="https://example.org/type/b"))
 
         response = self.format_client.get(
             f"/shell-descriptors?assetType={base64url_encode('https://example.org/type/b')}"
@@ -192,7 +178,7 @@ class ShellDescriptorsEndpointTest(RegistryEndpointTestBase):
         self.assertEqual([self.AAS_ID_2], self.ids(response))
 
     def test_get_all_filter_by_asset_type_no_match(self) -> None:
-        self.store.add(_aas_descriptor(self.AAS_ID, asset_type="https://example.org/type/a"))
+        self.store.add(example_aas_descriptor(self.AAS_ID, asset_type="https://example.org/type/a"))
 
         response = self.format_client.get(
             f"/shell-descriptors?assetType={base64url_encode('https://example.org/type/none')}"
@@ -204,7 +190,7 @@ class ShellDescriptorsEndpointTest(RegistryEndpointTestBase):
     # ------------------------------------------------------------------ POST /shell-descriptors
 
     def test_post_success(self) -> None:
-        descriptor = _aas_descriptor(self.AAS_ID)
+        descriptor = example_aas_descriptor(self.AAS_ID)
 
         response = self.format_client.post("/shell-descriptors", obj=descriptor)
 
@@ -212,6 +198,17 @@ class ShellDescriptorsEndpointTest(RegistryEndpointTestBase):
         self.assertIn(base64url_encode(self.AAS_ID), response.headers["Location"])
         self.assertEqual(self.AAS_ID, self.format_client.identifier(self.format_client.parse_object(response)))
         self.assertIsNotNone(self.store.get(self.AAS_ID))
+
+    def test_post_including_submodel_descriptors(self) -> None:
+        descriptor = example_aas_descriptor(self.AAS_ID, submodel_descriptors=[example_submodel_descriptor(self.SM_ID)])
+
+        response = self.format_client.post("/shell-descriptors", obj=descriptor)
+
+        self.assertEqual(201, response.status_code, msg=response.get_data(as_text=True))
+        retrieved_descriptor = self.store.get(self.AAS_ID)
+        if not isinstance(retrieved_descriptor, AssetAdministrationShellDescriptor):
+            self.fail("AAS Descriptor was not created in store")
+        self.assertGreater(len(retrieved_descriptor.submodel_descriptors), 0)
 
     def test_post_missing_id_returns_400(self) -> None:
         response = self.format_client.post(
@@ -228,21 +225,21 @@ class ShellDescriptorsEndpointTest(RegistryEndpointTestBase):
     def test_post_unsupported_content_type_returns_415(self) -> None:
         response = self.format_client.post(
             "/shell-descriptors",
-            data=self.format_client.serialize(_aas_descriptor(self.AAS_ID)),
+            data=self.format_client.serialize(example_aas_descriptor(self.AAS_ID)),
             content_type="text/plain",
         )
 
         self.assert_error(response, 415)
 
     def test_post_conflict_returns_409(self) -> None:
-        self.store.add(_aas_descriptor(self.AAS_ID))
+        self.store.add(example_aas_descriptor(self.AAS_ID))
 
-        self.assert_error(self.format_client.post("/shell-descriptors", obj=_aas_descriptor(self.AAS_ID)), 409)
+        self.assert_error(self.format_client.post("/shell-descriptors", obj=example_aas_descriptor(self.AAS_ID)), 409)
 
     # ------------------------------------------------------------------ GET /shell-descriptors/{aasIdentifier}
 
     def test_get_by_id_success(self) -> None:
-        self.store.add(_aas_descriptor(self.AAS_ID))
+        self.store.add(example_aas_descriptor(self.AAS_ID))
 
         response = self.format_client.get(f"/shell-descriptors/{base64url_encode(self.AAS_ID)}")
 
@@ -256,7 +253,7 @@ class ShellDescriptorsEndpointTest(RegistryEndpointTestBase):
 
     def test_put_creates_when_absent_returns_201(self) -> None:
         response = self.format_client.put(
-            f"/shell-descriptors/{base64url_encode(self.AAS_ID)}", obj=_aas_descriptor(self.AAS_ID)
+            f"/shell-descriptors/{base64url_encode(self.AAS_ID)}", obj=example_aas_descriptor(self.AAS_ID)
         )
 
         self.assertEqual(201, response.status_code, msg=response.get_data(as_text=True))
@@ -264,8 +261,8 @@ class ShellDescriptorsEndpointTest(RegistryEndpointTestBase):
         self.assertIsNotNone(self.store.get(self.AAS_ID))
 
     def test_put_updates_when_present_returns_204(self) -> None:
-        self.store.add(_aas_descriptor(self.AAS_ID, id_short="Original"))
-        updated = _aas_descriptor(self.AAS_ID, id_short="Updated")
+        self.store.add(example_aas_descriptor(self.AAS_ID, id_short="Original"))
+        updated = example_aas_descriptor(self.AAS_ID, id_short="Updated")
 
         response = self.format_client.put(f"/shell-descriptors/{base64url_encode(self.AAS_ID)}", obj=updated)
 
@@ -277,7 +274,7 @@ class ShellDescriptorsEndpointTest(RegistryEndpointTestBase):
     # ------------------------------------------------------------------ DELETE /shell-descriptors/{aasIdentifier}
 
     def test_delete_success_returns_204(self) -> None:
-        self.store.add(_aas_descriptor(self.AAS_ID))
+        self.store.add(example_aas_descriptor(self.AAS_ID))
 
         response = self.format_client.delete(f"/shell-descriptors/{base64url_encode(self.AAS_ID)}")
 
@@ -298,7 +295,7 @@ class SubmodelDescriptorsThroughSuperpathEndpointTest(RegistryEndpointTestBase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.store.add(_aas_descriptor(self.AAS_ID))
+        self.store.add(example_aas_descriptor(self.AAS_ID))
 
     @property
     def _base(self) -> str:
@@ -317,8 +314,8 @@ class SubmodelDescriptorsThroughSuperpathEndpointTest(RegistryEndpointTestBase):
         self.assertEqual([], self.format_client.parse_collection(response))
 
     def test_get_all_returns_nested_descriptors(self) -> None:
-        self.format_client.post(self._base, obj=_submodel_descriptor(self.SM_ID))
-        self.format_client.post(self._base, obj=_submodel_descriptor(self.SM_ID_2))
+        self.format_client.post(self._base, obj=example_submodel_descriptor(self.SM_ID))
+        self.format_client.post(self._base, obj=example_submodel_descriptor(self.SM_ID_2))
 
         response = self.format_client.get(self._base)
 
@@ -326,8 +323,8 @@ class SubmodelDescriptorsThroughSuperpathEndpointTest(RegistryEndpointTestBase):
         self.assertEqual({self.SM_ID, self.SM_ID_2}, set(self.ids(response)))
 
     def test_get_all_supports_pagination(self) -> None:
-        self.format_client.post(self._base, obj=_submodel_descriptor(self.SM_ID))
-        self.format_client.post(self._base, obj=_submodel_descriptor(self.SM_ID_2))
+        self.format_client.post(self._base, obj=example_submodel_descriptor(self.SM_ID))
+        self.format_client.post(self._base, obj=example_submodel_descriptor(self.SM_ID_2))
 
         pages = self.format_client.get_paginated(self._base, limit=1, max_pages=2)
 
@@ -339,24 +336,24 @@ class SubmodelDescriptorsThroughSuperpathEndpointTest(RegistryEndpointTestBase):
     # ------------------------------------------------------------------ POST
 
     def test_post_success(self) -> None:
-        response = self.format_client.post(self._base, obj=_submodel_descriptor(self.SM_ID))
+        response = self.format_client.post(self._base, obj=example_submodel_descriptor(self.SM_ID))
 
         self.assertEqual(201, response.status_code, msg=response.get_data(as_text=True))
         self.assertIn(base64url_encode(self.SM_ID), response.headers["Location"])
         self.assertEqual([self.SM_ID], self.ids(self.format_client.get(self._base)))
 
     def test_post_conflict_returns_409(self) -> None:
-        self.format_client.post(self._base, obj=_submodel_descriptor(self.SM_ID))
+        self.format_client.post(self._base, obj=example_submodel_descriptor(self.SM_ID))
 
-        self.assert_error(self.format_client.post(self._base, obj=_submodel_descriptor(self.SM_ID)), 409)
+        self.assert_error(self.format_client.post(self._base, obj=example_submodel_descriptor(self.SM_ID)), 409)
 
     def test_post_aas_not_found_returns_404(self) -> None:
-        self.assert_error(self.format_client.post(self._missing_base, obj=_submodel_descriptor(self.SM_ID)), 404)
+        self.assert_error(self.format_client.post(self._missing_base, obj=example_submodel_descriptor(self.SM_ID)), 404)
 
     # ------------------------------------------------------------------ GET (single)
 
     def test_get_by_id_success(self) -> None:
-        self.format_client.post(self._base, obj=_submodel_descriptor(self.SM_ID))
+        self.format_client.post(self._base, obj=example_submodel_descriptor(self.SM_ID))
 
         response = self.format_client.get(f"{self._base}/{base64url_encode(self.SM_ID)}")
 
@@ -372,8 +369,8 @@ class SubmodelDescriptorsThroughSuperpathEndpointTest(RegistryEndpointTestBase):
     # ------------------------------------------------------------------ PUT
 
     def test_put_updates_when_present_returns_204(self) -> None:
-        self.format_client.post(self._base, obj=_submodel_descriptor(self.SM_ID, id_short="Original"))
-        updated = _submodel_descriptor(self.SM_ID, id_short="Updated")
+        self.format_client.post(self._base, obj=example_submodel_descriptor(self.SM_ID, id_short="Original"))
+        updated = example_submodel_descriptor(self.SM_ID, id_short="Updated")
 
         response = self.format_client.put(f"{self._base}/{base64url_encode(self.SM_ID)}", obj=updated)
 
@@ -385,7 +382,7 @@ class SubmodelDescriptorsThroughSuperpathEndpointTest(RegistryEndpointTestBase):
 
     def test_put_creates_when_absent_returns_201(self) -> None:
         response = self.format_client.put(
-            f"{self._base}/{base64url_encode(self.SM_ID)}", obj=_submodel_descriptor(self.SM_ID)
+            f"{self._base}/{base64url_encode(self.SM_ID)}", obj=example_submodel_descriptor(self.SM_ID)
         )
 
         self.assertEqual(201, response.status_code, msg=response.get_data(as_text=True))
@@ -395,7 +392,7 @@ class SubmodelDescriptorsThroughSuperpathEndpointTest(RegistryEndpointTestBase):
     def test_put_aas_not_found_returns_404(self) -> None:
         self.assert_error(
             self.format_client.put(
-                f"{self._missing_base}/{base64url_encode(self.SM_ID)}", obj=_submodel_descriptor(self.SM_ID)
+                f"{self._missing_base}/{base64url_encode(self.SM_ID)}", obj=example_submodel_descriptor(self.SM_ID)
             ),
             404,
         )
@@ -403,7 +400,7 @@ class SubmodelDescriptorsThroughSuperpathEndpointTest(RegistryEndpointTestBase):
     # ------------------------------------------------------------------ DELETE
 
     def test_delete_success_returns_204(self) -> None:
-        self.format_client.post(self._base, obj=_submodel_descriptor(self.SM_ID))
+        self.format_client.post(self._base, obj=example_submodel_descriptor(self.SM_ID))
 
         response = self.format_client.delete(f"{self._base}/{base64url_encode(self.SM_ID)}")
 
@@ -434,8 +431,8 @@ class SubmodelDescriptorsEndpointTest(RegistryEndpointTestBase):
         self.assertEqual([], self.format_client.parse_collection(response))
 
     def test_get_all_returns_registered_descriptors(self) -> None:
-        self.store.add(_submodel_descriptor(self.SM_ID))
-        self.store.add(_submodel_descriptor(self.SM_ID_2))
+        self.store.add(example_submodel_descriptor(self.SM_ID))
+        self.store.add(example_submodel_descriptor(self.SM_ID_2))
 
         response = self.format_client.get("/submodel-descriptors")
 
@@ -443,8 +440,8 @@ class SubmodelDescriptorsEndpointTest(RegistryEndpointTestBase):
         self.assertEqual({self.SM_ID, self.SM_ID_2}, set(self.ids(response)))
 
     def test_get_all_only_returns_submodel_descriptors(self) -> None:
-        self.store.add(_submodel_descriptor(self.SM_ID))
-        self.store.add(_aas_descriptor(self.AAS_ID))
+        self.store.add(example_submodel_descriptor(self.SM_ID))
+        self.store.add(example_aas_descriptor(self.AAS_ID))
 
         response = self.format_client.get("/submodel-descriptors")
 
@@ -452,22 +449,22 @@ class SubmodelDescriptorsEndpointTest(RegistryEndpointTestBase):
         self.assertEqual([self.SM_ID], self.ids(response))
 
     def test_get_all_supports_pagination(self) -> None:
-        self.store.add(_submodel_descriptor(self.SM_ID))
-        self.store.add(_submodel_descriptor(self.SM_ID_2))
+        self.store.add(example_submodel_descriptor(self.SM_ID))
+        self.store.add(example_submodel_descriptor(self.SM_ID_2))
 
         pages = self.format_client.get_paginated("/submodel-descriptors", limit=1, max_pages=2)
 
         self.assertEqual([1, 1], [len(page) for page in pages])
 
     def test_get_all_negative_limit_returns_400(self) -> None:
-        self.store.add(_submodel_descriptor(self.SM_ID))
+        self.store.add(example_submodel_descriptor(self.SM_ID))
 
         self.assert_error(self.format_client.get("/submodel-descriptors?limit=-1"), 400)
 
     # ------------------------------------------------------------------ POST /submodel-descriptors
 
     def test_post_success(self) -> None:
-        response = self.format_client.post("/submodel-descriptors", obj=_submodel_descriptor(self.SM_ID))
+        response = self.format_client.post("/submodel-descriptors", obj=example_submodel_descriptor(self.SM_ID))
 
         self.assertEqual(201, response.status_code, msg=response.get_data(as_text=True))
         self.assertIn(base64url_encode(self.SM_ID), response.headers["Location"])
@@ -481,14 +478,14 @@ class SubmodelDescriptorsEndpointTest(RegistryEndpointTestBase):
         self.assert_error(response, 400)
 
     def test_post_conflict_returns_409(self) -> None:
-        self.store.add(_submodel_descriptor(self.SM_ID))
+        self.store.add(example_submodel_descriptor(self.SM_ID))
 
-        self.assert_error(self.format_client.post("/submodel-descriptors", obj=_submodel_descriptor(self.SM_ID)), 409)
+        self.assert_error(self.format_client.post("/submodel-descriptors", obj=example_submodel_descriptor(self.SM_ID)), 409)
 
     # ------------------------------------------------------------------ GET /submodel-descriptors/{submodelIdentifier}
 
     def test_get_by_id_success(self) -> None:
-        self.store.add(_submodel_descriptor(self.SM_ID))
+        self.store.add(example_submodel_descriptor(self.SM_ID))
 
         response = self.format_client.get(f"/submodel-descriptors/{base64url_encode(self.SM_ID)}")
 
@@ -500,7 +497,7 @@ class SubmodelDescriptorsEndpointTest(RegistryEndpointTestBase):
 
     def test_get_by_id_wrong_type_returns_404(self) -> None:
         # A descriptor with this id exists, but it is an AAS descriptor, not a submodel descriptor.
-        self.store.add(_aas_descriptor(self.AAS_ID))
+        self.store.add(example_aas_descriptor(self.AAS_ID))
 
         self.assert_error(self.format_client.get(f"/submodel-descriptors/{base64url_encode(self.AAS_ID)}"), 404)
 
@@ -508,7 +505,7 @@ class SubmodelDescriptorsEndpointTest(RegistryEndpointTestBase):
 
     def test_put_creates_when_absent_returns_201(self) -> None:
         response = self.format_client.put(
-            f"/submodel-descriptors/{base64url_encode(self.SM_ID)}", obj=_submodel_descriptor(self.SM_ID)
+            f"/submodel-descriptors/{base64url_encode(self.SM_ID)}", obj=example_submodel_descriptor(self.SM_ID)
         )
 
         self.assertEqual(201, response.status_code, msg=response.get_data(as_text=True))
@@ -516,8 +513,8 @@ class SubmodelDescriptorsEndpointTest(RegistryEndpointTestBase):
         self.assertIsNotNone(self.store.get(self.SM_ID))
 
     def test_put_updates_when_present_returns_204(self) -> None:
-        self.store.add(_submodel_descriptor(self.SM_ID, id_short="Original"))
-        updated = _submodel_descriptor(self.SM_ID, id_short="Updated")
+        self.store.add(example_submodel_descriptor(self.SM_ID, id_short="Original"))
+        updated = example_submodel_descriptor(self.SM_ID, id_short="Updated")
 
         response = self.format_client.put(f"/submodel-descriptors/{base64url_encode(self.SM_ID)}", obj=updated)
 
@@ -529,7 +526,7 @@ class SubmodelDescriptorsEndpointTest(RegistryEndpointTestBase):
     # --------------------------------------------------------------- DELETE /submodel-descriptors/{submodelIdentifier}
 
     def test_delete_success_returns_204(self) -> None:
-        self.store.add(_submodel_descriptor(self.SM_ID))
+        self.store.add(example_submodel_descriptor(self.SM_ID))
 
         response = self.format_client.delete(f"/submodel-descriptors/{base64url_encode(self.SM_ID)}")
 
