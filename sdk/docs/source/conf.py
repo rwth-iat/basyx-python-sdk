@@ -56,11 +56,11 @@ add_module_names = False
 # Still render on the page just dont clutter / leak into navigation or TOC.
 toc_object_entries = False
 
-# Autodoc defaults: document public members only, preserve source order,
-# Undocumented members are omitted to reduce noise
+# Autodoc defaults: document public members only, preserve source order
 autodoc_default_options = {
     "members": True,
     "member-order": "bysource", # alphabetic ordering can break logical grouping of source files
+    "undoc-members": True,
 }
 
 # Mapping for correctly linking other module documentations.
