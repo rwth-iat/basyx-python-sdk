@@ -58,6 +58,7 @@ runs:
 
     - name: Copy LICENSE into build directory
       working-directory: ./server
+      shell: bash
       run: cp ../LICENSE .
 
     - name: Build Docker Image
