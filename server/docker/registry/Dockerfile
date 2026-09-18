@@ -15,9 +15,9 @@ RUN apk update && \
     pip install uwsgi && \
     apk del git bash
 
-
 COPY --from=sdk . /sdk
 COPY ./app /server/app
+COPY ./LICENSE /LICENSE
 COPY ./pyproject.toml /server/pyproject.toml
 COPY ./docker/registry/uwsgi.ini /etc/uwsgi/
 COPY ./docker/common/supervisord.ini /etc/supervisor/conf.d/supervisord.ini
@@ -34,7 +34,6 @@ ENV NGINX_MAX_UPLOAD=1M
 ENV NGINX_WORKER_PROCESSES=1
 ENV LISTEN_PORT=80
 ENV CLIENT_BODY_BUFFER_SIZE=1M
-ENV API_BASE_PATH=/api/v3.1/
 
 # Default values for the storage envs
 ENV INPUT=/input

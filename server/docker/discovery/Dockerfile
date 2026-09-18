@@ -17,6 +17,7 @@ RUN apk update && \
 
 COPY --from=sdk . /sdk
 COPY ./app /server/app
+COPY ./LICENSE /LICENSE
 COPY ./pyproject.toml /server/pyproject.toml
 COPY ./docker/discovery/uwsgi.ini /etc/uwsgi/
 COPY ./docker/common/supervisord.ini /etc/supervisor/conf.d/supervisord.ini
@@ -33,7 +34,6 @@ ENV NGINX_MAX_UPLOAD=1M
 ENV NGINX_WORKER_PROCESSES=1
 ENV LISTEN_PORT=80
 ENV CLIENT_BODY_BUFFER_SIZE=1M
-ENV API_BASE_PATH=/api/v3.1/
 
 # Copy the entrypoint that will generate Nginx additional configs
 COPY ./docker/common/entrypoint.sh /entrypoint.sh
