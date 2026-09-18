@@ -1,6 +1,6 @@
 from typing import Any
 
-from app.model import DictDescriptorStore, SecurityAttributeObject, SecurityTypeEnum
+from app.model import SecurityAttributeObject, SecurityTypeEnum
 from app.model.descriptor import AssetAdministrationShellDescriptor, SubmodelDescriptor
 from app.model.endpoint import Endpoint, ProtocolInformation
 from basyx.aas import model
@@ -31,7 +31,7 @@ def example_aas_descriptor(id_: str, **kwargs: Any) -> AssetAdministrationShellD
         "display_name": model.MultiLanguageNameType(
             {"en-US": "Exaple display name", "de": "Beispiel Anzeigename"}
         ),
-        # TODO: Descriptor serialization fails with extensions, fix and enable test
+        # TODO: Descriptor deserialization fails with extensions, fix and enable test (issue #630)
         # "extension": [model.Extension(
         #     name="Example Descriptor Extension",
         #     value_type=model.datatypes.String,
@@ -58,14 +58,7 @@ def example_aas_descriptor(id_: str, **kwargs: Any) -> AssetAdministrationShellD
 def example_submodel_descriptor(id_: str, **kwargs: Any) -> SubmodelDescriptor:
     descriptor_args = dict(
         {
-            # TODO: SubmodelDescriptor.__init__() does not take args of Descriptor.__init__()
-            # "description": model.MultiLanguageTextType(
-            #   {"en-US": "Example description", "de": "Beispiel Description"}
-            # ),
-            # "display_name": model.MultiLanguageNameType(
-            #   {"en-US": "Exaple display name", "de": "Beispiel Anzeigename"}
-            # ),
-            # TODO: equal to AssetAdministrationShellDescriptor
+            # TODO: equal to AssetAdministrationShellDescriptor (issue #630)
             # "extension": [model.Extension(
             #     name="Example Descriptor Extension",
             #     value_type=model.datatypes.String,
@@ -87,4 +80,14 @@ def example_submodel_descriptor(id_: str, **kwargs: Any) -> SubmodelDescriptor:
         }
     )
     descriptor_args.update(kwargs)
-    return SubmodelDescriptor(id_=id_, **descriptor_args)  # type: ignore
+    descriptor = SubmodelDescriptor(id_=id_, **descriptor_args)  # type: ignore
+
+    descriptor.description = model.MultiLanguageTextType(
+        {"en-US": "Example description", "de": "Beispiel Description"}
+    )
+
+    descriptor.display_name = model.MultiLanguageNameType(
+        {"en-US": "Exaple display name", "de": "Beispiel Anzeigename"}
+    )
+
+    return descriptor

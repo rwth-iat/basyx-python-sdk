@@ -3,10 +3,11 @@ import unittest
 from typing import Any
 
 from app.adapter import ServerAASToJsonEncoder
-from .descriptor_utils import example_submodel_descriptor, example_aas_descriptor, example_endpoint
+
+from .descriptor_utils import example_aas_descriptor, example_submodel_descriptor
 
 
-class TestDescriptorSerialization(unittest.TestCase):
+class TestRegistryObjectSerialization(unittest.TestCase):
     """
     Tests the serialization of full :class:`~app.model.descriptor.Descriptor` objects
     """
@@ -19,7 +20,7 @@ class TestDescriptorSerialization(unittest.TestCase):
         self.assertEqual("ExampleProtocolBody", protocol["subprotocolBody"])
         self.assertEqual("ExampleEncoding", protocol["subprotocolBodyEncoding"])
 
-        # TODO: Endpoint security is currently not serialized
+        # TODO: Endpoint security is currently not serialized (issue #632)
         # self.assertIsInstance(protocol["securityAttributes"], list)
         # self.assertEqual(1, len(protocol["securityAttributes"]))
         # self.assertEqual("NONE", protocol["securityAttributes"][0]["type"])
@@ -42,7 +43,7 @@ class TestDescriptorSerialization(unittest.TestCase):
         self.assertIsInstance(result["displayName"], list)
         self.assertEqual(2, len(result["displayName"]))
 
-        # TODO: enable when Descriptor serializes extensions
+        # TODO: enable when Descriptor serializes extensions (issue 630)
         # extensions attribute is list of model.Extension
         # self.assertIn("extensions", result)
         # self.assertIsInstance(result["extensions"], list)
@@ -73,7 +74,17 @@ class TestDescriptorSerialization(unittest.TestCase):
         dump = json.dumps(sm_descriptor, cls=ServerAASToJsonEncoder)
         result = json.loads(dump)
 
-        # TODO: enable when Descriptor serializes extensions
+        self.assertEqual("http://example.org/Test_Submodel", result["id"])
+
+        # description is list of model.LangStringTextType (covered in basyx.aas.adpater)
+        self.assertIsInstance(result["description"], list)
+        self.assertEqual(2, len(result["description"]))
+
+        # displayName is list of model.LangStringNameType (covered in basyx.aas.adapter)
+        self.assertIsInstance(result["displayName"], list)
+        self.assertEqual(2, len(result["displayName"]))
+
+        # TODO: enable when Descriptor serializes extensions (issue #630)
         # extensions attribute is list of model.Extension
         # self.assertIn("extensions", result)
         # self.assertIsInstance(result["extensions"], list)
@@ -87,7 +98,7 @@ class TestDescriptorSerialization(unittest.TestCase):
         # semanticId is model.Reference (covered in basyx.aas.adapter)
         self.assertEqual("http://example.org/SubmodelDescription/", result["semanticId"]["keys"][0]["value"])
 
-        # TODO: SubmodelDescriptor currently uses trailing "s"
+        # TODO: SubmodelDescriptor currently uses trailing "s" (issue #631)
         # supplementalSemanticId is list of model.Reference
         # self.assertIsInstance(result["supplementalSemanticId"], list)
         # self.assertEqual(
