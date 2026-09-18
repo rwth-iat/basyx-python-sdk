@@ -1,3 +1,10 @@
+# Copyright (c) 2026 the Eclipse BaSyx Authors
+#
+# This program and the accompanying materials are made available under the terms of the MIT License, available in
+# the LICENSE file of this project.
+#
+# SPDX-License-Identifier: MIT
+
 from app.util.converters import base64url_encode
 from basyx.aas import model
 from basyx.aas.examples.data.example_aas_missing_attributes import (
