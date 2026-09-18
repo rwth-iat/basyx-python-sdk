@@ -17,6 +17,7 @@ RUN apk update && \
 
 # Copy only the files we need to run the container
 # The argumentation for this is to keep the containers as slim as possible.
+COPY ./LICENSE /LICENSE
 COPY ./sdk /sdk
 COPY ./server/app /server/app
 COPY ./server/pyproject.toml /server/pyproject.toml
@@ -35,7 +36,6 @@ ENV NGINX_MAX_UPLOAD=1M
 ENV NGINX_WORKER_PROCESSES=1
 ENV LISTEN_PORT=80
 ENV CLIENT_BODY_BUFFER_SIZE=1M
-ENV API_BASE_PATH=/api/v3.1/
 
 # Default values for the storage envs
 ENV INPUT=/input
