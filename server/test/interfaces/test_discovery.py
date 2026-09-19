@@ -14,6 +14,7 @@ SDK XML serializer cannot render, so those are JSON only.
 
 import json
 import os
+import tempfile
 import unittest
 from typing import List, Tuple
 
@@ -303,47 +304,46 @@ class AssetLinksByIdEndpointTest(DiscoveryEndpointTestBase):
 
 
 class DiscoveryStorePersistenceTest(unittest.TestCase):
-    STORE_FILE = os.path.join(os.path.dirname(__file__), "discovery_store_persistence_test.json")
-
-    def tearDown(self) -> None:
-        for path in (self.STORE_FILE, f"{self.STORE_FILE}.tmp"):
-            if os.path.exists(path):
-                os.remove(path)
-
     def test_roundtrip_rebuilds_reverse_index(self) -> None:
-        store = DiscoveryStore()
-        asset_1 = SpecificAssetId("globalAssetId", "urn:asset:1")
-        asset_2 = SpecificAssetId("serialNumber", "SN-42")
-        asset_3 = SpecificAssetId("globalAssetId", "urn:asset:1")  # shared by both AAS
-        store.add_specific_asset_ids_to_aas("https://example.org/aas/1", [asset_1, asset_2])
-        store.add_specific_asset_ids_to_aas("https://example.org/aas/2", [asset_3])
-        store.to_file(self.STORE_FILE)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            store_file = os.path.join(tmp_dir, "discovery_store.json")
+            store = DiscoveryStore()
+            asset_1 = SpecificAssetId("globalAssetId", "urn:asset:1")
+            asset_2 = SpecificAssetId("serialNumber", "SN-42")
+            asset_3 = SpecificAssetId("globalAssetId", "urn:asset:1")  # shared by both AAS
+            store.add_specific_asset_ids_to_aas("https://example.org/aas/1", [asset_1, asset_2])
+            store.add_specific_asset_ids_to_aas("https://example.org/aas/2", [asset_3])
+            store.to_file(store_file)
 
-        loaded = DiscoveryStore.from_file(self.STORE_FILE)
+            loaded = DiscoveryStore.from_file(store_file)
 
-        self.assertEqual(store.aas_id_to_asset_ids, loaded.aas_id_to_asset_ids)
-        self.assertEqual(
-            {"https://example.org/aas/1", "https://example.org/aas/2"},
-            loaded.asset_id_to_aas_ids[asset_1],
-        )
-        self.assertEqual({"https://example.org/aas/1"}, loaded.asset_id_to_aas_ids[asset_2])
+            self.assertEqual(store.aas_id_to_asset_ids, loaded.aas_id_to_asset_ids)
+            self.assertEqual(
+                {"https://example.org/aas/1", "https://example.org/aas/2"},
+                loaded.asset_id_to_aas_ids[asset_1],
+            )
+            self.assertEqual({"https://example.org/aas/1"}, loaded.asset_id_to_aas_ids[asset_2])
 
     def test_roundtrip_empty_store(self) -> None:
-        store = DiscoveryStore()
-        store.to_file(self.STORE_FILE)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            store_file = os.path.join(tmp_dir, "discovery_store.json")
+            store = DiscoveryStore()
+            store.to_file(store_file)
 
-        loaded = DiscoveryStore.from_file(self.STORE_FILE)
+            loaded = DiscoveryStore.from_file(store_file)
 
-        self.assertEqual({}, loaded.aas_id_to_asset_ids)
-        self.assertEqual({}, loaded.asset_id_to_aas_ids)
+            self.assertEqual({}, loaded.aas_id_to_asset_ids)
+            self.assertEqual({}, loaded.asset_id_to_aas_ids)
 
     def test_to_file_does_not_leave_temp_file_behind(self) -> None:
-        store = DiscoveryStore()
-        store.add_specific_asset_ids_to_aas(
-            "https://example.org/aas/1", [SpecificAssetId("globalAssetId", "urn:asset:1")]
-        )
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            store_file = os.path.join(tmp_dir, "discovery_store.json")
+            store = DiscoveryStore()
+            store.add_specific_asset_ids_to_aas(
+                "https://example.org/aas/1", [SpecificAssetId("globalAssetId", "urn:asset:1")]
+            )
 
-        store.to_file(self.STORE_FILE)
+            store.to_file(store_file)
 
-        self.assertTrue(os.path.exists(self.STORE_FILE))
-        self.assertFalse(os.path.exists(f"{self.STORE_FILE}.tmp"))
+            self.assertTrue(os.path.exists(store_file))
+            self.assertFalse(os.path.exists(f"{store_file}.tmp"))
