@@ -4,6 +4,7 @@
 # the LICENSE file of this project.
 #
 # SPDX-License-Identifier: MIT
+
 import os
 import tempfile
 import unittest
@@ -21,7 +22,7 @@ DEFAULT_ENV = dict({
     "STORAGE_PERSISTENCY": "false"
 })
 
-class EntrypointTest(unittest.TestCase):
+class RepositoryEntrypointTest(unittest.TestCase):
     def test_loads_input_directory(self) -> None:
         with tempfile.TemporaryDirectory() as input_dir:
             expected_ids = write_repository_input(input_dir)
@@ -39,10 +40,11 @@ class EntrypointTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as input_dir:
             env = dict(DEFAULT_ENV)
             env["INPUT"] = os.path.join(input_dir, "non_existent")
-            with self.assertLogs(level="WARNING") as logs, run_module("app.services.run_repository", env) as repo_run:
-                storage = repo_run.application.object_store
-                self.assertIsInstance(storage, DictIdentifiableStore)
-                self.assertEqual(0, len(storage))
+            with self.assertLogs("app.services.run_repository", level="WARNING") as logs:
+                with run_module("app.services.run_repository", env) as repo_run:
+                    storage = repo_run.application.object_store
+                    self.assertIsInstance(storage, DictIdentifiableStore)
+                    self.assertEqual(0, len(storage))
 
             self.assertTrue(any("non_existent\" not found" in message for message in logs.output))
 
@@ -150,7 +152,7 @@ class EntrypointTest(unittest.TestCase):
             "API_BASE_PATH": "/custom-path"
         })
         with mock.patch("app.interfaces.repository.WSGIApp", autospec=True) as app_mock:
-            with run_module("app.services.run_repository", env) as repo_run:
+            with run_module("app.services.run_repository", env):
                 app_mock.assert_called_with(mock.ANY, mock.ANY, base_path="/custom-path")
 
     def test_persistency_truthy_values_use_local_file_store(self) -> None:
