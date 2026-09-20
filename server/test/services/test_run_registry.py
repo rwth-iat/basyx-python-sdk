@@ -20,7 +20,7 @@ DEFAULT_ENV = dict({
     "STORAGE_PERSISTENCY": "false"
 })
 
-class RepositoryEntrypointTest(unittest.TestCase):
+class RegistryEntrypointTest(unittest.TestCase):
 
     def test_loads_input_directory(self) -> None:
         with tempfile.TemporaryDirectory() as input_dir:
