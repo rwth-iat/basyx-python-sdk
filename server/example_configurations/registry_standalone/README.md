@@ -50,5 +50,5 @@ Input files are read from `./input` and stored persistently under `./storage` on
 The server can be accessed at http://localhost:8083/api/v3.1.1/ from your host system. 
 To get a different setup, the `compose.yaml` file can be adapted using the options described in the main server [README.md](../../README.md#options).
 
-Note that the `Dockerfile` has to be specified explicitly via `dockerfile: server/docker/repository/Dockerfile`, as the build context must be set to the repository root to allow access to the local `/sdk`.
+Note that the image is built from the `server` directory. The local `sdk` directory is passed in as an additional build context named `sdk`.
 
