@@ -188,7 +188,7 @@ For that, you need to have Docker installed on your system.
 In the `server` directory: 
 ```bash
 ruff check
-docker build -t basyx-python-repository -f docker/repository/Dockerfile --build-context sdk=../sdk .
+docker build -t basyx-python-repository -f docker/repository/Dockerfile --build-context sdk=../sdk --build-context license=.. .
 docker run --name basyx-python-repository basyx-python-repository
 ```
 Replace `repository` with `discovery` or `registry` to test the other server profiles.

@@ -30,11 +30,12 @@ $ docker pull eclipsebasyx/basyx-python-repository:<version>
 
 ## Building
 
-If you need to build an image locally (e.g. for development) you first have to copy the `LICENSE` file from the repository root
-into this directory. Then run the following build command in this directory:
+If you need to build an image locally (e.g. for development) run the following build command in this directory:
 ```
-$ docker build -t basyx-python-repository -f docker/repository/Dockerfile --build-context sdk=../sdk .
+$ docker build -t basyx-python-repository -f docker/repository/Dockerfile --build-context sdk=../sdk --build-context license=.. .
 ```
+Note that the image is built from the `server` directory. The local `sdk` directory is passed in as an additional build context named `sdk`.
+To include the package license, a second additional build context `license` passes in the repository root.
 
 Note that when cloning this repository on Windows, Git may convert the line separators to CRLF. This breaks [`entrypoint.sh`](docker/repository/entrypoint.sh) and [`stop-supervisor.sh`](docker/common/stop-supervisor.sh). Ensure both files use LF line separators (`\n`) before building. 
 

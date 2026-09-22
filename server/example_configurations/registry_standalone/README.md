@@ -39,16 +39,17 @@ The Registry Service provides the endpoint for a given AAS-ID or Submodel-ID. Su
 
 ## Configuration
 
-This example Docker compose configuration starts a registry server. 
-
-The container image can also be built and run via:
+The example Docker compose configuration `compose.dev.yml` builds a registry server locally. This is usually only necessary
+for development:
 ```
-$ docker compose up
+$ docker compose up -f compose.dev.yml
 ```
+To just run the registry server, use the pre-built image `eclipsebasyx/basyx-python-registry:latest` 
+on [DockerHub](https://hub.docker.com/r/eclipsebasyx/basyx-python-registry).
 
 Input files are read from `./input` and stored persistently under `./storage` on your host system. 
 The server can be accessed at http://localhost:8083/api/v3.1.1/ from your host system. 
-To get a different setup, the `compose.yaml` file can be adapted using the options described in the main server [README.md](../../README.md#options).
+To get a different setup, the `compose.dev.yaml` file can be adapted using the options described in the main server [README.md](../../README.md#options).
 
 Note that the image is built from the `server` directory. The local `sdk` directory is passed in as an additional build context named `sdk`.
-
+To include the package license, a second additional build context `license` passes in the repository root.

@@ -5,10 +5,12 @@ services:
       context: ../..
       additional_contexts:
         - sdk=../../../sdk
-      dockerfile: ./docker/discovery/Dockerfile
+        - license=../../..
+      dockerfile: ./docker/repository/Dockerfile
     ports:
-    - "8084:80"
-    environment:
-      storage_path: /storage/discovery_store.json
+    - "8080:80"
     volumes:
+      - ./input:/input
       - ./storage:/storage
+    environment:
+      STORAGE_PERSISTENCY: True

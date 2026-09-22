@@ -18,8 +18,8 @@ RUN apk update && \
 # Copy only the files we need to run the container
 # The argumentation for this is to keep the containers as slim as possible.
 COPY --from=sdk . /sdk
+COPY --from=license ./LICENSE /server/LICENSE
 COPY ./app /server/app
-COPY ./LICENSE /LICENSE
 COPY ./pyproject.toml /server/pyproject.toml
 COPY ./docker/repository/uwsgi.ini /etc/uwsgi/
 COPY ./docker/common/supervisord.ini /etc/supervisor/conf.d/supervisord.ini

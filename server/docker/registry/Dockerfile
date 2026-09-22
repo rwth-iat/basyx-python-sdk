@@ -16,8 +16,8 @@ RUN apk update && \
     apk del git bash
 
 COPY --from=sdk . /sdk
+COPY --from=license ./LICENSE /server/LICENSE
 COPY ./app /server/app
-COPY ./LICENSE /LICENSE
 COPY ./pyproject.toml /server/pyproject.toml
 COPY ./docker/registry/uwsgi.ini /etc/uwsgi/
 COPY ./docker/common/supervisord.ini /etc/supervisor/conf.d/supervisord.ini
