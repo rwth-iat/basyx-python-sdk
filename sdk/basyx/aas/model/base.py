@@ -316,7 +316,7 @@ class LangStringSet(MutableMapping[str, str]):
     """
 
     @staticmethod
-    def _compile_language_tag_re() -> re.Pattern[str]:
+    def _compile_language_tag_re() -> "re.Pattern[str]":
         alphanum = "[a-zA-Z0-9]"
         singleton = "[0-9A-WY-Za-wy-z]"
         extension = f"{singleton}(-({alphanum}){{2,8}})+"
@@ -344,8 +344,9 @@ class LangStringSet(MutableMapping[str, str]):
 
         return re.compile(f"^{language_tag}$")
 
-    # Compiled once when the class is created, since language tags are checked for every LangStringSet entry
-    _LANGUAGE_TAG_RE = _compile_language_tag_re()
+    # Compiled once when the class is created, since language tags are checked for every LangStringSet entry.
+    # Calling the staticmethod object directly in the class body only works since Python 3.10, hence ``__func__``.
+    _LANGUAGE_TAG_RE = _compile_language_tag_re.__func__()  # type: ignore[attr-defined]
 
     def __init__(self, dict_: Dict[str, str]):
         self._dict: Dict[str, str] = {}
