@@ -184,6 +184,14 @@ class XmlResponseAlt(XmlResponse):
         super().__init__(*args, **kwargs, content_type=content_type)
 
 
+def assert_json_response(response_t: Type[APIResponse], context: str) -> None:
+    """
+    Raises NotAcceptable unless ``response_t`` is JsonResponse.
+    """
+    if response_t is not JsonResponse:
+        raise werkzeug.exceptions.NotAcceptable(f"{context} is only supported for the content type application/json!")
+
+
 class ResultToJsonEncoder(ServerAASToJsonEncoder):
     @classmethod
     def _result_to_json(cls, result: Result) -> Dict[str, object]:
@@ -490,3 +498,14 @@ def is_stripped_request(request: Request) -> bool:
     if extent is not None:
         raise werkzeug.exceptions.NotImplemented("The parameter extent is not yet implemented for this server!")
     return level == "core"
+
+
+def parse_level(request: Request) -> bool:
+    """
+    Parses the ``?level`` query parameter (SerializationModifier Level).
+    :return: True for ``level=deep`` (matches path_serialization.py), False for ``level=core``.
+    """
+    level = request.args.get("level")
+    if level not in {"deep", "core", None}:
+        raise BadRequest(f"Level {level} is not a valid level!")
+    return level != "core"
