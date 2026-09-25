@@ -23,8 +23,9 @@ SERVER_BASE_URL = TEST_CONFIG["server"]["url"]
 )
 class DiscoveryDockerIntegrationTest(unittest.TestCase):
     """
-    Testing tests against a real, already-running discovery server instance, analogous to ``test_docker_integration_repository.py`` for the
-    repository profile: skipped entirely if no server is reachable at ``SERVER_BASE_URL``.
+    Testing tests against a real, already-running discovery server instance, analogous to
+    ``test_docker_integration_repository.py`` for the repository profile: skipped entirely if no server is reachable at
+    ``SERVER_BASE_URL``.
 
     Set the ``REQUIRE_SERVER_INTEGRATION_TESTS`` environment variable to make this test class fail instead of
     being skipped when no server is reachable (see ``test._helper.test_helpers``).

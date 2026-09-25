@@ -487,7 +487,13 @@ class SubmodelDescriptorsEndpointTest(RegistryEndpointTestBase):
     def test_post_conflict_returns_409(self) -> None:
         self.store.add(example_submodel_descriptor(self.SM_ID))
 
-        self.assert_error(self.format_client.post("/submodel-descriptors", obj=example_submodel_descriptor(self.SM_ID)), 409)
+        self.assert_error(
+            self.format_client.post(
+                "/submodel-descriptors",
+                obj=example_submodel_descriptor(self.SM_ID),
+            ),
+            409,
+        )
 
     # ------------------------------------------------------------------ GET /submodel-descriptors/{submodelIdentifier}
 
