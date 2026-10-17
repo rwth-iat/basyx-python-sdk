@@ -2,7 +2,7 @@ name: access-control-general
 
 services:
   envoy:
-    image: envoyproxy/envoy:v1.31-latest
+    image: envoyproxy/envoy:v1.31.10
     container_name: Envoy
     volumes:
       - ./envoy.yaml:/etc/envoy/envoy.yaml
@@ -15,7 +15,7 @@ services:
       - keycloak
 
   keycloak:
-    image: quay.io/keycloak/keycloak:latest
+    image: quay.io/keycloak/keycloak:25.0.4
     container_name: Keycloak
     command: ["start-dev", "--import-realm"]
     environment:
@@ -29,7 +29,8 @@ services:
       - ./keycloak/realm.json:/opt/keycloak/data/import/realm.json
 
   opa-envoy:
-    image: openpolicyagent/opa:latest-envoy
+    # The "-envoy-static" variant is published for amd64 and arm64 (Apple Silicon).
+    image: openpolicyagent/opa:1.21.2-envoy-static
     container_name: opa-envoy
     # No published ports: Envoy reaches OPA over the internal network.
     command:
