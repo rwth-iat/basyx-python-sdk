@@ -16,19 +16,38 @@ request_path := split(raw_path, "?")[0]
 request_method := upper(object.get(http_request, "method", ""))
 
 allow if {
+	valid_path
 	public_path
 }
 
 allow if {
+	valid_path
 	count(matching_rules) > 0
 	some rule in effective_rules
 	role_matches(rule)
 }
 
 allow if {
+	valid_path
 	count(requested_resources) > 0
 	not denied_requested_resource
 }
+
+# Defense in depth: Envoy normalizes paths (normalize_path, merge_slashes), so these
+# should never arrive here. If they do, the gateway is misconfigured and the path
+# segments below cannot be trusted, so the request is denied.
+valid_path if not invalid_path
+
+invalid_path if contains(request_path, "//")
+
+invalid_path if contains(request_path, "\\")
+
+invalid_path if {
+	some segment in split(request_path, "/")
+	segment in {".", ".."}
+}
+
+invalid_path if regex.match(`(?i)%(2e|2f|5c|25)`, request_path)
 
 public_path if {
 	some prefix in object.get(data.access_control, "public_path_prefixes", [])
