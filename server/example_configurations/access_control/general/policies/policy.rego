@@ -6,8 +6,10 @@ default allow := false
 
 attributes := object.get(input, "attributes", {})
 http_request := object.get(object.get(attributes, "request", {}), "http", {})
-metadata_context := object.get(attributes, "metadata_context", {})
-filter_metadata := object.get(metadata_context, "filter_metadata", {})
+
+# The OPA-Envoy plugin delivers these keys in camelCase; snake_case is kept as a fallback.
+metadata_context := object.get(attributes, "metadataContext", object.get(attributes, "metadata_context", {}))
+filter_metadata := object.get(metadata_context, "filterMetadata", object.get(metadata_context, "filter_metadata", {}))
 jwt_metadata := object.get(filter_metadata, "envoy.filters.http.jwt_authn", {})
 claims := object.get(jwt_metadata, "jwt_payload", {})
 
