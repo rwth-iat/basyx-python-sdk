@@ -8,7 +8,8 @@ services:
       - ./envoy.yaml:/etc/envoy/envoy.yaml
     ports:
       - "10000:10000"
-      - "8001:8001"
+      # Envoy admin interface: no authentication, so only reachable from this machine.
+      - "127.0.0.1:8001:8001"
     command: ["envoy", "-c", "/etc/envoy/envoy.yaml", "--component-log-level", "ext_authz:trace"]
     depends_on:
       - keycloak
@@ -30,8 +31,7 @@ services:
   opa-envoy:
     image: openpolicyagent/opa:latest-envoy
     container_name: opa-envoy
-    ports:
-      - "9191:9191"
+    # No published ports: Envoy reaches OPA over the internal network.
     command:
       - run
       - --server

@@ -13,7 +13,8 @@ services:
       - jwt:debug,ext_authz:debug
     ports:
       - "10000:10000"
-      - "8001:8001"
+      # Envoy admin interface: no authentication, so only reachable from this machine.
+      - "127.0.0.1:8001:8001"
     volumes:
       - ./envoy.yaml:/etc/envoy/envoy.yaml:ro
     depends_on:
@@ -92,9 +93,8 @@ services:
       - --log-level=info
       - --config-file=/config/opa.yaml
       - /policies
-    ports:
-      - "8181:8181"
-      - "9901:9901"
+    # No published ports: Envoy reaches OPA over the internal network. The OPA REST API
+    # has no authentication and would allow reading and replacing the policy.
     volumes:
       - ./opa.yaml:/config/opa.yaml:ro
       - ./policies:/policies:ro
