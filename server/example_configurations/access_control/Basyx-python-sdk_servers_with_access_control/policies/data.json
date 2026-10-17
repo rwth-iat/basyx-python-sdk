@@ -9,7 +9,8 @@
         "description": "Editors and admins can read repository resources.",
         "path_prefix": "/repository",
         "methods": [
-          "GET"
+          "GET",
+          "HEAD"
         ],
         "roles": [
           "editor",
@@ -21,7 +22,8 @@
         "path_prefix": "/repository",
         "methods": [
           "POST",
-          "PUT"
+          "PUT",
+          "PATCH"
         ],
         "roles": [
           "editor",
@@ -42,7 +44,8 @@
         "description": "Editors and admins can read registry resources.",
         "path_prefix": "/registry",
         "methods": [
-          "GET"
+          "GET",
+          "HEAD"
         ],
         "roles": [
           "editor",
@@ -75,7 +78,8 @@
         "description": "Editors and admins can read discovery resources.",
         "path_prefix": "/discovery",
         "methods": [
-          "GET"
+          "GET",
+          "HEAD"
         ],
         "roles": [
           "editor",
@@ -118,26 +122,25 @@
     ],
     "resource_rules": [
       {
-        "description": "Viewers can read only selected AAS endpoints. IDs are the base64url path identifiers used by the HTTP API.",
+        "description": "Viewers can read only selected AAS endpoints. IDs are the base64url path identifiers used by the HTTP API: https://example.org/Test_AssetAdministrationShell (from example_data/example_aas.json).",
         "path_templates": [
           "/repository/api/v3.1/shells/{aas_id}",
           "/registry/api/v3.1/shell-descriptors/{aas_id}",
           "/discovery/api/v3.1/lookup/shells/{aas_id}"
         ],
         "ids": [
-          "aHR0cHM6Ly9hY3BsdC5vcmcvVGVzdF9Bc3NldEFkbWluaXN0cmF0aW9uU2hlbGw",
-          "aHR0cHM6Ly9hY3BsdC5vcmcvVGVzdF9Bc3NldEFkbWluaXN0cmF0aW9uU2hlbGxfTWFuZGF0b3J5",
-          "aHR0cHM6Ly9hY3BsdC5vcmcvVGVzdF9Bc3NldEFkbWluaXN0cmF0aW9uU2hlbGwyX01hbmRhdG9yeQ"
+          "aHR0cHM6Ly9leGFtcGxlLm9yZy9UZXN0X0Fzc2V0QWRtaW5pc3RyYXRpb25TaGVsbA"
         ],
         "methods": [
-          "GET"
+          "GET",
+          "HEAD"
         ],
         "roles": [
           "viewer"
         ]
       },
       {
-        "description": "Viewers can read only selected Submodel endpoints. IDs are the base64url path identifiers used by the HTTP API.",
+        "description": "Viewers can read only selected Submodel endpoints. IDs are the base64url path identifiers used by the HTTP API: http://example.org/Submodels/Assets/TestAsset/Identification and https://example.org/Test_Submodel. The BillOfMaterial submodel of the same shell is deliberately not listed.",
         "path_templates": [
           "/repository/api/v3.1/submodels/{submodel_id}",
           "/repository/api/v3.1/shells/{aas_id}/submodels/{submodel_id}",
@@ -145,14 +148,12 @@
           "/registry/api/v3.1/shell-descriptors/{aas_id}/submodel-descriptors/{submodel_id}"
         ],
         "ids": [
-          "aHR0cDovL2FjcGx0Lm9yZy9TdWJtb2RlbHMvQXNzZXRzL1Rlc3RBc3NldC9JZGVudGlmaWNhdGlvbg",
-          "aHR0cDovL2FjcGx0Lm9yZy9TdWJtb2RlbHMvQXNzZXRzL1Rlc3RBc3NldC9CaWxsT2ZNYXRlcmlhbA",
-          "aHR0cHM6Ly9hY3BsdC5vcmcvVGVzdF9TdWJtb2RlbA",
-          "aHR0cHM6Ly9hY3BsdC5vcmcvVGVzdF9TdWJtb2RlbF9NYW5kYXRvcnk",
-          "aHR0cHM6Ly9hY3BsdC5vcmcvVGVzdF9TdWJtb2RlbDJfTWFuZGF0b3J5"
+          "aHR0cDovL2V4YW1wbGUub3JnL1N1Ym1vZGVscy9Bc3NldHMvVGVzdEFzc2V0L0lkZW50aWZpY2F0aW9u",
+          "aHR0cHM6Ly9leGFtcGxlLm9yZy9UZXN0X1N1Ym1vZGVs"
         ],
         "methods": [
-          "GET"
+          "GET",
+          "HEAD"
         ],
         "roles": [
           "viewer"

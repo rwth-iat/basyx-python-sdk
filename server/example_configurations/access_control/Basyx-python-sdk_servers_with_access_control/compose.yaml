@@ -30,7 +30,7 @@ services:
   repository:
     image: eclipsebasyx/basyx-python-repository:2.2.0
     volumes:
-      - ../../repository_standalone/input:/input
+      - ./example_data:/input:ro
       - repository-storage:/storage
     environment:
       API_BASE_PATH: /repository/api/v3.1/
