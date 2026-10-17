@@ -17,8 +17,31 @@ The application only receives requests after:
 
 ![Workflow](img.png)
 
+## Run
+
+```bash
+docker compose up
+```
+
+The demo Keycloak realm `access-control-demo` is imported automatically with these users:
+
+| User | Password | Role |
+|------|----------|------|
+| `reader` | `reader` | `reader` |
+| `writer` | `writer` | `writer` |
+| `admin` | `admin` | `admin` |
+
+Envoy listens on http://localhost:10000, its admin interface on http://localhost:8001 (only from this machine). OPA
+has no published ports. Envoy normalizes request paths before asking OPA, and the policy additionally denies paths that
+are not canonical (`..`, `//`, encoded `.`, `/`, `\` or `%`).
+
+Policy unit tests (no running stack needed):
+
+```bash
+docker run --rm -v "$PWD/policies:/policies:ro" openpolicyagent/opa:1.21.2-envoy-static test /policies -v
+```
+
 ## Adapting It to Any Application
-The demo Keycloak realm is imported automatically. 
 
 1. Replace the `app` service in `compose.yaml` with your application, or update the `app` cluster in `envoy.yaml` to point to an existing host and port.
 2. Update the OIDC settings in `envoy.yaml`:
