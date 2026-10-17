@@ -466,3 +466,28 @@ jobs:
       - name: Stop and remove the container
         run: |
           docker stop basyx-python-${{ matrix.profile }} && docker rm basyx-python-${{ matrix.profile }}
+
+  access-control-policy-test:
+    # This job checks syntax and formatting of the OPA policies of the access control examples and runs their unit
+    # tests. It uses the same OPA image as the examples' compose.yaml.
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        example: ["general", "Basyx-python-sdk_servers_with_access_control"]
+      fail-fast: false
+    defaults:
+      run:
+        working-directory: ./server/example_configurations/access_control/${{ matrix.example }}
+    env:
+      OPA_IMAGE: openpolicyagent/opa:1.21.2-envoy-static
+    steps:
+    - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 #v5.1.0
+    - name: Check policy syntax and types
+      run: |
+        docker run --rm -v "$PWD/policies:/policies:ro" "$OPA_IMAGE" check --strict /policies
+    - name: Check policy formatting
+      run: |
+        docker run --rm -v "$PWD/policies:/policies:ro" "$OPA_IMAGE" fmt --list --fail /policies
+    - name: Run policy unit tests
+      run: |
+        docker run --rm -v "$PWD/policies:/policies:ro" "$OPA_IMAGE" test /policies -v
