@@ -1,0 +1,46 @@
+name: access-control-general
+
+services:
+  envoy:
+    image: envoyproxy/envoy:v1.31-latest
+    container_name: Envoy
+    volumes:
+      - ./envoy.yaml:/etc/envoy/envoy.yaml
+    ports:
+      - "10000:10000"
+      - "8001:8001"
+    command: ["envoy", "-c", "/etc/envoy/envoy.yaml", "--component-log-level", "ext_authz:trace"]
+    depends_on:
+      - keycloak
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: Keycloak
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_METRICS_ENABLED: true
+      KC_HEALTH_ENABLED: true
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./keycloak/realm.json:/opt/keycloak/data/import/realm.json
+
+  opa-envoy:
+    image: openpolicyagent/opa:latest-envoy
+    container_name: opa-envoy
+    ports:
+      - "9191:9191"
+    command:
+      - run
+      - --server
+      - --log-level=debug
+      - --config-file=/opa.yaml
+      - /policies
+    volumes:
+      - ./policies:/policies
+      - ./opa.yaml:/opa.yaml
+
+  app:
+    image: nginx:1.27-alpine

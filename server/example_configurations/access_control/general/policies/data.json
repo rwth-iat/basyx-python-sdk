@@ -1,0 +1,62 @@
+{
+  "access_control": {
+    "public_path_prefixes": [
+      "/health",
+      "/ready",
+      "/public"
+    ],
+    "rules": [
+      {
+        "description": "Readers can inspect normal application resources.",
+        "path_prefix": "/",
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "roles": [
+          "reader",
+          "writer",
+          "admin"
+        ]
+      },
+      {
+        "description": "Writers can change normal application resources.",
+        "path_prefix": "/",
+        "methods": [
+          "POST",
+          "PUT",
+          "PATCH"
+        ],
+        "roles": [
+          "writer",
+          "admin"
+        ]
+      },
+      {
+        "description": "Only admins can delete normal application resources.",
+        "path_prefix": "/",
+        "methods": [
+          "DELETE"
+        ],
+        "roles": [
+          "admin"
+        ]
+      },
+      {
+        "description": "Only admins can access application admin paths.",
+        "path_prefix": "/admin",
+        "methods": [
+          "GET",
+          "HEAD",
+          "POST",
+          "PUT",
+          "PATCH",
+          "DELETE"
+        ],
+        "roles": [
+          "admin"
+        ]
+      }
+    ]
+  }
+}
