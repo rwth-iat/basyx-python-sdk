@@ -74,9 +74,48 @@
   ],
   "users": [
     {
+      "username": "reader",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Demo",
+      "lastName": "Reader",
+      "email": "reader@example.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "reader",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "reader"
+      ]
+    },
+    {
+      "username": "writer",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Demo",
+      "lastName": "Writer",
+      "email": "writer@example.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "writer",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "writer"
+      ]
+    },
+    {
       "username": "admin",
       "enabled": true,
       "emailVerified": true,
+      "firstName": "Demo",
+      "lastName": "Admin",
+      "email": "admin@example.com",
       "credentials": [
         {
           "type": "password",
