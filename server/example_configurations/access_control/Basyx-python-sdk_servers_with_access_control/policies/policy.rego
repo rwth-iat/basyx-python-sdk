@@ -84,27 +84,11 @@ role_matches(rule) if {
 	required_role in token_roles
 }
 
+# Roles come only from the identity provider's role claim. OAuth scopes and group names
+# are not roles: a client may request any scope it is allowed to, and a scope or group
+# named like a role (e.g. "admin") must not grant that role's rights.
 token_roles contains role if {
 	role := object.get(object.get(claims, "realm_access", {}), "roles", [])[_]
-}
-
-token_roles contains role if {
-	role := object.get(claims, "roles", [])[_]
-}
-
-token_roles contains group if {
-	group := object.get(claims, "groups", [])[_]
-}
-
-token_roles contains role if {
-	group := object.get(claims, "groups", [])[_]
-	startswith(group, "/")
-	role := substring(group, 1, -1)
-}
-
-token_roles contains scope if {
-	scope := split(object.get(claims, "scope", ""), " ")[_]
-	scope != ""
 }
 
 denied_requested_resource if {
