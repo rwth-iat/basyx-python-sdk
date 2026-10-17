@@ -18,6 +18,12 @@ static_resources:
                 "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
                 codec_type: AUTO
                 stat_prefix: ingress_http
+                # Normalize the path before any filter sees it, so that OPA and the backend
+                # evaluate the same path: resolves "." / ".." segments (also percent-encoded),
+                # merges duplicate slashes and rejects encoded slashes ("%2F", "%5C").
+                normalize_path: true
+                merge_slashes: true
+                path_with_escaped_slashes_action: REJECT_REQUEST
                 access_log:
                   - name: envoy.access_loggers.stdout
                     typed_config:
