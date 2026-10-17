@@ -133,6 +133,3 @@ The end-to-end tests only read data or send requests that must be denied.
 - Replace demo users, passwords and client settings before real use.
 - Use HTTPS for Envoy and Keycloak outside local development.
 - Keep the API paths in `envoy.yaml`, `basyx-infra.yml`, server `API_BASE_PATH` values and `policies/data.json` aligned.
-- Keycloak answers `HTTPS required` when it considers the client's address external (realm setting
-  `sslRequired: external`). This can happen on machines where Docker forwards host connections with a public source
-  address, e.g. because of a VPN. For local experiments only, set `sslRequired` to `none` in `keycloak/realm.json`.

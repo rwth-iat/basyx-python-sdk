@@ -78,7 +78,7 @@ services:
       - ./keycloak/realm.json:/opt/keycloak/data/import/realm.json:ro
 
   opa-envoy:
-    # The "-envoy-static" variant is published for amd64 and arm64 (Apple Silicon);
+    # The "-envoy-static" variant is published for amd64 and arm64;
     # "-envoy" is amd64 only.
     image: openpolicyagent/opa:1.21.2-envoy-static
     command:
