@@ -68,6 +68,8 @@ from .._generic import (
 
 NS_AAS = XML_NS_AAS
 REQUIRED_NAMESPACES: Set[str] = {XML_NS_MAP["aas"]}
+# Namespace of metamodel 3.0 documents, which are read as the current metamodel version
+NS_AAS_V3_0 = "https://admin-shell.io/aas/3/0"
 
 logger = logging.getLogger(__name__)
 
@@ -1668,7 +1670,14 @@ def _parse_xml_document(
             return None
         raise e
 
-    missing_namespaces: Set[str] = REQUIRED_NAMESPACES - set(root.nsmap.values())
+    namespaces = set(root.nsmap.values())
+    if NS_AAS_V3_0 in namespaces and XML_NS_MAP["aas"] not in namespaces:
+        logger.info("Reading AAS metamodel 3.0 document as metamodel 3.1")
+        # Only element tags move to the new namespace; values such as IDs containing the 3.0 URL stay untouched
+        for element in list(root.iter(f"{{{NS_AAS_V3_0}}}*")):
+            element.tag = NS_AAS + etree.QName(element).localname
+        namespaces.add(XML_NS_MAP["aas"])
+    missing_namespaces: Set[str] = REQUIRED_NAMESPACES - namespaces
     if missing_namespaces:
         error_message = (
             f"The following required namespaces are not declared: {' | '.join(missing_namespaces)}"

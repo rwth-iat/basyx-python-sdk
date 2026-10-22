@@ -19,7 +19,7 @@ from basyx.aas.adapter.xml import (
     read_aas_xml_file,
     read_aas_xml_file_into,
 )
-from basyx.aas.adapter.xml.xml_deserialization import _tag_replace_namespace
+from basyx.aas.adapter.xml.xml_deserialization import NS_AAS_V3_0, _tag_replace_namespace
 from lxml import etree
 
 
@@ -368,6 +368,34 @@ class XmlDeserializationTest(unittest.TestCase):
 
         submodel = read_aas_xml_element(string_io, XMLConstructables.SUBMODEL)
         self.assertIsInstance(submodel, model.Submodel)
+
+    def test_read_metamodel_3_0_document(self) -> None:
+        xml = f"""
+        <aas:environment xmlns:aas="{NS_AAS_V3_0}">
+            <aas:submodels>
+                <aas:submodel>
+                    <aas:id>urn:x-test:submodel</aas:id>
+                    <aas:submodelElements>
+                        <aas:property>
+                            <aas:idShort>prop</aas:idShort>
+                            <aas:valueType>xs:string</aas:valueType>
+                            <aas:value>https://admin-shell.io/aas/3/0/example</aas:value>
+                        </aas:property>
+                    </aas:submodelElements>
+                </aas:submodel>
+            </aas:submodels>
+        </aas:environment>
+        """
+        identifiable_store = read_aas_xml_file(io.StringIO(xml), failsafe=False)
+        submodel = identifiable_store.get_item("urn:x-test:submodel")
+        self.assertIsInstance(submodel, model.Submodel)
+        self.assertEqual(submodel.get_referable("prop").value, "https://admin-shell.io/aas/3/0/example")
+
+    def test_unknown_namespace(self) -> None:
+        xml = '<aas:environment xmlns:aas="http://example.org/unknown"></aas:environment>'
+        with self.assertRaises(KeyError) as err_ctx:
+            read_aas_xml_file(io.StringIO(xml), failsafe=False)
+        self.assertIn("required namespaces are not declared", str(err_ctx.exception))
 
     def test_no_namespace_prefix(self) -> None:
         def xml(id_: str) -> str:
