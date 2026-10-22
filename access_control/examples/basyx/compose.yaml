@@ -1,8 +1,38 @@
 name: secured-basyx-stack
 
+# All settings come from .env in this directory, which Docker Compose reads automatically.
+
 services:
+  # Fills in the ${...} values of envoy.yaml.tmpl and basyx-infra.yml.tmpl from .env, because neither Envoy nor the Web
+  # UI can read environment variables in their configuration files. Runs once, then exits.
+  config-renderer:
+    image: ${RENDERER_IMAGE:?set in .env}
+    entrypoint: ["/bin/sh", "/render-config.sh"]
+    environment:
+      RENDER_VARIABLES: >-
+        API_VERSION PUBLIC_URL OIDC_ISSUER OIDC_CLIENT_ID OIDC_JWKS_HOST OIDC_JWKS_PORT OIDC_JWKS_PATH
+        REPOSITORY_HOST REPOSITORY_PORT REGISTRY_HOST REGISTRY_PORT DISCOVERY_HOST DISCOVERY_PORT
+      API_VERSION: ${API_VERSION:?set in .env}
+      PUBLIC_URL: ${PUBLIC_URL:?set in .env}
+      OIDC_ISSUER: ${OIDC_ISSUER:?set in .env}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?set in .env}
+      OIDC_JWKS_HOST: ${OIDC_JWKS_HOST:?set in .env}
+      OIDC_JWKS_PORT: ${OIDC_JWKS_PORT:?set in .env}
+      OIDC_JWKS_PATH: ${OIDC_JWKS_PATH:?set in .env}
+      REPOSITORY_HOST: ${REPOSITORY_HOST:?set in .env}
+      REPOSITORY_PORT: ${REPOSITORY_PORT:?set in .env}
+      REGISTRY_HOST: ${REGISTRY_HOST:?set in .env}
+      REGISTRY_PORT: ${REGISTRY_PORT:?set in .env}
+      DISCOVERY_HOST: ${DISCOVERY_HOST:?set in .env}
+      DISCOVERY_PORT: ${DISCOVERY_PORT:?set in .env}
+    volumes:
+      - ../../render-config.sh:/render-config.sh:ro
+      - ./envoy.yaml.tmpl:/templates/envoy.yaml.tmpl:ro
+      - ./basyx-infra.yml.tmpl:/templates/basyx-infra.yml.tmpl:ro
+      - rendered-config:/rendered
+
   envoy:
-    image: envoyproxy/envoy:v1.31.10
+    image: ${ENVOY_IMAGE:?set in .env}
     command:
       - envoy
       - -c
@@ -12,45 +42,58 @@ services:
       - --component-log-level
       - jwt:debug,ext_authz:debug
     ports:
-      - "10000:10000"
+      - "${GATEWAY_PORT:?set in .env}:10000"
       # Envoy admin interface: no authentication, so only reachable from this machine.
-      - "127.0.0.1:8001:8001"
+      - "127.0.0.1:${ENVOY_ADMIN_PORT:?set in .env}:8001"
     volumes:
-      - ./envoy.yaml:/etc/envoy/envoy.yaml:ro
+      - type: volume
+        source: rendered-config
+        target: /etc/envoy/envoy.yaml
+        read_only: true
+        volume:
+          subpath: envoy.yaml
     depends_on:
-      - repository
-      - registry
-      - discovery
-      - aas-web-ui
-      - keycloak
-      - opa-envoy
+      config-renderer:
+        condition: service_completed_successfully
+      repository:
+        condition: service_started
+      registry:
+        condition: service_started
+      discovery:
+        condition: service_started
+      aas-web-ui:
+        condition: service_started
+      keycloak:
+        condition: service_started
+      opa-envoy:
+        condition: service_started
 
   # The BaSyx servers run as the published, unmodified images: the access control layer
   # must not depend on building the servers from this repository.
   repository:
-    image: eclipsebasyx/basyx-python-repository:2.2.0
+    image: ${BASYX_REPOSITORY_IMAGE:?set in .env}
     volumes:
       - ./example_data:/input:ro
       - repository-storage:/storage
     environment:
-      API_BASE_PATH: /repository/api/v3.1/
+      API_BASE_PATH: /repository/api/${API_VERSION}/
       STORAGE_PERSISTENCY: "True"
 
   registry:
-    image: eclipsebasyx/basyx-python-registry:2.2.0
+    image: ${BASYX_REGISTRY_IMAGE:?set in .env}
     volumes:
       - registry-storage:/storage
     environment:
-      API_BASE_PATH: /registry/api/v3.1/
+      API_BASE_PATH: /registry/api/${API_VERSION}/
       STORAGE_PERSISTENCY: "True"
 
   discovery:
-    image: eclipsebasyx/basyx-python-discovery:2.2.0
+    image: ${BASYX_DISCOVERY_IMAGE:?set in .env}
     environment:
-      API_BASE_PATH: /discovery/api/v3.1/
+      API_BASE_PATH: /discovery/api/${API_VERSION}/
 
   aas-web-ui:
-    image: eclipsebasyx/aas-gui:v2-261013
+    image: ${AAS_WEB_UI_IMAGE:?set in .env}
     restart: unless-stopped
     environment:
       BASE_PATH: /ui
@@ -58,29 +101,41 @@ services:
       ALLOW_EDITING: "true"
       ALLOW_UPLOADING: "true"
     volumes:
-      - ./basyx-infra.yml:/basyx-infra.yml:ro
+      - type: volume
+        source: rendered-config
+        target: /basyx-infra.yml
+        read_only: true
+        volume:
+          subpath: basyx-infra.yml
+    depends_on:
+      config-renderer:
+        condition: service_completed_successfully
 
   keycloak:
-    image: quay.io/keycloak/keycloak:25.0.4
+    image: ${KEYCLOAK_IMAGE:?set in .env}
     command:
       - start-dev
       - --import-realm
-      - --hostname=http://localhost:8080
+      - --hostname=${KEYCLOAK_URL:?set in .env}
       - --hostname-strict=false
     environment:
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "true"
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:?set in .env}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?set in .env}
+      # Used by the ${...} placeholders in keycloak/realm.json during the import
+      OIDC_REALM: ${OIDC_REALM:?set in .env}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
+      PUBLIC_URL: ${PUBLIC_URL}
     ports:
-      - "8080:8080"
+      - "${KEYCLOAK_PORT:?set in .env}:8080"
     volumes:
       - ./keycloak/realm.json:/opt/keycloak/data/import/realm.json:ro
 
   opa-envoy:
     # The "-envoy-static" variant is published for amd64 and arm64;
     # "-envoy" is amd64 only.
-    image: openpolicyagent/opa:1.21.2-envoy-static
+    image: ${OPA_IMAGE:?set in .env}
     command:
       - run
       - --server
@@ -90,6 +145,10 @@ services:
       - --config-file=/config/opa.yaml
       - /policy
       - /policy_data
+    environment:
+      # Override api_version and role_claim of policy_data/data.json (see policy.rego)
+      ACCESS_CONTROL_API_VERSION: ${API_VERSION}
+      ACCESS_CONTROL_ROLE_CLAIM: ${ROLE_CLAIM:?set in .env}
     # No published ports: Envoy reaches OPA over the internal network. The OPA REST API
     # has no authentication and would allow reading and replacing the policy.
     volumes:
@@ -97,8 +156,10 @@ services:
       - ../../policy:/policy:ro
       - ./policy_data:/policy_data:ro
 
-# Server data lives in Docker volumes instead of folders in the repository.
-# Remove them with `docker compose down -v`.
 volumes:
+  # Server data lives in Docker volumes instead of folders in the repository.
+  # Remove them with `docker compose down -v`.
   repository-storage:
   registry-storage:
+  # Output of config-renderer
+  rendered-config:

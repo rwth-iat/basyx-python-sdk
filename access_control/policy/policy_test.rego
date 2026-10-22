@@ -142,6 +142,16 @@ test_api_version_from_config if {
 	allowed_with(config, "GET", concat("", ["/api/v2/things/", base64url.encode_no_pad("urn:thing:1")]), role("guest"))
 }
 
+test_api_version_from_environment_overrides_config if {
+	path := concat("", ["/api/v2/things/", base64url.encode_no_pad("urn:thing:1")])
+	authz.allow with input as request("GET", path, role("guest"))
+		with data.access_control as fixture
+		with opa.runtime as {"env": {"ACCESS_CONTROL_API_VERSION": "v2"}}
+	not authz.allow with input as request("GET", thing("urn:thing:1"), role("guest"))
+		with data.access_control as fixture
+		with opa.runtime as {"env": {"ACCESS_CONTROL_API_VERSION": "v2"}}
+}
+
 # --- roles ------------------------------------------------------------------------------------------------------------
 
 test_scopes_groups_and_top_level_roles_are_not_roles if {
@@ -154,6 +164,13 @@ test_role_claim_is_configurable if {
 	claims := {"resource_access": {"app": {"roles": ["reader"]}}}
 	not allowed("GET", "/api/v1/things", claims)
 	allowed_with(object.union(fixture, {"role_claim": "resource_access.app.roles"}), "GET", "/api/v1/things", claims)
+}
+
+test_role_claim_from_environment_overrides_config if {
+	claims := {"resource_access": {"app": {"roles": ["reader"]}}}
+	authz.allow with input as request("GET", "/api/v1/things", claims)
+		with data.access_control as fixture
+		with opa.runtime as {"env": {"ACCESS_CONTROL_ROLE_CLAIM": "resource_access.app.roles"}}
 }
 
 test_malformed_role_claim_is_ignored if {

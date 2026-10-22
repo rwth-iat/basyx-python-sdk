@@ -14,23 +14,39 @@ Run from this directory, with the stack running::
 
     python -m unittest e2e_test -v
 
-``GATEWAY_URL`` and ``TOKEN_URL`` override the default endpoints.
+The endpoints are read from the ``.env`` file next to this test, the same file Docker Compose uses. Environment
+variables of the same name take precedence.
 """
 import base64
 import http.client
 import json
 import os
+import re
 import socket
 import time
 import unittest
 import urllib.parse
 import urllib.request
 
-GATEWAY_URL = urllib.parse.urlsplit(os.environ.get("GATEWAY_URL", "http://localhost:10000"))
-TOKEN_URL = os.environ.get(
-    "TOKEN_URL", "http://localhost:8080/realms/basyx-secured-stack/protocol/openid-connect/token"
-)
-API = "/repository/api/v3.1"
+
+def _load_settings() -> dict[str, str]:
+    """Read KEY=VALUE lines of .env, expanding ${OTHER} like Docker Compose does; the environment wins."""
+    settings: dict[str, str] = {}
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"), encoding="utf-8") as env_file:
+        for line in env_file:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            settings[key] = re.sub(r"\$\{(\w+)\}", lambda match: settings.get(match.group(1), ""), value)
+    settings.update({key: value for key, value in os.environ.items() if key in settings})
+    return settings
+
+
+SETTINGS = _load_settings()
+GATEWAY_URL = urllib.parse.urlsplit(SETTINGS["PUBLIC_URL"])
+TOKEN_URL = f"{SETTINGS['OIDC_ISSUER']}/protocol/openid-connect/token"
+API = f"/repository/api/{SETTINGS['API_VERSION']}"
 
 
 def _path_id(identifier: str) -> str:
@@ -44,7 +60,7 @@ BILL_OF_MATERIAL = _path_id("http://example.org/Submodels/Assets/TestAsset/BillO
 
 def _token(user: str) -> str:
     body = urllib.parse.urlencode({
-        "grant_type": "password", "client_id": "basyx-web-ui", "username": user, "password": user,
+        "grant_type": "password", "client_id": SETTINGS["OIDC_CLIENT_ID"], "username": user, "password": user,
     }).encode()
     last_error: Exception | None = None
     for _ in range(30):  # Keycloak needs some seconds after start-up
@@ -108,7 +124,7 @@ class SecuredStackTest(unittest.TestCase):
             f"{API}/shells/{SHELL}/../../submodels/{BILL_OF_MATERIAL}",
             f"{API}/shells/{SHELL}/..",
             f"{API}/shells/{SHELL}/%2e%2e/%2e%2e/submodels/{BILL_OF_MATERIAL}",
-            f"/repository//api/v3.1/submodels/{BILL_OF_MATERIAL}",
+            f"{API.replace('/repository/', '/repository//')}/submodels/{BILL_OF_MATERIAL}",
             f"{API}/submodels/{BILL_OF_MATERIAL}/",
         ]
         for path in blocked:

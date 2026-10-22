@@ -1,5 +1,5 @@
 {
-  "realm": "basyx-secured-stack",
+  "realm": "${OIDC_REALM}",
   "enabled": true,
   "sslRequired": "external",
   "registrationAllowed": false,
@@ -21,15 +21,15 @@
   },
   "clients": [
     {
-      "clientId": "basyx-web-ui",
+      "clientId": "${OIDC_CLIENT_ID}",
       "name": "BaSyx Web UI",
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
       "redirectUris": [
-        "http://localhost:10000/*"
+        "${PUBLIC_URL}/*"
       ],
       "webOrigins": [
-        "http://localhost:10000"
+        "${PUBLIC_URL}"
       ],
       "bearerOnly": false,
       "consentRequired": false,
@@ -48,7 +48,7 @@
           "protocolMapper": "oidc-audience-mapper",
           "consentRequired": false,
           "config": {
-            "included.client.audience": "basyx-web-ui",
+            "included.client.audience": "${OIDC_CLIENT_ID}",
             "id.token.claim": "false",
             "access.token.claim": "true",
             "userinfo.token.claim": "false",

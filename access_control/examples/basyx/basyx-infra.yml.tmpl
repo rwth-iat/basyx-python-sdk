@@ -1,0 +1,29 @@
+# Template: the config-renderer service fills in the ${...} values from .env before the Web UI starts.
+infrastructures:
+  default: secured-python-stack
+
+  secured-python-stack:
+    name: Secured BaSyx Python Stack
+    components:
+      aasDiscovery:
+        baseUrl: "${PUBLIC_URL}/discovery/api/${API_VERSION}"
+      aasRegistry:
+        baseUrl: "${PUBLIC_URL}/registry/api/${API_VERSION}"
+        hasDiscoveryIntegration: false
+      submodelRegistry:
+        baseUrl: "${PUBLIC_URL}/registry/api/${API_VERSION}"
+      aasRepository:
+        baseUrl: "${PUBLIC_URL}/repository/api/${API_VERSION}"
+        hasRegistryIntegration: false
+      submodelRepository:
+        baseUrl: "${PUBLIC_URL}/repository/api/${API_VERSION}"
+        hasRegistryIntegration: false
+      conceptDescriptionRepository:
+        baseUrl: "${PUBLIC_URL}/repository/api/${API_VERSION}"
+    security:
+      type: oauth2
+      config:
+        flow: auth_code
+        issuer: "${OIDC_ISSUER}"
+        clientId: "${OIDC_CLIENT_ID}"
+        scope: "openid profile email"

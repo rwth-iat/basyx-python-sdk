@@ -22,6 +22,10 @@ default config := {}
 
 config := data.access_control
 
+# Deployment settings that may differ per environment (ACCESS_CONTROL_API_VERSION, ACCESS_CONTROL_ROLE_CLAIM) can be
+# set as environment variables of the OPA process; they take precedence over the values in data.access_control.
+runtime_env := object.get(opa.runtime(), "env", {})
+
 # --- request -------------------------------------------------------------------------------------------------------
 
 attributes := object.get(input, "attributes", {})
@@ -122,7 +126,7 @@ prefix_matches(prefix, path) if {
 # matches a request whose path starts with the template, so "/shells/{aas}" also covers "/shells/{aas}/submodel-refs".
 # "{api_version}" is replaced by `api_version`. Identifiers in the path are base64url-encoded (AAS Part 2) and are
 # compared in decoded form, so the rules contain readable identifiers.
-api_version := object.get(config, "api_version", "")
+api_version := object.get(runtime_env, "ACCESS_CONTROL_API_VERSION", object.get(config, "api_version", ""))
 
 route_segments contains segments if {
 	some route in object.get(config, "routes", [])
@@ -200,7 +204,10 @@ role_matches(rule) if {
 # Roles come only from the identity provider's role claim (`role_claim`, a dot-separated path into the token).
 # OAuth scopes and group names are not roles: a client may request any scope it is allowed to, and a scope or group
 # named like a role (e.g. "admin") must not grant that role's rights.
-role_claim := split(object.get(config, "role_claim", "realm_access.roles"), ".")
+role_claim := split(
+	object.get(runtime_env, "ACCESS_CONTROL_ROLE_CLAIM", object.get(config, "role_claim", "realm_access.roles")),
+	".",
+)
 
 token_roles contains role if {
 	roles := object.get(claims, role_claim, [])

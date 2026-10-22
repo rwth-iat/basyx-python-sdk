@@ -1,3 +1,4 @@
+# Template: the config-renderer service fills in the ${...} values from .env before Envoy starts.
 admin:
   address:
     socket_address:
@@ -65,12 +66,12 @@ static_resources:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication
                       providers:
                         keycloak:
-                          issuer: http://localhost:8080/realms/basyx-secured-stack
+                          issuer: ${OIDC_ISSUER}
                           audiences:
-                            - basyx-web-ui
+                            - ${OIDC_CLIENT_ID}
                           remote_jwks:
                             http_uri:
-                              uri: http://keycloak:8080/realms/basyx-secured-stack/protocol/openid-connect/certs
+                              uri: http://${OIDC_JWKS_HOST}:${OIDC_JWKS_PORT}${OIDC_JWKS_PATH}
                               cluster: keycloak
                               timeout: 5s
                             cache_duration:
@@ -135,8 +136,8 @@ static_resources:
               - endpoint:
                   address:
                     socket_address:
-                      address: repository
-                      port_value: 80
+                      address: ${REPOSITORY_HOST}
+                      port_value: ${REPOSITORY_PORT}
 
     - name: registry
       connect_timeout: 1s
@@ -149,8 +150,8 @@ static_resources:
               - endpoint:
                   address:
                     socket_address:
-                      address: registry
-                      port_value: 80
+                      address: ${REGISTRY_HOST}
+                      port_value: ${REGISTRY_PORT}
 
     - name: discovery
       connect_timeout: 1s
@@ -163,8 +164,8 @@ static_resources:
               - endpoint:
                   address:
                     socket_address:
-                      address: discovery
-                      port_value: 80
+                      address: ${DISCOVERY_HOST}
+                      port_value: ${DISCOVERY_PORT}
 
     - name: keycloak
       connect_timeout: 1s
@@ -177,8 +178,8 @@ static_resources:
               - endpoint:
                   address:
                     socket_address:
-                      address: keycloak
-                      port_value: 8080
+                      address: ${OIDC_JWKS_HOST}
+                      port_value: ${OIDC_JWKS_PORT}
 
     - name: opa-envoy
       connect_timeout: 1s
