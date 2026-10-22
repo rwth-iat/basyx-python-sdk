@@ -5,9 +5,9 @@
 #
 # SPDX-License-Identifier: MIT
 
-# Unit tests for policy.rego, evaluated against the real policies/data.json.
-# Run with: opa test policies/ -v
-package envoy.authz_test
+# Tests of this example's rules (policy_data/data.json) with the shared policy.
+# Run from access_control/: opa test policy/ examples/general/policy_data/ -v
+package general_example_test
 
 import rego.v1
 

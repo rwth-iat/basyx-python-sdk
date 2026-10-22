@@ -38,9 +38,11 @@ services:
       - --server
       - --log-level=debug
       - --config-file=/opa.yaml
-      - /policies
+      - /policy
+      - /policy_data
     volumes:
-      - ./policies:/policies
+      - ../../policy:/policy:ro
+      - ./policy_data:/policy_data:ro
       - ./opa.yaml:/opa.yaml
 
   app:

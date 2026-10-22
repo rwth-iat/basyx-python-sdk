@@ -1,0 +1,96 @@
+{
+  "access_control": {
+    "api_version": "v3.1",
+    "role_claim": "realm_access.roles",
+    "public_paths": [
+      "/"
+    ],
+    "public_path_prefixes": [
+      "/ui"
+    ],
+    "rules": [
+      {
+        "description": "Editors and admins can read repository resources.",
+        "path_prefix": "/repository",
+        "methods": ["GET", "HEAD"],
+        "roles": ["editor", "admin"]
+      },
+      {
+        "description": "Editors and admins can change repository resources.",
+        "path_prefix": "/repository",
+        "methods": ["POST", "PUT", "PATCH"],
+        "roles": ["editor", "admin"]
+      },
+      {
+        "description": "Only admins can delete repository resources.",
+        "path_prefix": "/repository",
+        "methods": ["DELETE"],
+        "roles": ["admin"]
+      },
+      {
+        "description": "Editors and admins can read registry resources.",
+        "path_prefix": "/registry",
+        "methods": ["GET", "HEAD"],
+        "roles": ["editor", "admin"]
+      },
+      {
+        "description": "Editors and admins can change registry resources.",
+        "path_prefix": "/registry",
+        "methods": ["POST", "PUT"],
+        "roles": ["editor", "admin"]
+      },
+      {
+        "description": "Only admins can delete registry resources.",
+        "path_prefix": "/registry",
+        "methods": ["DELETE"],
+        "roles": ["admin"]
+      },
+      {
+        "description": "Editors and admins can read discovery resources.",
+        "path_prefix": "/discovery",
+        "methods": ["GET", "HEAD"],
+        "roles": ["editor", "admin"]
+      },
+      {
+        "description": "Editors and admins can change discovery resources and run lookups such as POST lookup/shellsByAssetLink.",
+        "path_prefix": "/discovery",
+        "methods": ["POST", "PUT"],
+        "roles": ["editor", "admin"]
+      },
+      {
+        "description": "Only admins can delete discovery resources.",
+        "path_prefix": "/discovery",
+        "methods": ["DELETE"],
+        "roles": ["admin"]
+      }
+    ],
+    "routes": [
+      "/repository/api/{api_version}/shells/{aas}",
+      "/repository/api/{api_version}/shells/{aas}/submodels/{submodel}",
+      "/repository/api/{api_version}/submodels/{submodel}",
+      "/registry/api/{api_version}/shell-descriptors/{aas}",
+      "/registry/api/{api_version}/shell-descriptors/{aas}/submodel-descriptors/{submodel}",
+      "/registry/api/{api_version}/submodel-descriptors/{submodel}",
+      "/discovery/api/{api_version}/lookup/shells/{aas}"
+    ],
+    "resource_rules": [
+      {
+        "description": "Viewers can read the example shell (example_data/example_aas.json) in the repository, registry and discovery.",
+        "resource": "aas",
+        "ids": ["https://example.org/Test_AssetAdministrationShell"],
+        "methods": ["GET", "HEAD"],
+        "roles": ["viewer"]
+      },
+      {
+        "description": "Viewers can read two of the example shell's three submodels; BillOfMaterial is deliberately not listed.",
+        "resource": "submodel",
+        "ids": [
+          "http://example.org/Submodels/Assets/TestAsset/Identification",
+          "https://example.org/Test_Submodel"
+        ],
+        "methods": ["GET", "HEAD"],
+        "roles": ["viewer"]
+      }
+    ]
+  }
+}

@@ -38,7 +38,7 @@ are not canonical (`..`, `//`, encoded `.`, `/`, `\` or `%`).
 Policy unit tests (no running stack needed):
 
 ```bash
-docker run --rm -v "$PWD/policies:/policies:ro" openpolicyagent/opa:1.21.2-envoy-static test /policies -v
+docker run --rm -v "$PWD/../..:/ac:ro" openpolicyagent/opa:1.21.2-envoy-static test /ac/policy /ac/examples/general/policy_data -v
 ```
 
 ## Adapting It to Any Application
@@ -50,6 +50,7 @@ docker run --rm -v "$PWD/policies:/policies:ro" openpolicyagent/opa:1.21.2-envoy
    - `remote_jwks.http_uri.uri`
    - the `keycloak` cluster if your JWKS endpoint is not the demo Keycloak service
 3. Update `keycloak/realm.json` only for the local demo identity provider, or replace Keycloak with your real identity provider.
-4. Edit `policies/data.json` to describe the application's protected path prefixes, methods and required roles.
+4. Edit `policy_data/data.json` to describe the application's protected path prefixes, methods and required roles.
 
-The Rego policy in `policies/policy.rego` is intentionally generic. Most application-specific changes should be made in `policies/data.json`.
+The Rego policy in [`access_control/policy/policy.rego`](../../policy/policy.rego) is shared by all examples and
+intentionally generic. Application-specific changes belong in `policy_data/data.json`.

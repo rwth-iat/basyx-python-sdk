@@ -5,9 +5,9 @@
 #
 # SPDX-License-Identifier: MIT
 
-# Unit tests for policy.rego, evaluated against the real policies/data.json.
-# Run with: opa test policies/ -v
-package envoy.authz_test
+# Tests of this example's rules (policy_data/data.json) with the shared policy.
+# Run from access_control/: opa test policy/ examples/basyx/policy_data/ -v
+package basyx_example_test
 
 import rego.v1
 
@@ -15,12 +15,12 @@ import data.envoy.authz
 
 api := "/repository/api/v3.1"
 
-# base64url identifiers from example_data/example_aas.json
-shell := "aHR0cHM6Ly9leGFtcGxlLm9yZy9UZXN0X0Fzc2V0QWRtaW5pc3RyYXRpb25TaGVsbA"
+# Path identifiers of the objects in example_data/example_aas.json
+shell := base64url.encode_no_pad("https://example.org/Test_AssetAdministrationShell")
 
-identification := "aHR0cDovL2V4YW1wbGUub3JnL1N1Ym1vZGVscy9Bc3NldHMvVGVzdEFzc2V0L0lkZW50aWZpY2F0aW9u"
+identification := base64url.encode_no_pad("http://example.org/Submodels/Assets/TestAsset/Identification")
 
-bill_of_material := "aHR0cDovL2V4YW1wbGUub3JnL1N1Ym1vZGVscy9Bc3NldHMvVGVzdEFzc2V0L0JpbGxPZk1hdGVyaWFs"
+bill_of_material := base64url.encode_no_pad("http://example.org/Submodels/Assets/TestAsset/BillOfMaterial")
 
 # Input as the OPA-Envoy plugin delivers it (camelCase metadata, verified JWT payload).
 request(method, path, claims) := {"attributes": {
@@ -32,7 +32,7 @@ role(name) := {"realm_access": {"roles": [name]}}
 
 allowed(method, path, claims) if authz.allow with input as request(method, path, claims)
 
-# --- public paths -------------------------------------------------------------
+# --- public paths -------------------------------------------------------------------------------------------------
 
 test_ui_is_public if {
 	allowed("GET", "/", {})
@@ -41,9 +41,10 @@ test_ui_is_public if {
 
 test_api_is_not_public if {
 	not allowed("GET", sprintf("%s/shells", [api]), {})
+	not allowed("GET", "/registry/api/v3.1/shell-descriptors", {})
 }
 
-# --- server-level rules ---------------------------------------------------------
+# --- server-level rules -------------------------------------------------------------------------------------------
 
 test_editor_and_admin_can_list_shells if {
 	allowed("GET", sprintf("%s/shells", [api]), role("editor"))
@@ -57,6 +58,7 @@ test_viewer_cannot_list_shells if {
 test_editor_can_write_but_not_delete if {
 	allowed("PUT", sprintf("%s/shells/%s", [api, shell]), role("editor"))
 	allowed("PATCH", sprintf("%s/submodels/%s", [api, identification]), role("editor"))
+	allowed("POST", "/discovery/api/v3.1/lookup/shellsByAssetLink", role("editor"))
 	not allowed("DELETE", sprintf("%s/shells/%s", [api, shell]), role("editor"))
 }
 
@@ -69,16 +71,19 @@ test_head_follows_get if {
 	allowed("HEAD", sprintf("%s/shells/%s", [api, shell]), role("viewer"))
 }
 
-# --- resource-level rules for the viewer -----------------------------------------
+# --- resource-level rules for the viewer --------------------------------------------------------------------------
 
-test_viewer_can_read_listed_shell if {
+test_viewer_can_read_listed_shell_in_every_service if {
 	allowed("GET", sprintf("%s/shells/%s", [api, shell]), role("viewer"))
 	allowed("GET", sprintf("%s/shells/%s?level=deep", [api, shell]), role("viewer"))
+	allowed("GET", sprintf("/registry/api/v3.1/shell-descriptors/%s", [shell]), role("viewer"))
+	allowed("GET", sprintf("/discovery/api/v3.1/lookup/shells/%s", [shell]), role("viewer"))
 }
 
 test_viewer_can_read_listed_submodel if {
 	allowed("GET", sprintf("%s/submodels/%s", [api, identification]), role("viewer"))
 	allowed("GET", sprintf("%s/shells/%s/submodels/%s", [api, shell, identification]), role("viewer"))
+	allowed("GET", sprintf("/registry/api/v3.1/submodel-descriptors/%s", [identification]), role("viewer"))
 }
 
 test_viewer_cannot_read_unlisted_submodel if {
@@ -92,21 +97,19 @@ test_viewer_cannot_write if {
 	not allowed("DELETE", sprintf("%s/shells/%s", [api, shell]), role("viewer"))
 }
 
-# --- role sources -----------------------------------------------------------------
+test_viewer_cannot_use_other_api_versions if {
+	not allowed("GET", sprintf("/repository/api/v3.0/shells/%s", [shell]), role("viewer"))
+}
 
-test_scopes_are_not_roles if {
+# --- role sources -------------------------------------------------------------------------------------------------
+
+test_scopes_groups_and_top_level_roles_are_not_roles if {
 	not allowed("DELETE", sprintf("%s/shells/%s", [api, shell]), {"scope": "openid admin"})
-}
-
-test_groups_are_not_roles if {
 	not allowed("DELETE", sprintf("%s/shells/%s", [api, shell]), {"groups": ["admin", "/admin"]})
-}
-
-test_top_level_roles_claim_is_ignored if {
 	not allowed("DELETE", sprintf("%s/shells/%s", [api, shell]), {"roles": ["admin"]})
 }
 
-# --- path bypass regressions (reproduced against the running stack) ---------------
+# --- path bypass regressions (reproduced against the running stack in phase 0) -------------------------------------
 
 bypass_paths := [
 	sprintf("%s/shells/%s/../%s", [api, shell, bill_of_material]),
@@ -121,14 +124,9 @@ bypass_paths := [
 	sprintf("/repository//api/v3.1/shells/%s", [bill_of_material]),
 ]
 
-test_viewer_bypass_paths_are_denied if {
+test_bypass_paths_are_denied_for_every_role if {
 	every path in bypass_paths {
 		not allowed("GET", path, role("viewer"))
-	}
-}
-
-test_ambiguous_paths_are_denied_for_every_role if {
-	every path in bypass_paths {
 		not allowed("GET", path, role("admin"))
 	}
 }

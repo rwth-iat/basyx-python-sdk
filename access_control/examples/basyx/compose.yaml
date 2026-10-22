@@ -88,12 +88,14 @@ services:
       - --diagnostic-addr=0.0.0.0:9901
       - --log-level=info
       - --config-file=/config/opa.yaml
-      - /policies
+      - /policy
+      - /policy_data
     # No published ports: Envoy reaches OPA over the internal network. The OPA REST API
     # has no authentication and would allow reading and replacing the policy.
     volumes:
       - ./opa.yaml:/config/opa.yaml:ro
-      - ./policies:/policies:ro
+      - ../../policy:/policy:ro
+      - ./policy_data:/policy_data:ro
 
 # Server data lives in Docker volumes instead of folders in the repository.
 # Remove them with `docker compose down -v`.

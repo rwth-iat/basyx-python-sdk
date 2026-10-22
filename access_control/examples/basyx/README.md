@@ -43,7 +43,8 @@ Demo users:
 
 ## Policy
 
-OPA policy data is in `policies/data.json`.
+OPA policy data is in `policy_data/data.json`; the policy itself is shared by all examples
+([`access_control/policy/policy.rego`](../../policy/policy.rego)).
 The policy has two layers:
 1. Server-level rules decide whether a role may call broad server areas such as `/repository`, `/registry` or `/discovery` with a given HTTP method.
 2. Resource-level rules decide whether a role may access a concrete resource URL when the resource id is present in the request path.
@@ -64,7 +65,7 @@ The policy has two layers:
 ## Example Data
 
 `example_data/example_aas.json` is the SDK's full example (`basyx.aas.examples.data.example_aas.create_full_example()`)
-serialized to JSON. The repository loads it on start-up; the identifiers in `policies/data.json` refer to it.
+serialized to JSON. The repository loads it on start-up; the identifiers in `policy_data/data.json` refer to it.
 
 ## UI Configuration
 
@@ -115,7 +116,7 @@ Invoke-WebRequest `
 Policy unit tests (no running stack needed), from this directory:
 
 ```bash
-docker run --rm -v "$PWD/policies:/policies:ro" openpolicyagent/opa:1.21.2-envoy-static test /policies -v
+docker run --rm -v "$PWD/../..:/ac:ro" openpolicyagent/opa:1.21.2-envoy-static test /ac/policy /ac/examples/basyx/policy_data -v
 ```
 
 End-to-end tests against the running stack (Python 3.11+, no extra packages):
@@ -132,4 +133,4 @@ The end-to-end tests only read data or send requests that must be denied.
 - Do not expose the repository, registry or discovery ports in production.
 - Replace demo users, passwords and client settings before real use.
 - Use HTTPS for Envoy and Keycloak outside local development.
-- Keep the API paths in `envoy.yaml`, `basyx-infra.yml`, server `API_BASE_PATH` values and `policies/data.json` aligned.
+- Keep the API paths in `envoy.yaml`, `basyx-infra.yml`, server `API_BASE_PATH` values and `policy_data/data.json` aligned.
