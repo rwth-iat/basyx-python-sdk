@@ -505,16 +505,22 @@ jobs:
       uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v7
       with:
         python-version: ${{ env.X_PYTHON_MIN_VERSION }}
-    - name: Install Ruff and MyPy
+    - name: Install Ruff, MyPy and the filter's dependencies
       run: |
         python -m pip install --upgrade pip
         python -m pip install ruff==${{ env.X_RUFF_VERSION }} mypy==${{ env.X_MYPY_VERSION }}
+        python -m pip install -r filter_server/requirements.txt
     - name: Check formatting and linting rules with Ruff
       run: |
         python -m ruff check
     - name: Check typing with MyPy
       run: |
-        python -m mypy --ignore-missing-imports examples/basyx/e2e_test.py filter_server/app.py
+        python -m mypy --ignore-missing-imports examples/basyx/e2e_test.py
+        cd filter_server && python -m mypy --ignore-missing-imports access_filter tests
+    - name: Run the response filter's unit tests
+      working-directory: ./access_control/filter_server
+      run: |
+        python -m unittest discover -v
 
   access-control-e2e:
     # This job starts the secured BaSyx stack exactly as configured in its .env and runs the end-to-end tests

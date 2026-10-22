@@ -1,17 +1,17 @@
+# Response filter of the access control layer. Build from this directory:
+#   docker build -t basyx-access-filter access_control/filter_server
 FROM python:3.12-slim
 
-RUN pip install --no-cache-dir flask requests
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
-# Build from this directory: docker build -t basyx-access-filter access_control/filter_server
-COPY app.py ./
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+COPY access_filter ./access_filter
 
-ENV UPSTREAM_REPOSITORY_URL="http://repository:80"
-ENV UPSTREAM_REGISTRY_URL="http://registry:80"
-ENV UPSTREAM_DISCOVERY_URL="http://discovery:80"
-ENV POLICY_DATA_PATH="/policies/data.json"
-ENV PORT="8080"
-
+USER nobody
 EXPOSE 8080
 
-CMD ["python", "app.py"]
+# Settings come from the environment, see access_filter/config.py
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--access-logfile", "-", "access_filter.app:create_app()"]

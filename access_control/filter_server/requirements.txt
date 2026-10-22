@@ -1,0 +1,5 @@
+# Runtime dependencies of the response filter, pinned. Werkzeug and urllib3 are the same libraries the BaSyx Python
+# server uses; gunicorn serves the WSGI application.
+Werkzeug==3.1.8
+urllib3==2.7.0
+gunicorn==25.0.1
