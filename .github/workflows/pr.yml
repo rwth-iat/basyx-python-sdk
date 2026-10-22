@@ -473,11 +473,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        example: ["general", "Basyx-python-sdk_servers_with_access_control"]
+        example: ["general", "basyx"]
       fail-fast: false
     defaults:
       run:
-        working-directory: ./server/example_configurations/access_control/${{ matrix.example }}
+        working-directory: ./access_control/examples/${{ matrix.example }}
     env:
       OPA_IMAGE: openpolicyagent/opa:1.21.2-envoy-static
     steps:
@@ -491,3 +491,27 @@ jobs:
     - name: Run policy unit tests
       run: |
         docker run --rm -v "$PWD/policies:/policies:ro" "$OPA_IMAGE" test /policies -v
+
+  access-control-static-analysis:
+    # This job runs static code analysis (ruff and mypy) on the Python files of the access control layer
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./access_control
+    steps:
+    - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 #v5.1.0
+    - uses: ./.github/actions/load-versions
+    - name: Set up Python ${{ env.X_PYTHON_MIN_VERSION }}
+      uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v7
+      with:
+        python-version: ${{ env.X_PYTHON_MIN_VERSION }}
+    - name: Install Ruff and MyPy
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install ruff==${{ env.X_RUFF_VERSION }} mypy==${{ env.X_MYPY_VERSION }}
+    - name: Check formatting and linting rules with Ruff
+      run: |
+        python -m ruff check
+    - name: Check typing with MyPy
+      run: |
+        python -m mypy --ignore-missing-imports examples/basyx/e2e_test.py filter_server/app.py

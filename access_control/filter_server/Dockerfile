@@ -3,7 +3,8 @@ FROM python:3.12-slim
 RUN pip install --no-cache-dir flask requests
 
 WORKDIR /app
-COPY ./server/example_configurations/access_control/general/filter_server/app.py ./
+# Build from this directory: docker build -t basyx-access-filter access_control/filter_server
+COPY app.py ./
 
 ENV UPSTREAM_REPOSITORY_URL="http://repository:80"
 ENV UPSTREAM_REGISTRY_URL="http://registry:80"

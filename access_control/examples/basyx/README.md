@@ -1,6 +1,6 @@
 # Secured BaSyx Python Server Stack
 
-This example runs the Basyx Python repository, registry and discovery servers together with the BaSyx AAS Web UI behind the access-control concept from [`general`](../general).
+This example runs the Basyx Python repository, registry and discovery servers together with the BaSyx AAS Web UI behind the access-control concept from [`general`](../general) (see also the [overview](../../README.md)).
 
 ## Components
 
