@@ -73,6 +73,15 @@
       "/registry/api/{api_version}/submodel-descriptors/{submodel}",
       "/discovery/api/{api_version}/lookup/shells/{aas}"
     ],
+    "collections": [
+      {"path": "/repository/api/{api_version}/shells", "resource": "aas"},
+      {"path": "/repository/api/{api_version}/shells/{aas}/submodel-refs", "resource": "submodel"},
+      {"path": "/repository/api/{api_version}/submodels", "resource": "submodel"},
+      {"path": "/registry/api/{api_version}/shell-descriptors", "resource": "aas"},
+      {"path": "/registry/api/{api_version}/shell-descriptors/{aas}/submodel-descriptors", "resource": "submodel"},
+      {"path": "/registry/api/{api_version}/submodel-descriptors", "resource": "submodel"},
+      {"path": "/discovery/api/{api_version}/lookup/shells", "resource": "aas"}
+    ],
     "resource_rules": [
       {
         "description": "Viewers can read the example shell (example_data/example_aas.json) in the repository, registry and discovery.",

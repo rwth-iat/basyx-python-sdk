@@ -11,7 +11,10 @@
 # `data.access_control` (see the examples' policy_data/data.json). A request is allowed if its path is canonical and
 #   1. it is a public path, or
 #   2. a server-level rule for the longest matching path prefix grants the method to one of the caller's roles, or
-#   3. every resource identified in the path (via `routes`) is granted to one of the caller's roles by a resource rule.
+#   3. every resource identified in the path (via `routes`) is granted to one of the caller's roles by a resource rule,
+#      or
+#   4. it reads a collection (via `collections`) through the response filter, which removes the entries the caller
+#      may not see (see `response_filter`).
 package envoy.authz
 
 import rego.v1
@@ -63,6 +66,11 @@ allow if {
 	every resource in requested_resources {
 		resource_allowed(resource)
 	}
+}
+
+allow if {
+	valid_path
+	filtered_collection_allowed
 }
 
 # --- canonical paths -----------------------------------------------------------------------------------------------
@@ -191,6 +199,58 @@ id_matches(rule, id) if {
 	some prefix in object.get(rule, "id_prefixes", [])
 	startswith(id, prefix)
 }
+
+# --- filtered collections ------------------------------------------------------------------------------------------
+
+# A collection endpoint (e.g. GET /shells) returns many resources at once. A caller who may see at least some resources
+# of its type may call it, but only on routes where Envoy sends the request through the response filter and marks it
+# with the context extension response_filter=true; the filter then removes what the caller may not see. Without that
+# mark, e.g. after a routing mistake, the rule does not apply and the request is denied.
+context_extensions := object.get(attributes, "contextExtensions", object.get(attributes, "context_extensions", {}))
+
+through_response_filter if object.get(context_extensions, "response_filter", "") == "true"
+
+filtered_collection_allowed if {
+	through_response_filter
+	request_method == "GET"
+	some collection in object.get(config, "collections", [])
+	collection_matches(collection.path)
+	not undecodable_resource_id
+	every resource in requested_resources {
+		resource_allowed(resource)
+	}
+	some rule in object.get(config, "resource_rules", [])
+	rule.resource == collection.resource
+	method_matches(rule)
+	role_matches(rule)
+}
+
+# Unlike routes, a collection path matches only exactly (no subpaths).
+collection_matches(template) if {
+	segments := split(trim_prefix(replace(template, "{api_version}", api_version), "/"), "/")
+	count(segments) == count(path_segments)
+	every i, segment in segments {
+		segment_matches(segment, path_segments[i])
+	}
+}
+
+# Decision for the response filter. The filter sends the original request in the same shape as Envoy, plus `items`:
+# the resources found in the response, as {"type": ..., "id": ...}. With "unfiltered", a server-level rule grants the
+# request and the response may pass unchanged; otherwise only the items in "visible" may be shown.
+response_filter := {"unfiltered": unfiltered, "visible": visible_items}
+
+default unfiltered := false
+
+unfiltered if {
+	valid_path
+	some rule in effective_rules
+	role_matches(rule)
+}
+
+visible_items := [item |
+	some item in object.get(input, "items", [])
+	resource_allowed(item)
+]
 
 # --- roles ---------------------------------------------------------------------------------------------------------
 

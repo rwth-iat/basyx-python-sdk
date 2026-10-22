@@ -25,6 +25,10 @@ fixture := {
 		"/api/{api_version}/things/{thing}",
 		"/api/{api_version}/things/{thing}/parts/{part}",
 	],
+	"collections": [
+		{"path": "/api/{api_version}/things", "resource": "thing"},
+		{"path": "/api/{api_version}/things/{thing}/parts", "resource": "part"},
+	],
 	"resource_rules": [
 		{"resource": "thing", "ids": ["urn:thing:1"], "methods": ["GET"], "roles": ["guest"]},
 		{"resource": "thing", "id_prefixes": ["urn:open:"], "methods": ["GET"], "roles": ["guest"]},
@@ -212,4 +216,74 @@ test_query_string_does_not_change_the_decision if {
 
 test_fails_closed_without_config if {
 	not authz.allow with input as request("GET", "/api/v1/things", role("admin")) with data.access_control as {}
+}
+
+# --- filtered collections ---------------------------------------------------------------------------------------------
+
+# A request on a route that Envoy sends through the response filter.
+filtered_request(method, path, claims) := {"attributes": {
+	"request": {"http": {"method": method, "path": path}},
+	"metadataContext": {"filterMetadata": {"envoy.filters.http.jwt_authn": {"jwt_payload": claims}}},
+	"contextExtensions": {"response_filter": "true"},
+}}
+
+allowed_filtered(method, path, claims) if {
+	authz.allow with input as filtered_request(method, path, claims) with data.access_control as fixture
+}
+
+test_collection_needs_the_response_filter if {
+	allowed_filtered("GET", "/api/v1/things", role("guest"))
+	not allowed("GET", "/api/v1/things", role("guest"))
+}
+
+test_collection_needs_a_resource_rule_for_its_type if {
+	not allowed_filtered("GET", "/api/v1/things", role("nobody"))
+	not allowed_filtered("GET", "/api/v1/things", {})
+}
+
+test_collection_is_read_only if {
+	not allowed_filtered("POST", "/api/v1/things", role("guest"))
+	not allowed_filtered("DELETE", "/api/v1/things", role("guest"))
+}
+
+test_collection_matches_exactly if {
+	not allowed_filtered("GET", "/api/v1/things/", role("guest"))
+	not allowed_filtered("GET", "/api/v1/other", role("guest"))
+}
+
+test_collection_below_a_resource_needs_that_resource if {
+	allowed_filtered("GET", concat("", [thing("urn:thing:1"), "/parts"]), role("guest"))
+	not allowed_filtered("GET", concat("", [thing("urn:thing:2"), "/parts"]), role("guest"))
+}
+
+test_collection_path_must_be_canonical if {
+	not allowed_filtered("GET", "/api/v1/things/../things", role("guest"))
+}
+
+filter_decision(path, claims, items) := decision if {
+	query := object.union(request("GET", path, claims), {"items": items})
+	decision := authz.response_filter with input as query with data.access_control as fixture
+}
+
+test_response_filter_lists_visible_items if {
+	items := [
+		{"type": "thing", "id": "urn:thing:1"},
+		{"type": "thing", "id": "urn:thing:2"},
+		{"type": "thing", "id": "urn:open:3"},
+		{"type": "part", "id": "urn:part:1"},
+	]
+	decision := filter_decision("/api/v1/things", role("guest"), items)
+	decision.unfiltered == false
+	decision.visible == [items[0], items[2], items[3]]
+}
+
+test_response_filter_passes_server_level_grants_unfiltered if {
+	decision := filter_decision("/api/v1/things", role("reader"), [{"type": "thing", "id": "urn:thing:2"}])
+	decision.unfiltered == true
+}
+
+test_response_filter_shows_nothing_without_roles if {
+	decision := filter_decision("/api/v1/things", {}, [{"type": "thing", "id": "urn:thing:1"}])
+	decision.unfiltered == false
+	decision.visible == []
 }

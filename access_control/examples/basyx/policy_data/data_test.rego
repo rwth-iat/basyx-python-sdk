@@ -51,8 +51,51 @@ test_editor_and_admin_can_list_shells if {
 	allowed("GET", sprintf("%s/shells", [api]), role("admin"))
 }
 
-test_viewer_cannot_list_shells if {
+test_viewer_cannot_list_shells_without_the_response_filter if {
 	not allowed("GET", sprintf("%s/shells", [api]), role("viewer"))
+}
+
+# A request on a route that Envoy sends through the response filter.
+filtered_request(method, path, claims) := object.union(
+	request(method, path, claims),
+	{"attributes": {"contextExtensions": {"response_filter": "true"}}},
+)
+
+allowed_filtered(method, path, claims) if authz.allow with input as filtered_request(method, path, claims)
+
+test_viewer_can_list_through_the_response_filter if {
+	allowed_filtered("GET", sprintf("%s/shells", [api]), role("viewer"))
+	allowed_filtered("GET", sprintf("%s/submodels", [api]), role("viewer"))
+	allowed_filtered("GET", sprintf("%s/shells/%s/submodel-refs", [api, shell]), role("viewer"))
+	allowed_filtered("GET", "/registry/api/v3.1/shell-descriptors", role("viewer"))
+	allowed_filtered("GET", "/registry/api/v3.1/submodel-descriptors", role("viewer"))
+	allowed_filtered("GET", "/discovery/api/v3.1/lookup/shells", role("viewer"))
+}
+
+test_viewer_cannot_list_concept_descriptions if {
+	not allowed_filtered("GET", sprintf("%s/concept-descriptions", [api]), role("viewer"))
+}
+
+test_unauthenticated_cannot_list_through_the_response_filter if {
+	not allowed_filtered("GET", sprintf("%s/shells", [api]), {})
+}
+
+test_response_filter_hides_unlisted_submodel if {
+	items := [
+		{"type": "submodel", "id": "http://example.org/Submodels/Assets/TestAsset/Identification"},
+		{"type": "submodel", "id": "http://example.org/Submodels/Assets/TestAsset/BillOfMaterial"},
+		{"type": "submodel", "id": "https://example.org/Test_Submodel"},
+	]
+	query := object.union(request("GET", sprintf("%s/submodels", [api]), role("viewer")), {"items": items})
+	decision := authz.response_filter with input as query
+	decision.unfiltered == false
+	decision.visible == [items[0], items[2]]
+}
+
+test_response_filter_passes_editor_unfiltered if {
+	query := object.union(request("GET", sprintf("%s/submodels", [api]), role("editor")), {"items": []})
+	decision := authz.response_filter with input as query
+	decision.unfiltered == true
 }
 
 test_editor_can_write_but_not_delete if {
