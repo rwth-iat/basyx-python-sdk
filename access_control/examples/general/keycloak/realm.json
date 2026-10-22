@@ -1,5 +1,5 @@
 {
-  "realm": "access-control-demo",
+  "realm": "${OIDC_REALM}",
   "enabled": true,
   "sslRequired": "external",
   "registrationAllowed": false,
@@ -21,16 +21,16 @@
   },
   "clients": [
     {
-      "clientId": "access-control-demo-client",
+      "clientId": "${OIDC_CLIENT_ID}",
       "name": "Access Control Demo Client",
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
-      "secret": "change-me",
+      "secret": "${OIDC_CLIENT_SECRET}",
       "redirectUris": [
-        "http://localhost:10000/*"
+        "${PUBLIC_URL}/*"
       ],
       "webOrigins": [
-        "*"
+        "${PUBLIC_URL}"
       ],
       "bearerOnly": false,
       "consentRequired": false,
@@ -49,7 +49,7 @@
           "protocolMapper": "oidc-audience-mapper",
           "consentRequired": false,
           "config": {
-            "included.client.audience": "access-control-demo-client",
+            "included.client.audience": "${OIDC_CLIENT_ID}",
             "id.token.claim": "false",
             "access.token.claim": "true",
             "userinfo.token.claim": "false",

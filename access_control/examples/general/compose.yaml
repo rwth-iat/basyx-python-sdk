@@ -1,37 +1,70 @@
 name: access-control-general
 
+# All settings come from .env in this directory, which Docker Compose reads automatically.
+
 services:
-  envoy:
-    image: envoyproxy/envoy:v1.31.10
-    container_name: Envoy
+  # Fills in the ${...} values of envoy.yaml.tmpl from .env, because Envoy cannot read environment variables in its
+  # configuration. Runs once, then exits.
+  config-renderer:
+    image: ${RENDERER_IMAGE:?set in .env}
+    entrypoint: ["/bin/sh", "/render-config.sh"]
+    environment:
+      RENDER_VARIABLES: OIDC_ISSUER OIDC_CLIENT_ID OIDC_JWKS_HOST OIDC_JWKS_PORT OIDC_JWKS_PATH APP_HOST APP_PORT
+      OIDC_ISSUER: ${OIDC_ISSUER:?set in .env}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?set in .env}
+      OIDC_JWKS_HOST: ${OIDC_JWKS_HOST:?set in .env}
+      OIDC_JWKS_PORT: ${OIDC_JWKS_PORT:?set in .env}
+      OIDC_JWKS_PATH: ${OIDC_JWKS_PATH:?set in .env}
+      APP_HOST: ${APP_HOST:?set in .env}
+      APP_PORT: ${APP_PORT:?set in .env}
     volumes:
-      - ./envoy.yaml:/etc/envoy/envoy.yaml
-    ports:
-      - "10000:10000"
-      # Envoy admin interface: no authentication, so only reachable from this machine.
-      - "127.0.0.1:8001:8001"
+      - ../../render-config.sh:/render-config.sh:ro
+      - ./envoy.yaml.tmpl:/templates/envoy.yaml.tmpl:ro
+      - rendered-config:/rendered
+
+  envoy:
+    image: ${ENVOY_IMAGE:?set in .env}
     command: ["envoy", "-c", "/etc/envoy/envoy.yaml", "--component-log-level", "ext_authz:trace"]
+    ports:
+      - "${GATEWAY_PORT:?set in .env}:10000"
+      # Envoy admin interface: no authentication, so only reachable from this machine.
+      - "127.0.0.1:${ENVOY_ADMIN_PORT:?set in .env}:8001"
+    volumes:
+      - type: volume
+        source: rendered-config
+        target: /etc/envoy/envoy.yaml
+        read_only: true
+        volume:
+          subpath: envoy.yaml
     depends_on:
-      - keycloak
+      config-renderer:
+        condition: service_completed_successfully
+      keycloak:
+        condition: service_started
+      opa-envoy:
+        condition: service_started
 
   keycloak:
-    image: quay.io/keycloak/keycloak:25.0.4
-    container_name: Keycloak
-    command: ["start-dev", "--import-realm"]
+    image: ${KEYCLOAK_IMAGE:?set in .env}
+    command: ["start-dev", "--import-realm", "--hostname=${KEYCLOAK_URL:?set in .env}", "--hostname-strict=false"]
     environment:
-      KC_METRICS_ENABLED: true
-      KC_HEALTH_ENABLED: true
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_METRICS_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:?set in .env}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?set in .env}
+      # Used by the ${...} placeholders in keycloak/realm.json during the import
+      OIDC_REALM: ${OIDC_REALM:?set in .env}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?set in .env}
+      PUBLIC_URL: ${PUBLIC_URL:?set in .env}
     ports:
-      - "8080:8080"
+      - "${KEYCLOAK_PORT:?set in .env}:8080"
     volumes:
-      - ./keycloak/realm.json:/opt/keycloak/data/import/realm.json
+      - ./keycloak/realm.json:/opt/keycloak/data/import/realm.json:ro
 
   opa-envoy:
     # The "-envoy-static" variant is published for amd64 and arm64.
-    image: openpolicyagent/opa:1.21.2-envoy-static
-    container_name: opa-envoy
+    image: ${OPA_IMAGE:?set in .env}
     # No published ports: Envoy reaches OPA over the internal network.
     command:
       - run
@@ -40,10 +73,18 @@ services:
       - --config-file=/opa.yaml
       - /policy
       - /policy_data
+    environment:
+      # Overrides role_claim of policy_data/data.json (see policy.rego)
+      ACCESS_CONTROL_ROLE_CLAIM: ${ROLE_CLAIM:?set in .env}
     volumes:
       - ../../policy:/policy:ro
       - ./policy_data:/policy_data:ro
-      - ./opa.yaml:/opa.yaml
+      - ./opa.yaml:/opa.yaml:ro
 
+  # Placeholder for the application to protect; point APP_HOST and APP_PORT in .env to your own service instead.
   app:
-    image: nginx:1.27-alpine
+    image: ${APP_IMAGE:?set in .env}
+
+volumes:
+  # Output of config-renderer
+  rendered-config:
