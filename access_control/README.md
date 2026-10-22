@@ -19,11 +19,13 @@ protect other AAS servers (AAS Part 2 API) or any other HTTP application.
 | OpenID Connect provider (Keycloak in the examples) | Authenticates users and issues signed JWTs with their roles | Who are you? |
 | [Envoy](https://www.envoyproxy.io/) | The only public entry point; verifies the JWT (signature, issuer, audience, expiry), normalizes the path, asks OPA, routes the request | Is your token valid? |
 | [OPA](https://www.openpolicyagent.org/) | Evaluates [`policy/policy.rego`](policy/policy.rego) against method, path and token roles | May you do this? |
+| [Response filter](filter_server/README.md) | Between Envoy and the AAS servers for `GET`; removes from responses what OPA says the caller may not see | What of this may you see? |
 | AAS servers | Unchanged; only reachable through Envoy | |
 
 A request without a valid token gets `401`; a valid token without the required rights gets `403`. Envoy only sees the
-request, never the response, so lists such as `GET /shells` can only be allowed or denied as a whole.
-See the [sequence diagram](examples/general/img.png).
+request, never the response. Therefore `GET` requests pass through the response filter, which asks OPA which entries
+of a list (and which submodel references in a shell) the caller may see and removes the others. The filter makes no
+decisions of its own. See the [sequence diagram](examples/general/img.png) for the request path without the filter.
 
 ## Layout
 
@@ -34,7 +36,7 @@ access_control/
 ├── examples/
 │   ├── general/         the pattern in front of a placeholder application (nginx)
 │   └── basyx/           BaSyx Python repository, registry and discovery plus the AAS Web UI
-└── filter_server/       prototype of a response filter for lists; not wired into the examples yet
+└── filter_server/       response filter for GET responses (used by examples/basyx)
 ```
 
 Each example has the same structure: `.env` (all settings), `compose.yaml`, `envoy.yaml.tmpl`, `keycloak/realm.json`
@@ -68,10 +70,12 @@ under `access_control`:
 | `rules` | Server-level rules: `path_prefix`, `methods`, `roles`. For a request, only the rules with the longest matching prefix count, so `/admin` can override `/`. |
 | `routes` | Path templates that identify resources, e.g. `/repository/api/{api_version}/shells/{aas}`. A placeholder names the resource type; the template also covers everything below it. |
 | `resource_rules` | Resource-level rules: `resource` (type), `ids`, `id_prefixes` or `"*"`, `methods`, `roles`. Identifiers are readable (`https://example.org/...`); the policy decodes the base64url identifiers in the path itself. |
+| `collections` | List endpoints (`path`, exact match) and the `resource` type of their entries. A caller with a resource rule for that type may read them, but only through the response filter (Envoy marks those routes with the context extension `response_filter=true`; without it the rule does not apply). |
 | `api_version`, `role_claim` | Defaults, overridable through OPA's environment (see above) |
 
 A request is allowed if its path is canonical and it is public, or a server-level rule grants it, or every resource in
-its path is granted by a resource rule. Paths with `..`, `.`, `//`, backslashes or encoded `.`, `/`, `\`, `%` are always
+its path is granted by a resource rule, or it reads a collection through the response filter. For the filter, the
+policy additionally answers `response_filter`: whether a response may pass unchanged, and which resources are visible. Paths with `..`, `.`, `//`, backslashes or encoded `.`, `/`, `\`, `%` are always
 denied (Envoy already normalizes paths; this is a second line of defense). Roles come only from the configured role
 claim, never from scopes or groups.
 
@@ -82,12 +86,13 @@ claim, never from scopes or groups.
 | Policy logic | `docker run --rm -v "$PWD:/ac:ro" openpolicyagent/opa:1.21.2-envoy-static test /ac/policy -v` | `access-control-policy-test` |
 | An example's rules | `docker run --rm -v "$PWD:/ac:ro" openpolicyagent/opa:1.21.2-envoy-static test /ac/policy /ac/examples/basyx/policy_data -v` | `access-control-policy-test` |
 | BaSyx stack end to end | in `examples/basyx`: `docker compose up -d`, then `python -m unittest e2e_test -v` | `access-control-e2e` |
+| Response filter | in `filter_server`: `python -m unittest discover -v` | `access-control-static-analysis` |
 | Python code style and types | `ruff check` and `mypy` | `access-control-static-analysis` |
 
 ## Limitations
 
-- A viewer cannot list shells or submodels (`403`); lists would have to be filtered on the response side
-  (`filter_server/`, not wired in yet).
-- A shell the viewer may read still contains the references to all of its submodels; the content of forbidden
-  submodels stays protected.
+- For callers who only see part of a collection, the response filter reads the whole collection from the server
+  before filtering (up to `FILTER_MAX_ITEMS`, default 10000). This gets slow for large data sets; filtering in the
+  server, e.g. through the AAS query language, would scale better but would couple the layer to the server.
+- The general example has no response filter: its placeholder application has no AAS responses to filter.
 - Demo users and passwords, no TLS: suitable for local use only.

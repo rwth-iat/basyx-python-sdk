@@ -538,7 +538,7 @@ jobs:
         python-version: ${{ env.X_PYTHON_MIN_VERSION }}
     - name: Start the stack
       run: |
-        docker compose up -d --quiet-pull
+        docker compose up -d --build --quiet-pull
     - name: Run end-to-end tests
       run: |
         python -m unittest e2e_test -v

@@ -9,7 +9,9 @@ behind the access-control layer described in the [overview](../../README.md).
 - `repository`, `registry`, `discovery`: the published, unmodified BaSyx Python server images.
 - `aas-web-ui`: BaSyx AAS Web UI, served under http://localhost:10000/ui.
 - `keycloak`: demo identity provider on http://localhost:8080.
-- `opa-envoy`: OPA, asked by Envoy for every request.
+- `opa-envoy`: OPA, asked by Envoy for every request and by the response filter for every `GET` response.
+- `response-filter`: between Envoy and the servers for `GET` requests; removes what the caller may not see
+  ([details](../../filter_server/README.md)). Built from `../../filter_server`.
 - `config-renderer`: fills the values of `.env` into `envoy.yaml.tmpl` and `basyx-infra.yml.tmpl`, then exits.
 
 The Web UI is not the authorization authority. It uses the same Keycloak issuer only so that browsers can obtain a
@@ -50,7 +52,8 @@ The rules are in [`policy_data/data.json`](policy_data/data.json); the policy it
 - Only `admin` may `DELETE`.
 - `viewer` gets no general access. It may only read the example shell `https://example.org/Test_AssetAdministrationShell`
   (in repository, registry and discovery) and two of its submodels, `Identification` and `Test_Submodel`, but not
-  `BillOfMaterial`.
+  `BillOfMaterial`. Lists such as `GET /shells` or `GET /submodels` show the viewer only these, and the shell's
+  submodel references no longer mention `BillOfMaterial`. Concept descriptions are not listed for the viewer (`403`).
 - Roles are read only from the token's `realm_access.roles` claim.
 
 ## Example Data
