@@ -45,6 +45,55 @@ static_resources:
                           route:
                             cluster: aas-web-ui
                             timeout: 30s
+                        # GET requests to the AAS servers go through the response filter, which removes what the
+                        # caller may not see. The context extension tells OPA that the response will be filtered;
+                        # only then may callers with partial rights list collections.
+                        - match:
+                            prefix: "/repository/"
+                            headers:
+                              - name: ":method"
+                                string_match:
+                                  exact: "GET"
+                          route:
+                            cluster: response-filter
+                            timeout: 60s
+                          typed_per_filter_config:
+                            envoy.filters.http.ext_authz:
+                              "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthzPerRoute
+                              check_settings:
+                                context_extensions:
+                                  response_filter: "true"
+                        - match:
+                            prefix: "/registry/"
+                            headers:
+                              - name: ":method"
+                                string_match:
+                                  exact: "GET"
+                          route:
+                            cluster: response-filter
+                            timeout: 60s
+                          typed_per_filter_config:
+                            envoy.filters.http.ext_authz:
+                              "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthzPerRoute
+                              check_settings:
+                                context_extensions:
+                                  response_filter: "true"
+                        - match:
+                            prefix: "/discovery/"
+                            headers:
+                              - name: ":method"
+                                string_match:
+                                  exact: "GET"
+                          route:
+                            cluster: response-filter
+                            timeout: 60s
+                          typed_per_filter_config:
+                            envoy.filters.http.ext_authz:
+                              "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthzPerRoute
+                              check_settings:
+                                context_extensions:
+                                  response_filter: "true"
+                        # All other methods go to the servers directly.
                         - match:
                             prefix: "/repository/"
                           route:
@@ -78,6 +127,8 @@ static_resources:
                               seconds: 300
                           forward: true
                           payload_in_metadata: jwt_payload
+                          # The verified payload for the response filter, which must not decode the token itself
+                          forward_payload_header: x-jwt-payload
                       rules:
                         - match:
                             prefix: "/repository/"
@@ -166,6 +217,20 @@ static_resources:
                     socket_address:
                       address: ${DISCOVERY_HOST}
                       port_value: ${DISCOVERY_PORT}
+
+    - name: response-filter
+      connect_timeout: 1s
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: response-filter
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: response-filter
+                      port_value: 8080
 
     - name: keycloak
       connect_timeout: 1s

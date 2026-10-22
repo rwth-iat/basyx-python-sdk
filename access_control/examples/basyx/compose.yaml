@@ -67,6 +67,24 @@ services:
         condition: service_started
       opa-envoy:
         condition: service_started
+      response-filter:
+        condition: service_started
+
+  # Removes what a caller may not see from GET responses, as decided by OPA (see ../../filter_server).
+  # Only reachable through Envoy: no published ports.
+  response-filter:
+    build: ../../filter_server
+    image: basyx-access-filter:local
+    environment:
+      FILTER_UPSTREAMS: >-
+        /repository=http://${REPOSITORY_HOST}:${REPOSITORY_PORT}
+        /registry=http://${REGISTRY_HOST}:${REGISTRY_PORT}
+        /discovery=http://${DISCOVERY_HOST}:${DISCOVERY_PORT}
+      FILTER_OPA_URL: http://opa-envoy:8181/v1/data/envoy/authz/response_filter
+      FILTER_CLAIMS_HEADER: x-jwt-payload
+    depends_on:
+      opa-envoy:
+        condition: service_started
 
   # The BaSyx servers run as the published, unmodified images: the access control layer
   # must not depend on building the servers from this repository.
@@ -149,8 +167,8 @@ services:
       # Override api_version and role_claim of policy_data/data.json (see policy.rego)
       ACCESS_CONTROL_API_VERSION: ${API_VERSION}
       ACCESS_CONTROL_ROLE_CLAIM: ${ROLE_CLAIM:?set in .env}
-    # No published ports: Envoy reaches OPA over the internal network. The OPA REST API
-    # has no authentication and would allow reading and replacing the policy.
+    # No published ports: Envoy (gRPC, 9191) and the response filter (REST, 8181) reach OPA over the internal network.
+    # The OPA REST API has no authentication and would allow reading and replacing the policy.
     volumes:
       - ./opa.yaml:/config/opa.yaml:ro
       - ../../policy:/policy:ro
