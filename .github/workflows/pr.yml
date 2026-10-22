@@ -515,3 +515,32 @@ jobs:
     - name: Check typing with MyPy
       run: |
         python -m mypy --ignore-missing-imports examples/basyx/e2e_test.py filter_server/app.py
+
+  access-control-e2e:
+    # This job starts the secured BaSyx stack exactly as configured in its .env and runs the end-to-end tests
+    # through Envoy against it.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./access_control/examples/basyx
+    steps:
+    - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 #v5.1.0
+    - uses: ./.github/actions/load-versions
+    - name: Set up Python ${{ env.X_PYTHON_MIN_VERSION }}
+      uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v7
+      with:
+        python-version: ${{ env.X_PYTHON_MIN_VERSION }}
+    - name: Start the stack
+      run: |
+        docker compose up -d --quiet-pull
+    - name: Run end-to-end tests
+      run: |
+        python -m unittest e2e_test -v
+    - name: Show logs on failure
+      if: ${{ failure() }}
+      run: |
+        docker compose logs --no-color
+    - name: Stop the stack
+      if: ${{ always() }}
+      run: |
+        docker compose down -v

@@ -1,39 +1,29 @@
 # Secured BaSyx Python Server Stack
 
-This example runs the Basyx Python repository, registry and discovery servers together with the BaSyx AAS Web UI behind the access-control concept from [`general`](../general) (see also the [overview](../../README.md)).
+This example runs the BaSyx Python repository, registry and discovery servers together with the BaSyx AAS Web UI
+behind the access-control layer described in the [overview](../../README.md).
 
 ## Components
 
-- `envoy`: Public gateway on http://localhost:10000.
-- `repository`: Basyx Python AAS/Submodel repository server.
-- `registry`: Basyx Python AAS/Submodel registry server.
-- `discovery`: Basyx Python AAS discovery server.
-- `aas-web-ui`: BaSyx AAS Web UI served under http://localhost:10000/ui.
-- `keycloak`: Demo identity provider on http://localhost:8080.
-- `opa-envoy`: OPA external authorization service for Envoy.
+- `envoy`: public gateway on http://localhost:10000.
+- `repository`, `registry`, `discovery`: the published, unmodified BaSyx Python server images.
+- `aas-web-ui`: BaSyx AAS Web UI, served under http://localhost:10000/ui.
+- `keycloak`: demo identity provider on http://localhost:8080.
+- `opa-envoy`: OPA, asked by Envoy for every request.
+- `config-renderer`: fills the values of `.env` into `envoy.yaml.tmpl` and `basyx-infra.yml.tmpl`, then exits.
 
-The BaSyx UI is not used as the authorization authority. It is preconfigured with the same Keycloak issuer only so browser clients can obtain a bearer token and send it to Envoy. The final access decision is made by OPA.
+The Web UI is not the authorization authority. It uses the same Keycloak issuer only so that browsers can obtain a
+token and send it to Envoy. The access decision is made by OPA.
 
 ## Run
-
-Start the stack from this directory:
 
 ```bash
 docker compose up
 ```
 
-The BaSyx servers run as the published images (`eclipsebasyx/basyx-python-*`), so nothing is built. Server data is
-kept in Docker volumes; `docker compose down -v` resets the stack to the example data.
-
-Open:
-
-- BaSyx UI: http://localhost:10000/ui
-- Keycloak: http://localhost:8080
-- Envoy admin: http://localhost:8001 (only from this machine)
-
-OPA has no published ports: only Envoy talks to it over the internal network.
-
-Demo users:
+Then open http://localhost:10000/ui and log in with one of the demo users. `docker compose down -v` resets the stack
+to the example data. The Envoy admin interface is on http://localhost:8001 (only from this machine); OPA has no
+published ports.
 
 | User | Password | Role |
 |------|----------|------|
@@ -41,43 +31,34 @@ Demo users:
 | `editor` | `editor` | `editor` |
 | `admin` | `admin` | `admin` |
 
-## Policy
+## Configuration
 
-OPA policy data is in `policy_data/data.json`; the policy itself is shared by all examples
-([`access_control/policy/policy.rego`](../../policy/policy.rego)).
-The policy has two layers:
-1. Server-level rules decide whether a role may call broad server areas such as `/repository`, `/registry` or `/discovery` with a given HTTP method.
-2. Resource-level rules decide whether a role may access a concrete resource URL when the resource id is present in the request path.
+Everything is set in [`.env`](.env): API version, public URLs and ports, Keycloak realm and client, role claim, the
+addresses of the AAS servers behind the gateway, demo credentials and image versions. To protect other AAS servers,
+e.g. BaSyx Java, point `REPOSITORY_HOST`/`REPOSITORY_PORT` etc. to them.
+
+The UI is locked to the gateway with `ENDPOINT_CONFIG_AVAILABLE: "false"`, so users cannot bypass it by entering backend
+URLs.
+
+## Rules
+
+The rules are in [`policy_data/data.json`](policy_data/data.json); the policy itself is shared by all examples
+([`policy.rego`](../../policy/policy.rego)).
 
 - UI paths are public.
-- `GET` and `HEAD` on broad server APIs are allowed for `editor` and `admin`.
-- `POST` and `PUT` are allowed for `editor` and `admin`, `PATCH` additionally on the repository.
-- `DELETE` is allowed only for `admin`.
-- `viewer` does not receive broad repository, registry or discovery access. It may only read the example shell
-  `https://example.org/Test_AssetAdministrationShell` and two of its submodels (`Identification` and
-  `Test_Submodel`), but not its `BillOfMaterial` submodel.
-- Roles are read only from the token's `realm_access.roles` claim; scopes and groups are not roles.
-- Requests whose path is not canonical (`..`, `.`, `//`, encoded `.`, `/`, `\` or `%`) are denied. Envoy normalizes
-  paths before asking OPA (`normalize_path`, `merge_slashes`); the policy check is a second line of defense.
-
-`GET all` requests are not supported for resource-level filtering in this version.
+- `editor` and `admin` may read (`GET`, `HEAD`) and change (`POST`, `PUT`, and `PATCH` on the repository) everything.
+- Only `admin` may `DELETE`.
+- `viewer` gets no general access. It may only read the example shell `https://example.org/Test_AssetAdministrationShell`
+  (in repository, registry and discovery) and two of its submodels, `Identification` and `Test_Submodel`, but not
+  `BillOfMaterial`.
+- Roles are read only from the token's `realm_access.roles` claim.
 
 ## Example Data
 
 `example_data/example_aas.json` is the SDK's full example (`basyx.aas.examples.data.example_aas.create_full_example()`)
 serialized to JSON. The repository loads it on start-up; the identifiers in `policy_data/data.json` refer to it.
 
-## UI Configuration
-
-The UI infrastructure configuration is mounted from `basyx-infra.yml` and locked with:
-
-```yaml
-ENDPOINT_CONFIG_AVAILABLE: "false"
-```
-
-This avoids users accidentally bypassing the gateway by entering direct backend URLs.
-
-## Test resource level access
+## Try it
 
 The viewer can read the listed example shell:
 
@@ -111,15 +92,17 @@ Invoke-WebRequest `
   ConvertTo-Json -Depth 50
 ```
 
+These commands use the default values of `.env`.
+
 ## Tests
 
-Policy unit tests (no running stack needed), from this directory:
+Rules of this example, no running stack needed:
 
 ```bash
 docker run --rm -v "$PWD/../..:/ac:ro" openpolicyagent/opa:1.21.2-envoy-static test /ac/policy /ac/examples/basyx/policy_data -v
 ```
 
-End-to-end tests against the running stack (Python 3.11+, no extra packages):
+End-to-end tests against the running stack (Python 3.11+, no extra packages; endpoints are read from `.env`):
 
 ```bash
 python -m unittest e2e_test -v
@@ -127,10 +110,8 @@ python -m unittest e2e_test -v
 
 The end-to-end tests only read data or send requests that must be denied.
 
-
 ## Notes
 
-- Do not expose the repository, registry or discovery ports in production.
+- Do not publish the ports of the repository, registry or discovery servers in production.
 - Replace demo users, passwords and client settings before real use.
 - Use HTTPS for Envoy and Keycloak outside local development.
-- Keep the API paths in `envoy.yaml`, `basyx-infra.yml`, server `API_BASE_PATH` values and `policy_data/data.json` aligned.

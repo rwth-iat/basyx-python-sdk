@@ -23,7 +23,8 @@ The application only receives requests after:
 docker compose up
 ```
 
-The demo Keycloak realm `access-control-demo` is imported automatically with these users:
+The demo Keycloak realm `access-control-demo` (client `access-control-demo-client`, secret `change-me`) is imported
+automatically with these users:
 
 | User | Password | Role |
 |------|----------|------|
@@ -43,14 +44,15 @@ docker run --rm -v "$PWD/../..:/ac:ro" openpolicyagent/opa:1.21.2-envoy-static t
 
 ## Adapting It to Any Application
 
-1. Replace the `app` service in `compose.yaml` with your application, or update the `app` cluster in `envoy.yaml` to point to an existing host and port.
-2. Update the OIDC settings in `envoy.yaml`:
-   - `issuer`
-   - `audiences`
-   - `remote_jwks.http_uri.uri`
-   - the `keycloak` cluster if your JWKS endpoint is not the demo Keycloak service
-3. Update `keycloak/realm.json` only for the local demo identity provider, or replace Keycloak with your real identity provider.
-4. Edit `policy_data/data.json` to describe the application's protected path prefixes, methods and required roles.
+All settings are in [`.env`](.env); `envoy.yaml.tmpl` and `keycloak/realm.json` take their values from there.
+
+1. Point `APP_HOST` and `APP_PORT` to your application (and remove the `app` placeholder service from `compose.yaml`).
+2. Set the OpenID Connect values for your identity provider: `OIDC_ISSUER`, `OIDC_CLIENT_ID` (the expected audience)
+   and `OIDC_JWKS_HOST`, `OIDC_JWKS_PORT`, `OIDC_JWKS_PATH` (where Envoy fetches the signing keys). If you use your
+   own identity provider, the `keycloak` service and `keycloak/realm.json` are not needed.
+3. Set `ROLE_CLAIM` if your tokens carry the roles somewhere other than `realm_access.roles`.
+4. Edit `policy_data/data.json` to describe the application's public paths, protected path prefixes, methods and
+   required roles.
 
 The Rego policy in [`access_control/policy/policy.rego`](../../policy/policy.rego) is shared by all examples and
 intentionally generic. Application-specific changes belong in `policy_data/data.json`.
