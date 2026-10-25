@@ -13,7 +13,7 @@ and passed in as ``keep``.
 from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Final
 
 #: A resource as the policy sees it: (type, identifier), e.g. ("aas", "https://example.org/Test_AssetAdministrationShell")
 Resource = tuple[str, str]
@@ -28,21 +28,21 @@ class Collection:
 
 
 # Collection endpoints by their last path segment(s). Their responses are {"result": [...], "paging_metadata": {...}}.
-_COLLECTIONS: dict[tuple[str, ...], Collection] = {
-    ("shells",): Collection("aas", "object"),
-    ("submodels",): Collection("submodel", "object"),
-    ("submodel-refs",): Collection("submodel", "reference"),
-    ("shell-descriptors",): Collection("aas", "object"),
-    ("submodel-descriptors",): Collection("submodel", "object"),
-    ("lookup", "shells"): Collection("aas", "identifier"),
-}
+# Longest suffix first, so that ".../lookup/shells" is not taken for ".../shells".
+_COLLECTIONS: Final[tuple[tuple[tuple[str, ...], Collection], ...]] = (
+    (("lookup", "shells"), Collection("aas", "identifier")),
+    (("shells",), Collection("aas", "object")),
+    (("submodels",), Collection("submodel", "object")),
+    (("submodel-refs",), Collection("submodel", "reference")),
+    (("shell-descriptors",), Collection("aas", "object")),
+    (("submodel-descriptors",), Collection("submodel", "object")),
+)
 
 
 def collection_for(path: str) -> Collection | None:
     """The collection a request path lists, or None if the path addresses something else."""
     segments = tuple(segment for segment in path.split("?", 1)[0].split("/") if segment)
-    # Longest suffix first, so that ".../lookup/shells" is not taken for ".../shells".
-    for suffix, collection in sorted(_COLLECTIONS.items(), key=lambda item: -len(item[0])):
+    for suffix, collection in _COLLECTIONS:
         if segments[-len(suffix):] == suffix:
             return collection
     return None

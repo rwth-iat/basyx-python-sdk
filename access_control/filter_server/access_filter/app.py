@@ -17,7 +17,7 @@ import binascii
 import json
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any, Final, Protocol
 from urllib.parse import urlencode
 
 import urllib3
@@ -27,10 +27,10 @@ from . import resources
 from .config import Settings
 
 # Headers that describe one connection and must not be forwarded (RFC 9110, section 7.6.1)
-_HOP_BY_HOP = {
+_HOP_BY_HOP: Final[frozenset[str]] = frozenset({
     "connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailer", "transfer-encoding",
     "upgrade",
-}
+})
 
 
 @dataclass(frozen=True)
@@ -86,8 +86,17 @@ class AccessFilter:
         try:
             if request.method != "GET":
                 raise FilterError(405, "the response filter only handles GET requests")
-            base_url = self._upstream_for(request.path)
-            target = _raw_target(request)
+            base_url = next((url for prefix, url in self.settings.upstreams.items()
+                             if request.path == prefix or request.path.startswith(prefix + "/")), None)
+            if base_url is None:
+                raise FilterError(404, "no server configured for this path")
+            # Path and query exactly as received, i.e. as Envoy passed them on after normalizing
+            raw_uri = request.environ.get("RAW_URI") or request.environ.get("REQUEST_URI")
+            if isinstance(raw_uri, str) and raw_uri.startswith("/"):
+                target = raw_uri
+            else:
+                query = request.query_string.decode("latin-1")
+                target = request.path + (f"?{query}" if query else "")
             claims = self._claims(request)
             if self._decide(target, claims, []).unfiltered:
                 return _passthrough(self._fetch(base_url + target, request))
@@ -96,7 +105,9 @@ class AccessFilter:
                 return self._filtered_collection(request, base_url, target, claims, collection)
             return self._filtered_object(request, base_url, target, claims)
         except FilterError as error:
-            return _error_response(error.status, error.message)
+            # Same shape as the AAS API's error results
+            body = {"messages": [{"messageType": "Error", "text": error.message, "code": str(error.status)}]}
+            return _json_response(body, error.status)
 
     # --- filtering ------------------------------------------------------------------------------------------------
 
@@ -135,9 +146,11 @@ class AccessFilter:
             entries.extend(payload["result"])
             if len(entries) > self.settings.max_items:
                 raise FilterError(502, f"collection has more than {self.settings.max_items} entries to filter")
-            cursor = _next_cursor(payload)
-            if cursor is None or cursor in seen_cursors:
+            paging_metadata = payload.get("paging_metadata") or payload.get("pagingMetadata") or {}
+            next_cursor = paging_metadata.get("cursor") if isinstance(paging_metadata, dict) else None
+            if not isinstance(next_cursor, str) or not next_cursor or next_cursor in seen_cursors:
                 break
+            cursor = next_cursor
             seen_cursors.add(cursor)
 
         listing = {"result": entries}
@@ -146,16 +159,12 @@ class AccessFilter:
 
         page = kept[offset:] if limit is None else kept[offset:offset + limit]
         next_offset = offset + len(page)
-        paging: dict[str, str] = {"cursor": _encode_cursor(next_offset)} if next_offset < len(kept) else {}
+        paging: dict[str, str] = {}
+        if next_offset < len(kept):
+            paging["cursor"] = base64.urlsafe_b64encode(f"offset:{next_offset}".encode()).decode().rstrip("=")
         return _json_response({"paging_metadata": paging, "result": page}, 200)
 
     # --- collaborators ----------------------------------------------------------------------------------------------
-
-    def _upstream_for(self, path: str) -> str:
-        for prefix, url in self.settings.upstreams.items():
-            if path == prefix or path.startswith(prefix + "/"):
-                return url
-        raise FilterError(404, "no server configured for this path")
 
     def _claims(self, request: Request) -> dict[str, Any]:
         """The JWT payload Envoy verified and forwarded; without it the caller has no roles."""
@@ -209,15 +218,6 @@ def create_app() -> AccessFilter:
 
 # --- helpers ----------------------------------------------------------------------------------------------------------
 
-def _raw_target(request: Request) -> str:
-    """Path and query of the request exactly as received, as Envoy passed it on after normalizing."""
-    raw = request.environ.get("RAW_URI") or request.environ.get("REQUEST_URI")
-    if isinstance(raw, str) and raw.startswith("/"):
-        return raw
-    query = request.query_string.decode("latin-1")
-    return request.path + (f"?{query}" if query else "")
-
-
 def _json_payload(response: UpstreamResponse) -> Any:
     content_type = next((value for name, value in response.headers if name.lower() == "content-type"), "")
     if response.status >= 400 or "json" not in content_type.lower():
@@ -226,12 +226,6 @@ def _json_payload(response: UpstreamResponse) -> Any:
         return json.loads(response.body)
     except ValueError:
         return None
-
-
-def _next_cursor(payload: dict[str, Any]) -> str | None:
-    paging = payload.get("paging_metadata") or payload.get("pagingMetadata") or {}
-    cursor = paging.get("cursor") if isinstance(paging, dict) else None
-    return cursor if isinstance(cursor, str) and cursor else None
 
 
 def _parse_limit(raw: str | None) -> int | None:
@@ -244,10 +238,6 @@ def _parse_limit(raw: str | None) -> int | None:
     if limit < 1:
         raise FilterError(400, "limit must be a positive integer")
     return limit
-
-
-def _encode_cursor(offset: int) -> str:
-    return base64.urlsafe_b64encode(f"offset:{offset}".encode()).decode().rstrip("=")
 
 
 def _parse_cursor(raw: str | None) -> int:
@@ -272,9 +262,3 @@ def _passthrough(upstream: UpstreamResponse) -> Response:
 
 def _json_response(payload: Any, status: int) -> Response:
     return Response(json.dumps(payload), status=status, mimetype="application/json")
-
-
-def _error_response(status: int, message: str) -> Response:
-    # Same shape as the AAS API's error results
-    body = {"messages": [{"messageType": "Error", "text": message, "code": str(status)}]}
-    return _json_response(body, status)
