@@ -473,7 +473,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./access_control
+        working-directory: ./server/example_configurations/access_control
     env:
       OPA_IMAGE: openpolicyagent/opa:1.21.2-envoy-static
     steps:
@@ -497,7 +497,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./access_control
+        working-directory: ./server/example_configurations/access_control
     steps:
     - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 #v5.1.0
     - uses: ./.github/actions/load-versions
@@ -518,7 +518,7 @@ jobs:
         python -m mypy --ignore-missing-imports examples/basyx/e2e_test.py
         cd filter_server && python -m mypy --ignore-missing-imports access_filter tests
     - name: Run the response filter's unit tests
-      working-directory: ./access_control/filter_server
+      working-directory: ./server/example_configurations/access_control/filter_server
       run: |
         python -m unittest discover -v
 
@@ -528,7 +528,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./access_control/examples/basyx
+        working-directory: ./server/example_configurations/access_control/examples/basyx
     steps:
     - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 #v5.1.0
     - uses: ./.github/actions/load-versions

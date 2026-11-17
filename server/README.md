@@ -87,6 +87,7 @@ Currently, we offer:
 - [repository_standalone](example_configurations/repository_standalone/README.md): Standalone repository server
 - [registry_standalone](example_configurations/registry_standalone/README.md): Standalone registry server
 - [discovery_standalone](example_configurations/discovery_standalone/README.md): Standalone discovery server
+- [access_control](example_configurations/access_control/README.md): Repository, registry and discovery servers behind an access-control layer (Envoy, OPA, Keycloak)
 
 ## Testing
 

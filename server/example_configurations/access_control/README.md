@@ -1,6 +1,6 @@
 # Access Control for AAS Servers
 
-This folder contains an access-control layer for the [BaSyx Python SDK HTTP servers](../server/README.md). It runs in
+This folder contains an access-control layer for the [BaSyx Python SDK HTTP servers](../../README.md). It runs in
 front of the servers and does not change them, so it is not limited to the BaSyx Python SDK servers: it can also
 protect other AAS servers (AAS Part 2 API) or any other HTTP application.
 

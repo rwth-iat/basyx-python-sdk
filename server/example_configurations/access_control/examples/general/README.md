@@ -54,5 +54,5 @@ All settings are in [`.env`](.env); `envoy.yaml.tmpl` and `keycloak/realm.json` 
 4. Edit `policy_data/data.json` to describe the application's public paths, protected path prefixes, methods and
    required roles.
 
-The Rego policy in [`access_control/policy/policy.rego`](../../policy/policy.rego) is shared by all examples and
+The Rego policy in [`policy/policy.rego`](../../policy/policy.rego) is shared by all examples and
 intentionally generic. Application-specific changes belong in `policy_data/data.json`.

@@ -130,11 +130,12 @@ A detailed, complete API [documentation](https://basyx-python-sdk.readthedocs.io
 
 Ready-to-use Docker Compose configurations can be found in `server/example_configurations/`:
 
-| Configuration                                                                  | Description                        |
-|--------------------------------------------------------------------------------|------------------------------------|
-| [Repository Standalone](./server/example_configurations/repository_standalone) | AAS and Submodel repository server |
-| [Registry Standalone](./server/example_configurations/registry_standalone)     | AAS and Submodel registry service  |
-| [Discovery Standalone](./server/example_configurations/discovery_standalone)   | AAS discovery service              |
+| Configuration                                                                  | Description                            |
+|--------------------------------------------------------------------------------|----------------------------------------|
+| [Repository Standalone](./server/example_configurations/repository_standalone) | AAS and Submodel repository server     |
+| [Registry Standalone](./server/example_configurations/registry_standalone)     | AAS and Submodel registry service      |
+| [Discovery Standalone](./server/example_configurations/discovery_standalone)   | AAS discovery service                  |
+| [Access Control](./server/example_configurations/access_control)               | Servers behind Envoy, OPA and Keycloak |
 
 ---
 

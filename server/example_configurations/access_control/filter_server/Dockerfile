@@ -1,5 +1,5 @@
 # Response filter of the access control layer. Build from this directory:
-#   docker build -t basyx-access-filter access_control/filter_server
+#   docker build -t basyx-access-filter .
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
