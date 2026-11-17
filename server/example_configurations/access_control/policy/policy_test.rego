@@ -77,9 +77,12 @@ test_rule_grants_method_to_role if {
 	not allowed("GET", "/api/v1/things", role("guest"))
 }
 
-test_longest_prefix_wins if {
-	not allowed("GET", "/api/v1/admin/settings", role("reader"))
+# As in AAS Part 4, rules only allow: a request is allowed if any matching rule grants it, so a more specific rule
+# cannot take away what a broader one grants.
+test_any_matching_rule_grants if {
+	allowed("GET", "/api/v1/admin/settings", role("reader"))
 	allowed("GET", "/api/v1/admin/settings", role("admin"))
+	not allowed("GET", "/api/v1/admin/settings", role("guest"))
 }
 
 test_prefix_stops_at_segment_boundary if {

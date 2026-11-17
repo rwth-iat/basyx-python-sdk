@@ -49,37 +49,8 @@ static_resources:
                         # caller may not see. The context extension tells OPA that the response will be filtered;
                         # only then may callers with partial rights list collections.
                         - match:
-                            prefix: "/repository/"
-                            headers:
-                              - name: ":method"
-                                string_match:
-                                  exact: "GET"
-                          route:
-                            cluster: response-filter
-                            timeout: 60s
-                          typed_per_filter_config:
-                            envoy.filters.http.ext_authz:
-                              "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthzPerRoute
-                              check_settings:
-                                context_extensions:
-                                  response_filter: "true"
-                        - match:
-                            prefix: "/registry/"
-                            headers:
-                              - name: ":method"
-                                string_match:
-                                  exact: "GET"
-                          route:
-                            cluster: response-filter
-                            timeout: 60s
-                          typed_per_filter_config:
-                            envoy.filters.http.ext_authz:
-                              "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthzPerRoute
-                              check_settings:
-                                context_extensions:
-                                  response_filter: "true"
-                        - match:
-                            prefix: "/discovery/"
+                            safe_regex:
+                              regex: "/(repository|registry|discovery)/.*"
                             headers:
                               - name: ":method"
                                 string_match:
@@ -131,15 +102,8 @@ static_resources:
                           forward_payload_header: x-jwt-payload
                       rules:
                         - match:
-                            prefix: "/repository/"
-                          requires:
-                            provider_name: keycloak
-                        - match:
-                            prefix: "/registry/"
-                          requires:
-                            provider_name: keycloak
-                        - match:
-                            prefix: "/discovery/"
+                            safe_regex:
+                              regex: "/(repository|registry|discovery)/.*"
                           requires:
                             provider_name: keycloak
                         - match:

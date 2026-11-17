@@ -10,7 +10,7 @@
 # The policy contains no application specific values: paths, roles and resource identifiers come from
 # `data.access_control` (see the examples' policy_data/data.json). A request is allowed if its path is canonical and
 #   1. it is a public path, or
-#   2. a server-level rule for the longest matching path prefix grants the method to one of the caller's roles, or
+#   2. a server-level rule for a matching path prefix grants the method to one of the caller's roles, or
 #   3. every resource identified in the path (via `routes`) is granted to one of the caller's roles by a resource rule,
 #      or
 #   4. it reads a collection (via `collections`) through the response filter, which removes the entries the caller
@@ -55,7 +55,7 @@ allow if {
 
 allow if {
 	valid_path
-	some rule in effective_rules
+	some rule in matching_rules
 	role_matches(rule)
 }
 
@@ -101,17 +101,12 @@ public_path if {
 
 # --- server-level rules --------------------------------------------------------------------------------------------
 
-# Rules matching method and path; only those with the longest path prefix count, so a specific rule (e.g. "/admin")
-# overrides a broad one (e.g. "/").
+# Rules matching method and path. As in AAS Part 4, rules only allow: any matching rule counts, so a more specific
+# rule cannot take away what a broader one grants.
 matching_rules contains rule if {
 	some rule in object.get(config, "rules", [])
 	method_matches(rule)
 	prefix_matches(object.get(rule, "path_prefix", "/"), request_path)
-}
-
-effective_rules contains rule if {
-	some rule in matching_rules
-	count(object.get(rule, "path_prefix", "/")) == max([count(object.get(r, "path_prefix", "/")) | some r in matching_rules])
 }
 
 # "/" matches every path; any other prefix matches itself and everything below it, but not "/repository-internal"
@@ -243,7 +238,7 @@ default unfiltered := false
 
 unfiltered if {
 	valid_path
-	some rule in effective_rules
+	some rule in matching_rules
 	role_matches(rule)
 }
 

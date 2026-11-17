@@ -478,8 +478,8 @@ jobs:
           docker stop basyx-python-${{ matrix.profile }} && docker rm basyx-python-${{ matrix.profile }}
 
   access-control-policy-test:
-    # This job checks syntax and formatting of the shared OPA policy and the examples' policy data, and runs the
-    # policy's own tests and each example's tests. It uses the same OPA image as the examples' compose.yaml.
+    # This job checks syntax and formatting of the shared OPA policy and the example's policy data, and runs the
+    # policy's own tests and the example's tests. It uses the same OPA image as the examples' compose.yaml.
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -495,12 +495,10 @@ jobs:
       run: |
         docker run --rm -v "$PWD:/ac:ro" "$OPA_IMAGE" check --strict /ac/policy
         docker run --rm -v "$PWD:/ac:ro" "$OPA_IMAGE" test /ac/policy -v
-    - name: Test the examples' rules with the shared policy
+    - name: Test the example's rules with the shared policy
       run: |
-        for example in basyx general; do
-          docker run --rm -v "$PWD:/ac:ro" "$OPA_IMAGE" check --strict /ac/policy "/ac/examples/$example/policy_data"
-          docker run --rm -v "$PWD:/ac:ro" "$OPA_IMAGE" test /ac/policy "/ac/examples/$example/policy_data" -v
-        done
+        docker run --rm -v "$PWD:/ac:ro" "$OPA_IMAGE" check --strict /ac/policy /ac/examples/basyx/policy_data
+        docker run --rm -v "$PWD:/ac:ro" "$OPA_IMAGE" test /ac/policy /ac/examples/basyx/policy_data -v
 
   access-control-static-analysis:
     # This job runs static code analysis (ruff and mypy) on the Python files of the access control layer

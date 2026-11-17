@@ -8,23 +8,12 @@ services:
   config-renderer:
     image: ${RENDERER_IMAGE:?set in .env}
     entrypoint: ["/bin/sh", "/render-config.sh"]
+    # The values come from .env; render-config.sh stops if one of RENDER_VARIABLES is missing.
+    env_file: .env
     environment:
       RENDER_VARIABLES: >-
         API_VERSION PUBLIC_URL OIDC_ISSUER OIDC_CLIENT_ID OIDC_JWKS_HOST OIDC_JWKS_PORT OIDC_JWKS_PATH
         REPOSITORY_HOST REPOSITORY_PORT REGISTRY_HOST REGISTRY_PORT DISCOVERY_HOST DISCOVERY_PORT
-      API_VERSION: ${API_VERSION:?set in .env}
-      PUBLIC_URL: ${PUBLIC_URL:?set in .env}
-      OIDC_ISSUER: ${OIDC_ISSUER:?set in .env}
-      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?set in .env}
-      OIDC_JWKS_HOST: ${OIDC_JWKS_HOST:?set in .env}
-      OIDC_JWKS_PORT: ${OIDC_JWKS_PORT:?set in .env}
-      OIDC_JWKS_PATH: ${OIDC_JWKS_PATH:?set in .env}
-      REPOSITORY_HOST: ${REPOSITORY_HOST:?set in .env}
-      REPOSITORY_PORT: ${REPOSITORY_PORT:?set in .env}
-      REGISTRY_HOST: ${REGISTRY_HOST:?set in .env}
-      REGISTRY_PORT: ${REGISTRY_PORT:?set in .env}
-      DISCOVERY_HOST: ${DISCOVERY_HOST:?set in .env}
-      DISCOVERY_PORT: ${DISCOVERY_PORT:?set in .env}
     volumes:
       - ../../render-config.sh:/render-config.sh:ro
       - ./envoy.yaml.tmpl:/templates/envoy.yaml.tmpl:ro
