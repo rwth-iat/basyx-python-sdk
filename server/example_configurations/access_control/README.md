@@ -69,6 +69,8 @@ under `access_control`:
 | `routes` | Path templates that identify resources, e.g. `/repository/api/{api_version}/shells/{aas}`. A placeholder names the resource type; the template also covers everything below it. |
 | `resource_rules` | Resource-level rules: `resource` (type), `ids`, `id_prefixes` or `"*"`, `methods`, `roles`. Identifiers are readable (`https://example.org/...`); the policy decodes the base64url identifiers in the path itself. |
 | `collections` | List endpoints (`path`, exact match) and the `resource` type of their entries. A caller with a resource rule for that type may read them, but only through the response filter (Envoy marks those routes with the context extension `response_filter=true`; without it the rule does not apply). |
+| `api_base_paths` | Base paths below which the AAS API is served, e.g. `/repository/api/{api_version}`; they must not overlap. See [Rights](#rights). |
+| `additional_operations` | Operations of the servers beyond the specification, in the shape of the table in [`policy/rights.rego`](policy/rights.rego) (`name`, `method`, `path`, `rights`) |
 | `api_version`, `role_claim` | Defaults, overridable through OPA's environment (see above) |
 
 A request is allowed if its path is canonical and it is public, or a server-level rule grants it, or every resource in
@@ -76,6 +78,34 @@ its path is granted by a resource rule, or it reads a collection through the res
 policy additionally answers `response_filter`: whether a response may pass unchanged, and which resources are visible. Paths with `..`, `.`, `//`, backslashes or encoded `.`, `/`, `\`, `%` are always
 denied (Envoy already normalizes paths; this is a second line of defense). Roles come only from the configured role
 claim, never from scopes or groups.
+
+## Rights
+
+Every request is mapped to the AAS API operation it calls, and the operation to the rights of the AAS Access Rule
+Model (IDTA-01004) that an access rule has to grant (`required_rights` in [`policy/rights.rego`](policy/rights.rego)).
+The table is the normative
+[Operation to RIGHT Mapping](https://industrialdigitaltwin.io/aas-specifications/IDTA-01002/v3.2/annex/operation-to-right-mapping.html)
+of IDTA-01002 v3.2, taken over unchanged. In short:
+
+| Request | Right |
+| --- | --- |
+| `GET` on the repository, e.g. `/shells`, `/submodels/{id}`, `$metadata`, `$value`, `/description`, and `POST /query/shells`, `/query/submodels`, `/query/concept-descriptions` | `READ` |
+| `GET` on `$reference`, `$path` and `/shells/{id}/submodel-refs`, and reading descriptors and asset links (registry, discovery) | `VIEW` |
+| `POST` that adds a resource | `CREATE` |
+| `PUT` on a resource that the client addresses by its identifier or path, e.g. `/shells/{id}`, `/submodels/{id}/submodel-elements/{idShortPath}`, `/shell-descriptors/{id}`, and `POST /lookup/shells/{id}` | `CREATE` or `UPDATE` |
+| `PUT` on a part of a resource (`asset-information`, `attachment`, `thumbnail`), `PATCH` | `UPDATE` |
+| `DELETE` | `DELETE` |
+| `invoke`, `invoke-async`, `operation-status`, `operation-results` | `EXECUTE` |
+| `POST /lookup/shellsByAssetLink`, `POST /query/shell-descriptors`, `POST /query/submodel-descriptors` | `VIEW` |
+
+`CREATE` or `UPDATE` means that the right depends on whether the resource already exists. `HEAD` requires the rights
+of `GET`. A trailing slash addresses the same operation. A request that matches no operation, e.g. an unknown path or
+method, has no rights. The BaSyx servers additionally offer qualifier routes, which the example adds through
+`additional_operations` with the rights of the corresponding submodel element operations.
+
+The servers implement IDTA-01002 v3.1.1, which has no such mapping. Every operation of v3.1.1 is listed in the v3.2
+table with the same method and path, except for the misspelled `invoke-asnyc` route of the single AAS interface, which
+v3.2 corrects and the BaSyx servers do not offer.
 
 ## Tests
 

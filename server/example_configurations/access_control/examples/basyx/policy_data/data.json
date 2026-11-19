@@ -2,6 +2,23 @@
   "access_control": {
     "api_version": "v3.1",
     "role_claim": "realm_access.roles",
+    "api_base_paths": [
+      "/repository/api/{api_version}",
+      "/registry/api/{api_version}",
+      "/discovery/api/{api_version}"
+    ],
+    "additional_operations": [
+      {"name": "GetAllQualifiers", "method": "GET", "path": "/submodels/{submodelIdentifier}/qualifiers", "rights": ["READ"]},
+      {"name": "PostQualifier", "method": "POST", "path": "/submodels/{submodelIdentifier}/qualifiers", "rights": ["CREATE"]},
+      {"name": "GetQualifierByType", "method": "GET", "path": "/submodels/{submodelIdentifier}/qualifiers/{qualifierType}", "rights": ["READ"]},
+      {"name": "PutQualifierByType", "method": "PUT", "path": "/submodels/{submodelIdentifier}/qualifiers/{qualifierType}", "rights": ["UPDATE"]},
+      {"name": "DeleteQualifierByType", "method": "DELETE", "path": "/submodels/{submodelIdentifier}/qualifiers/{qualifierType}", "rights": ["DELETE"]},
+      {"name": "GetAllQualifiersByPath", "method": "GET", "path": "/submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/qualifiers", "rights": ["READ"]},
+      {"name": "PostQualifierByPath", "method": "POST", "path": "/submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/qualifiers", "rights": ["CREATE"]},
+      {"name": "GetQualifierByPathAndType", "method": "GET", "path": "/submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/qualifiers/{qualifierType}", "rights": ["READ"]},
+      {"name": "PutQualifierByPathAndType", "method": "PUT", "path": "/submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/qualifiers/{qualifierType}", "rights": ["UPDATE"]},
+      {"name": "DeleteQualifierByPathAndType", "method": "DELETE", "path": "/submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/qualifiers/{qualifierType}", "rights": ["DELETE"]}
+    ],
     "public_paths": [
       "/"
     ],

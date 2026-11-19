@@ -177,3 +177,127 @@ test_bypass_paths_are_denied_for_every_role if {
 test_similar_prefix_is_not_matched if {
 	not allowed("GET", "/repository-internal/api/v3.1/shells", role("editor"))
 }
+
+# --- rights of the operations -------------------------------------------------------------------------------------
+
+rights(method, path) := result if {
+	result := authz.required_rights with input as request(method, path, {})
+}
+
+# Every route of the BaSyx repository, registry and discovery server, with sample path identifiers (the redirect
+# routes /shells/{aasIdentifier}/submodels/{submodelIdentifier}/... are covered by the annex rows they redirect for).
+server_routes := [
+	["GET", "/repository/api/v3.1/concept-descriptions"],
+	["POST", "/repository/api/v3.1/concept-descriptions"],
+	["GET", "/repository/api/v3.1/concept-descriptions/Y2Q"],
+	["PUT", "/repository/api/v3.1/concept-descriptions/Y2Q"],
+	["DELETE", "/repository/api/v3.1/concept-descriptions/Y2Q"],
+	["GET", "/repository/api/v3.1/description"],
+	["GET", "/repository/api/v3.1/serialization"],
+	["GET", "/repository/api/v3.1/shells"],
+	["POST", "/repository/api/v3.1/shells"],
+	["GET", "/repository/api/v3.1/shells/$reference"],
+	["GET", "/repository/api/v3.1/shells/c2hlbGw"],
+	["PUT", "/repository/api/v3.1/shells/c2hlbGw"],
+	["DELETE", "/repository/api/v3.1/shells/c2hlbGw"],
+	["GET", "/repository/api/v3.1/shells/c2hlbGw/$reference"],
+	["GET", "/repository/api/v3.1/shells/c2hlbGw/asset-information"],
+	["PUT", "/repository/api/v3.1/shells/c2hlbGw/asset-information"],
+	["GET", "/repository/api/v3.1/shells/c2hlbGw/asset-information/thumbnail"],
+	["PUT", "/repository/api/v3.1/shells/c2hlbGw/asset-information/thumbnail"],
+	["DELETE", "/repository/api/v3.1/shells/c2hlbGw/asset-information/thumbnail"],
+	["GET", "/repository/api/v3.1/shells/c2hlbGw/submodel-refs"],
+	["POST", "/repository/api/v3.1/shells/c2hlbGw/submodel-refs"],
+	["DELETE", "/repository/api/v3.1/shells/c2hlbGw/submodel-refs/c20"],
+	["GET", "/repository/api/v3.1/shells/c2hlbGw/submodels/c20"],
+	["PUT", "/repository/api/v3.1/shells/c2hlbGw/submodels/c20"],
+	["DELETE", "/repository/api/v3.1/shells/c2hlbGw/submodels/c20"],
+	["GET", "/repository/api/v3.1/submodels"],
+	["POST", "/repository/api/v3.1/submodels"],
+	["GET", "/repository/api/v3.1/submodels/$metadata"],
+	["GET", "/repository/api/v3.1/submodels/$path"],
+	["GET", "/repository/api/v3.1/submodels/$reference"],
+	["GET", "/repository/api/v3.1/submodels/$value"],
+	["GET", "/repository/api/v3.1/submodels/c20"],
+	["PUT", "/repository/api/v3.1/submodels/c20"],
+	["PATCH", "/repository/api/v3.1/submodels/c20"],
+	["DELETE", "/repository/api/v3.1/submodels/c20"],
+	["GET", "/repository/api/v3.1/submodels/c20/$metadata"],
+	["PATCH", "/repository/api/v3.1/submodels/c20/$metadata"],
+	["GET", "/repository/api/v3.1/submodels/c20/$path"],
+	["GET", "/repository/api/v3.1/submodels/c20/$reference"],
+	["GET", "/repository/api/v3.1/submodels/c20/$value"],
+	["PATCH", "/repository/api/v3.1/submodels/c20/$value"],
+	["GET", "/repository/api/v3.1/submodels/c20/qualifiers"],
+	["POST", "/repository/api/v3.1/submodels/c20/qualifiers"],
+	["GET", "/repository/api/v3.1/submodels/c20/qualifiers/cXVhbA"],
+	["PUT", "/repository/api/v3.1/submodels/c20/qualifiers/cXVhbA"],
+	["DELETE", "/repository/api/v3.1/submodels/c20/qualifiers/cXVhbA"],
+	["GET", "/repository/api/v3.1/submodels/c20/submodel-elements"],
+	["POST", "/repository/api/v3.1/submodels/c20/submodel-elements"],
+	["GET", "/repository/api/v3.1/submodels/c20/submodel-elements/$metadata"],
+	["GET", "/repository/api/v3.1/submodels/c20/submodel-elements/$path"],
+	["GET", "/repository/api/v3.1/submodels/c20/submodel-elements/$reference"],
+	["GET", "/repository/api/v3.1/submodels/c20/submodel-elements/$value"],
+	["GET", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B"],
+	["POST", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B"],
+	["PUT", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B"],
+	["PATCH", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B"],
+	["DELETE", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B"],
+	["GET", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B/$metadata"],
+	["PATCH", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B/$metadata"],
+	["GET", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B/$path"],
+	["GET", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B/$reference"],
+	["GET", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B/$value"],
+	["PATCH", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B/$value"],
+	["GET", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B/attachment"],
+	["PUT", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B/attachment"],
+	["DELETE", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B/attachment"],
+	["POST", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B/invoke"],
+	["POST", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B/invoke/$value"],
+	["POST", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B/invoke-async"],
+	["POST", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B/invoke-async/$value"],
+	["GET", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B/operation-results/aGFuZGxl"],
+	["GET", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B/operation-results/aGFuZGxl/$value"],
+	["GET", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B/operation-status/aGFuZGxl"],
+	["GET", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B/qualifiers"],
+	["POST", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B/qualifiers"],
+	["GET", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B/qualifiers/cXVhbA"],
+	["PUT", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B/qualifiers/cXVhbA"],
+	["DELETE", "/repository/api/v3.1/submodels/c20/submodel-elements/A.B/qualifiers/cXVhbA"],
+	["GET", "/registry/api/v3.1/description"],
+	["GET", "/registry/api/v3.1/shell-descriptors"],
+	["POST", "/registry/api/v3.1/shell-descriptors"],
+	["GET", "/registry/api/v3.1/shell-descriptors/c2hlbGw"],
+	["PUT", "/registry/api/v3.1/shell-descriptors/c2hlbGw"],
+	["DELETE", "/registry/api/v3.1/shell-descriptors/c2hlbGw"],
+	["GET", "/registry/api/v3.1/shell-descriptors/c2hlbGw/submodel-descriptors"],
+	["POST", "/registry/api/v3.1/shell-descriptors/c2hlbGw/submodel-descriptors"],
+	["GET", "/registry/api/v3.1/shell-descriptors/c2hlbGw/submodel-descriptors/c20"],
+	["PUT", "/registry/api/v3.1/shell-descriptors/c2hlbGw/submodel-descriptors/c20"],
+	["DELETE", "/registry/api/v3.1/shell-descriptors/c2hlbGw/submodel-descriptors/c20"],
+	["GET", "/registry/api/v3.1/submodel-descriptors"],
+	["POST", "/registry/api/v3.1/submodel-descriptors"],
+	["GET", "/registry/api/v3.1/submodel-descriptors/c20"],
+	["PUT", "/registry/api/v3.1/submodel-descriptors/c20"],
+	["DELETE", "/registry/api/v3.1/submodel-descriptors/c20"],
+	["GET", "/discovery/api/v3.1/description"],
+	["GET", "/discovery/api/v3.1/lookup/shells/"],
+	["GET", "/discovery/api/v3.1/lookup/shells/c2hlbGw"],
+	["POST", "/discovery/api/v3.1/lookup/shells/c2hlbGw"],
+	["DELETE", "/discovery/api/v3.1/lookup/shells/c2hlbGw"],
+	["POST", "/discovery/api/v3.1/lookup/shellsByAssetLink"],
+]
+
+test_every_server_route_requires_a_right if {
+	every route in server_routes {
+		count(rights(route[0], route[1])) > 0
+	}
+}
+
+test_qualifiers_have_the_rights_of_submodel_elements if {
+	rights("GET", sprintf("%s/submodels/c20/qualifiers", [api])) == {"READ"}
+	rights("POST", sprintf("%s/submodels/c20/submodel-elements/A/qualifiers", [api])) == {"CREATE"}
+	rights("PUT", sprintf("%s/submodels/c20/qualifiers/cXVhbA", [api])) == {"UPDATE"}
+	rights("DELETE", sprintf("%s/submodels/c20/submodel-elements/A/qualifiers/cXVhbA", [api])) == {"DELETE"}
+}
