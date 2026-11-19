@@ -550,6 +550,11 @@ jobs:
     - name: Run end-to-end tests
       run: |
         python -m unittest e2e_test -v
+    - name: Restart the stack with the volumes of the first run and test again
+      run: |
+        docker compose down
+        docker compose up -d --quiet-pull
+        python -m unittest e2e_test -v
     - name: Show logs on failure
       if: ${{ failure() }}
       run: |

@@ -35,12 +35,15 @@ services:
       # Envoy admin interface: no authentication, so only reachable from this machine.
       - "127.0.0.1:${ENVOY_ADMIN_PORT:?set in .env}:8001"
     volumes:
+      # nocopy: the image has a default /etc/envoy/envoy.yaml. Without it, Docker tries to copy that file into the
+      # volume and fails to start the container once the volume exists from an earlier run ("not a directory").
       - type: volume
         source: rendered-config
         target: /etc/envoy/envoy.yaml
         read_only: true
         volume:
           subpath: envoy.yaml
+          nocopy: true
     depends_on:
       config-renderer:
         condition: service_completed_successfully
@@ -114,6 +117,8 @@ services:
         read_only: true
         volume:
           subpath: basyx-infra.yml
+          # See envoy: in case a later image ships a file at this path
+          nocopy: true
     depends_on:
       config-renderer:
         condition: service_completed_successfully
