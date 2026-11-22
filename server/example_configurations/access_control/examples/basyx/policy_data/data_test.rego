@@ -109,6 +109,19 @@ test_admin_can_delete if {
 	allowed("DELETE", sprintf("%s/shells/%s", [api, shell]), role("admin"))
 }
 
+# Invoking an operation requires EXECUTE, which the viewer's READ and VIEW do not include.
+test_editor_can_invoke_operations_but_viewer_cannot if {
+	path := sprintf("%s/submodels/%s/submodel-elements/ExampleOperation/invoke", [api, identification])
+	allowed("POST", path, role("editor"))
+	not allowed("POST", path, role("viewer"))
+}
+
+# Bulk results take the right of the request that started them, which the policy does not know yet.
+test_bulk_results_are_denied if {
+	not allowed("GET", sprintf("%s/bulk/result/handle", [api]), role("admin"))
+	not allowed("GET", sprintf("%s/bulk/status/handle", [api]), role("admin"))
+}
+
 test_head_follows_get if {
 	allowed("HEAD", sprintf("%s/shells", [api]), role("editor"))
 	allowed("HEAD", sprintf("%s/shells/%s", [api, shell]), role("viewer"))

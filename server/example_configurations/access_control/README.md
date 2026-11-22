@@ -17,7 +17,7 @@ front of the servers and does not change them, so it can also protect other AAS 
 | --- | --- | --- |
 | OpenID Connect provider (Keycloak in the example) | Authenticates users and issues signed JWTs with their roles | Who are you? |
 | [Envoy](https://www.envoyproxy.io/) | The only public entry point; verifies the JWT (signature, issuer, audience, expiry), normalizes the path, asks OPA, routes the request | Is your token valid? |
-| [OPA](https://www.openpolicyagent.org/) | Evaluates [`policy/policy.rego`](policy/policy.rego) against method, path and token roles | May you do this? |
+| [OPA](https://www.openpolicyagent.org/) | Evaluates [`policy/policy.rego`](policy/policy.rego): which rights the request requires, and whether rules grant them to the token's roles | May you do this? |
 | [Response filter](filter_server/README.md) | Between Envoy and the AAS servers for `GET`; removes from responses what OPA says the caller may not see | What of this may you see? |
 | AAS servers | Unchanged; only reachable through Envoy | |
 
@@ -65,16 +65,18 @@ under `access_control`:
 | Key | Meaning |
 | --- | --- |
 | `public_paths`, `public_path_prefixes` | Paths that need no token (e.g. the Web UI) |
-| `rules` | Server-level rules: `path_prefix`, `methods`, `roles`. As in AAS Part 4, rules only allow: any matching rule grants the request. |
+| `rules` | Server-level rules: `path_prefix`, `rights`, `roles`. As in AAS Part 4, rules only allow: the rights of all matching rules add up. |
 | `routes` | Path templates that identify resources, e.g. `/repository/api/{api_version}/shells/{aas}`. A placeholder names the resource type; the template also covers everything below it. |
-| `resource_rules` | Resource-level rules: `resource` (type), `ids`, `id_prefixes` or `"*"`, `methods`, `roles`. Identifiers are readable (`https://example.org/...`); the policy decodes the base64url identifiers in the path itself. |
+| `resource_rules` | Resource-level rules: `resource` (type), `ids`, `id_prefixes` or `"*"`, `rights`, `roles`. Identifiers are readable (`https://example.org/...`); the policy decodes the base64url identifiers in the path itself. |
 | `collections` | List endpoints (`path`, exact match) and the `resource` type of their entries. A caller with a resource rule for that type may read them, but only through the response filter (Envoy marks those routes with the context extension `response_filter=true`; without it the rule does not apply). |
 | `api_base_paths` | Base paths below which the AAS API is served, e.g. `/repository/api/{api_version}`; they must not overlap. See [Rights](#rights). |
 | `additional_operations` | Operations of the servers beyond the specification, in the shape of the table in [`policy/rights.rego`](policy/rights.rego) (`name`, `method`, `path`, `rights`) |
 | `api_version`, `role_claim` | Defaults, overridable through OPA's environment (see above) |
 
-A request is allowed if its path is canonical and it is public, or a server-level rule grants it, or every resource in
-its path is granted by a resource rule, or it reads a collection through the response filter. For the filter, the
+Rules grant the rights of the AAS Access Rule Model (`CREATE`, `READ`, `UPDATE`, `DELETE`, `EXECUTE`, `VIEW`, or
+`ALL` for all of them), not HTTP methods. A request is allowed if its path is canonical and it is public, or the
+server-level rules grant the rights it requires (see [Rights](#rights)), or resource rules grant them for every
+resource in its path, or it reads a collection through the response filter. For the filter, the
 policy additionally answers `response_filter`: whether a response may pass unchanged, and which resources are visible. Paths with `..`, `.`, `//`, backslashes or encoded `.`, `/`, `\`, `%` are always
 denied (Envoy already normalizes paths; this is a second line of defense). Roles come only from the configured role
 claim, never from scopes or groups.
@@ -98,9 +100,10 @@ of IDTA-01002 v3.2, taken over unchanged. In short:
 | `invoke`, `invoke-async`, `operation-status`, `operation-results` | `EXECUTE` |
 | `POST /lookup/shellsByAssetLink`, `POST /query/shell-descriptors`, `POST /query/submodel-descriptors` | `VIEW` |
 
-`CREATE` or `UPDATE` means that the right depends on whether the resource already exists. `HEAD` requires the rights
-of `GET`. A trailing slash addresses the same operation. A request that matches no operation, e.g. an unknown path or
-method, has no rights. The BaSyx servers additionally offer qualifier routes, which the example adds through
+`CREATE` or `UPDATE` means that the right depends on whether the resource already exists. The policy does not check
+this yet and requires both. `HEAD` requires the rights of `GET`. A trailing slash addresses the same operation. A request that matches no operation, e.g. an unknown path or
+method, has no rights and is denied; so are bulk results (`/bulk/status`, `/bulk/result`), which take the rights of
+the request that started them. The BaSyx servers additionally offer qualifier routes, which the example adds through
 `additional_operations` with the rights of the corresponding submodel element operations.
 
 The servers implement IDTA-01002 v3.1.1, which has no such mapping. Every operation of v3.1.1 is listed in the v3.2

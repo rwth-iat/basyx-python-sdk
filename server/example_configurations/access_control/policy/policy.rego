@@ -8,11 +8,13 @@
 # Generic authorization policy for Envoy's ext_authz filter.
 #
 # The policy contains no application specific values: paths, roles and resource identifiers come from
-# `data.access_control` (see the examples' policy_data/data.json). A request is allowed if its path is canonical and
+# `data.access_control` (see the examples' policy_data/data.json). Rules grant rights of the AAS Access Rule Model
+# (IDTA-01004) to roles; the rights a request requires follow from the operation it calls (see rights.rego). A request
+# is allowed if its path is canonical and
 #   1. it is a public path, or
-#   2. a server-level rule for a matching path prefix grants the method to one of the caller's roles, or
-#   3. every resource identified in the path (via `routes`) is granted to one of the caller's roles by a resource rule,
-#      or
+#   2. server-level rules for a matching path prefix grant the required rights to the caller's roles, or
+#   3. for every resource identified in the path (via `routes`), resource rules grant the required rights to the
+#      caller's roles, or
 #   4. it reads a collection (via `collections`) through the response filter, which removes the entries the caller
 #      may not see (see `response_filter`).
 package envoy.authz
@@ -55,8 +57,7 @@ allow if {
 
 allow if {
 	valid_path
-	some rule in matching_rules
-	role_matches(rule)
+	grants(server_level_rights)
 }
 
 allow if {
@@ -101,12 +102,13 @@ public_path if {
 
 # --- server-level rules --------------------------------------------------------------------------------------------
 
-# Rules matching method and path. As in AAS Part 4, rules only allow: any matching rule counts, so a more specific
-# rule cannot take away what a broader one grants.
-matching_rules contains rule if {
+# Rights that the rules for a matching path prefix grant to the caller. As in AAS Part 4, rules only allow: their
+# rights add up, so a more specific rule cannot take away what a broader one grants.
+server_level_rights contains right if {
 	some rule in object.get(config, "rules", [])
-	method_matches(rule)
 	prefix_matches(object.get(rule, "path_prefix", "/"), request_path)
+	role_matches(rule)
+	some right in rule_rights(rule)
 }
 
 # "/" matches every path; any other prefix matches itself and everything below it, but not "/repository-internal"
@@ -178,12 +180,15 @@ segment_matches(segment, value) if {
 	segment == value
 }
 
-resource_allowed(resource) if {
+resource_allowed(resource) if grants(resource_rights(resource))
+
+# Rights that the resource rules grant to the caller on one resource.
+resource_rights(resource) := {right |
 	some rule in object.get(config, "resource_rules", [])
 	rule.resource == resource.type
-	method_matches(rule)
 	role_matches(rule)
 	id_matches(rule, resource.id)
+	some right in rule_rights(rule)
 }
 
 id_matches(rule, _) if "*" in object.get(rule, "ids", [])
@@ -214,10 +219,12 @@ filtered_collection_allowed if {
 	every resource in requested_resources {
 		resource_allowed(resource)
 	}
-	some rule in object.get(config, "resource_rules", [])
-	rule.resource == collection.resource
-	method_matches(rule)
-	role_matches(rule)
+	grants({right |
+		some rule in object.get(config, "resource_rules", [])
+		rule.resource == collection.resource
+		role_matches(rule)
+		some right in rule_rights(rule)
+	})
 }
 
 # Unlike routes, a collection path matches only exactly (no subpaths).
@@ -238,8 +245,7 @@ default unfiltered := false
 
 unfiltered if {
 	valid_path
-	some rule in matching_rules
-	role_matches(rule)
+	grants(server_level_rights)
 }
 
 visible_items := [item |
@@ -247,9 +253,31 @@ visible_items := [item |
 	resource_allowed(item)
 ]
 
-# --- roles ---------------------------------------------------------------------------------------------------------
+# --- rights --------------------------------------------------------------------------------------------------------
 
-method_matches(rule) if request_method in {upper(method) | some method in object.get(rule, "methods", [])}
+# The rights of the AAS Access Rule Model; "ALL" in a rule stands for all of them.
+all_rights := {"CREATE", "READ", "UPDATE", "DELETE", "EXECUTE", "VIEW"}
+
+rule_rights(rule) := {right |
+	some granted in object.get(rule, "rights", [])
+	some right in expand_right(granted)
+}
+
+expand_right("ALL") := all_rights
+
+expand_right(right) := {right} if right in all_rights
+
+# Granted rights must cover every right the operation requires. A request that addresses no operation requires no
+# right and is never granted. For operations that require CREATE or UPDATE depending on whether the resource exists,
+# the existence is not checked yet, so both are required.
+grants(rights) if {
+	count(required_rights) > 0
+	every right in required_rights {
+		right in rights
+	}
+}
+
+# --- roles ---------------------------------------------------------------------------------------------------------
 
 role_matches(rule) if {
 	some required_role in object.get(rule, "roles", [])

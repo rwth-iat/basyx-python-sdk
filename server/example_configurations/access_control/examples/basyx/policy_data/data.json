@@ -29,55 +29,55 @@
       {
         "description": "Editors and admins can read repository resources.",
         "path_prefix": "/repository",
-        "methods": ["GET", "HEAD"],
+        "rights": ["READ", "VIEW"],
         "roles": ["editor", "admin"]
       },
       {
-        "description": "Editors and admins can change repository resources.",
+        "description": "Editors and admins can create and change repository resources and invoke operations.",
         "path_prefix": "/repository",
-        "methods": ["POST", "PUT", "PATCH"],
+        "rights": ["CREATE", "UPDATE", "EXECUTE"],
         "roles": ["editor", "admin"]
       },
       {
         "description": "Only admins can delete repository resources.",
         "path_prefix": "/repository",
-        "methods": ["DELETE"],
+        "rights": ["DELETE"],
         "roles": ["admin"]
       },
       {
         "description": "Editors and admins can read registry resources.",
         "path_prefix": "/registry",
-        "methods": ["GET", "HEAD"],
+        "rights": ["READ", "VIEW"],
         "roles": ["editor", "admin"]
       },
       {
-        "description": "Editors and admins can change registry resources.",
+        "description": "Editors and admins can create and change registry resources.",
         "path_prefix": "/registry",
-        "methods": ["POST", "PUT"],
+        "rights": ["CREATE", "UPDATE"],
         "roles": ["editor", "admin"]
       },
       {
         "description": "Only admins can delete registry resources.",
         "path_prefix": "/registry",
-        "methods": ["DELETE"],
+        "rights": ["DELETE"],
         "roles": ["admin"]
       },
       {
-        "description": "Editors and admins can read discovery resources.",
+        "description": "Editors and admins can read discovery resources and run lookups such as POST lookup/shellsByAssetLink.",
         "path_prefix": "/discovery",
-        "methods": ["GET", "HEAD"],
+        "rights": ["READ", "VIEW"],
         "roles": ["editor", "admin"]
       },
       {
-        "description": "Editors and admins can change discovery resources and run lookups such as POST lookup/shellsByAssetLink.",
+        "description": "Editors and admins can create and change discovery resources.",
         "path_prefix": "/discovery",
-        "methods": ["POST", "PUT"],
+        "rights": ["CREATE", "UPDATE"],
         "roles": ["editor", "admin"]
       },
       {
         "description": "Only admins can delete discovery resources.",
         "path_prefix": "/discovery",
-        "methods": ["DELETE"],
+        "rights": ["DELETE"],
         "roles": ["admin"]
       }
     ],
@@ -104,7 +104,7 @@
         "description": "Viewers can read the example shell (example_data/example_aas.json) in the repository, registry and discovery.",
         "resource": "aas",
         "ids": ["https://example.org/Test_AssetAdministrationShell"],
-        "methods": ["GET", "HEAD"],
+        "rights": ["READ", "VIEW"],
         "roles": ["viewer"]
       },
       {
@@ -114,7 +114,7 @@
           "http://example.org/Submodels/Assets/TestAsset/Identification",
           "https://example.org/Test_Submodel"
         ],
-        "methods": ["GET", "HEAD"],
+        "rights": ["READ", "VIEW"],
         "roles": ["viewer"]
       }
     ]

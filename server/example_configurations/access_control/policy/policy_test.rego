@@ -15,11 +15,29 @@ import data.envoy.authz
 
 fixture := {
 	"api_version": "v1",
+	"api_base_paths": ["/api/{api_version}"],
+	# Operations of a made-up API, in the shape of the operation table in rights.rego
+	"additional_operations": [
+		{"name": "GetAllThings", "method": "GET", "path": "/things", "rights": ["READ"]},
+		{"name": "PostThing", "method": "POST", "path": "/things", "rights": ["CREATE"]},
+		{"name": "GetThing", "method": "GET", "path": "/things/{thing}", "rights": ["READ"]},
+		{"name": "PutThing", "method": "PUT", "path": "/things/{thing}", "rights": ["CREATE", "UPDATE"]},
+		{"name": "DeleteThing", "method": "DELETE", "path": "/things/{thing}", "rights": ["DELETE"]},
+		{"name": "GetThing-Reference", "method": "GET", "path": "/things/{thing}/$reference", "rights": ["VIEW"]},
+		{"name": "GetThingAttributes", "method": "GET", "path": "/things/{thing}/attributes", "rights": ["READ"]},
+		{"name": "GetAllParts", "method": "GET", "path": "/things/{thing}/parts", "rights": ["READ"]},
+		{"name": "GetPart", "method": "GET", "path": "/things/{thing}/parts/{part}", "rights": ["READ"]},
+		{"name": "GetSettings", "method": "GET", "path": "/admin/settings", "rights": ["READ"]},
+	],
 	"public_paths": ["/"],
 	"public_path_prefixes": ["/ui"],
 	"rules": [
-		{"path_prefix": "/api", "methods": ["GET"], "roles": ["reader", "admin"]},
-		{"path_prefix": "/api/v1/admin", "methods": ["GET"], "roles": ["admin"]},
+		{"path_prefix": "/api", "rights": ["READ"], "roles": ["reader", "admin"]},
+		{"path_prefix": "/api/v1/admin", "rights": ["READ"], "roles": ["admin"]},
+		{"path_prefix": "/api", "rights": ["ALL"], "roles": ["owner"]},
+		{"path_prefix": "/api", "rights": ["CREATE"], "roles": ["creator"]},
+		{"path_prefix": "/api", "rights": ["UPDATE"], "roles": ["updater"]},
+		{"path_prefix": "/api", "rights": ["read", "WRITE"], "roles": ["misconfigured"]},
 	],
 	"routes": [
 		"/api/{api_version}/things/{thing}",
@@ -30,11 +48,12 @@ fixture := {
 		{"path": "/api/{api_version}/things/{thing}/parts", "resource": "part"},
 	],
 	"resource_rules": [
-		{"resource": "thing", "ids": ["urn:thing:1"], "methods": ["GET"], "roles": ["guest"]},
-		{"resource": "thing", "id_prefixes": ["urn:open:"], "methods": ["GET"], "roles": ["guest"]},
-		{"resource": "part", "ids": ["urn:part:1"], "methods": ["GET"], "roles": ["guest"]},
-		{"resource": "part", "ids": ["*"], "methods": ["GET"], "roles": ["auditor"]},
-		{"resource": "thing", "ids": ["*"], "methods": ["GET"], "roles": ["auditor"]},
+		{"resource": "thing", "ids": ["urn:thing:1"], "rights": ["READ"], "roles": ["guest"]},
+		{"resource": "thing", "id_prefixes": ["urn:open:"], "rights": ["READ"], "roles": ["guest"]},
+		{"resource": "part", "ids": ["urn:part:1"], "rights": ["READ"], "roles": ["guest"]},
+		{"resource": "part", "ids": ["*"], "rights": ["READ"], "roles": ["auditor"]},
+		{"resource": "thing", "ids": ["*"], "rights": ["READ"], "roles": ["auditor"]},
+		{"resource": "thing", "ids": ["urn:thing:1"], "rights": ["VIEW"], "roles": ["viewer"]},
 	],
 }
 
@@ -45,6 +64,8 @@ request(method, path, claims) := {"attributes": {
 }}
 
 role(name) := {"realm_access": {"roles": [name]}}
+
+roles(names) := {"realm_access": {"roles": names}}
 
 allowed(method, path, claims) if {
 	authz.allow with input as request(method, path, claims) with data.access_control as fixture
@@ -71,10 +92,36 @@ test_public_prefix_covers_subpaths if {
 
 # --- server-level rules -----------------------------------------------------------------------------------------------
 
-test_rule_grants_method_to_role if {
+test_rule_grants_rights_to_role if {
 	allowed("GET", "/api/v1/things", role("reader"))
 	not allowed("POST", "/api/v1/things", role("reader"))
 	not allowed("GET", "/api/v1/things", role("guest"))
+}
+
+test_all_grants_every_right if {
+	allowed("POST", "/api/v1/things", role("owner"))
+	allowed("DELETE", thing("urn:thing:7"), role("owner"))
+	allowed("GET", concat("", [thing("urn:thing:7"), "/$reference"]), role("owner"))
+}
+
+test_unknown_rights_grant_nothing if {
+	not allowed("GET", "/api/v1/things", role("misconfigured"))
+}
+
+# The rights come from the operation, not from the method: a request that addresses no operation is denied even
+# for a role with all rights.
+test_request_without_operation_is_denied if {
+	not allowed("GET", "/api/v1/unknown", role("owner"))
+	not allowed("DELETE", "/api/v1/things", role("owner"))
+	not allowed("GET", "/api", role("owner"))
+}
+
+# Until it is checked whether the resource exists, PUT requires both CREATE and UPDATE. Rights of several rules add up.
+test_create_or_update_requires_both_for_now if {
+	not allowed("PUT", thing("urn:thing:7"), role("creator"))
+	not allowed("PUT", thing("urn:thing:7"), role("updater"))
+	allowed("PUT", thing("urn:thing:7"), roles(["creator", "updater"]))
+	allowed("PUT", thing("urn:thing:7"), role("owner"))
 }
 
 # As in AAS Part 4, rules only allow: a request is allowed if any matching rule grants it, so a more specific rule
@@ -122,8 +169,15 @@ test_every_resource_in_path_must_be_allowed if {
 	not allowed("GET", concat("", [thing("urn:thing:2"), "/parts/", base64url.encode_no_pad("urn:part:1")]), role("guest"))
 }
 
-test_resource_rule_checks_method if {
+test_resource_rule_checks_right if {
 	not allowed("DELETE", thing("urn:thing:1"), role("guest"))
+}
+
+# VIEW only shows that an object exists (e.g. its reference); it does not include READ, and READ does not include it.
+test_view_and_read_are_separate_rights if {
+	allowed("GET", concat("", [thing("urn:thing:1"), "/$reference"]), role("viewer"))
+	not allowed("GET", thing("urn:thing:1"), role("viewer"))
+	not allowed("GET", concat("", [thing("urn:thing:1"), "/$reference"]), role("guest"))
 }
 
 test_padded_and_unpadded_ids_are_equal if {
