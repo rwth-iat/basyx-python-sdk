@@ -35,7 +35,7 @@ published ports.
 
 ## Configuration
 
-Everything is set in [`.env`](.env): API version, public URLs and ports, Keycloak realm and client, role claim, the
+Everything is set in [`.env`](.env): API version, public URLs and ports, Keycloak realm and client, the
 addresses of the AAS servers behind the gateway, demo credentials and image versions. To protect other AAS servers,
 e.g. BaSyx Java, point `REPOSITORY_HOST`/`REPOSITORY_PORT` etc. to them.
 
@@ -44,22 +44,27 @@ URLs.
 
 ## Rules
 
-The rules are in [`policy_data/data.json`](policy_data/data.json); the policy itself is shared by all examples
-([`policy.rego`](../../policy/policy.rego)).
+The access rules are in [`policy_data/access_rules.json`](policy_data/access_rules.json), in the JSON serialization of
+the AAS Access Rule Model (IDTA-01004). [`policy_data/data.json`](policy_data/data.json) holds the paths of the
+servers; the policy itself is shared by all examples ([`policy.rego`](../../policy/policy.rego)).
 
 - UI paths are public.
-- `editor` and `admin` may read (`GET`, `HEAD`) and change (`POST`, `PUT`, and `PATCH` on the repository) everything.
-- Only `admin` may `DELETE`.
-- `viewer` gets no general access. It may only read the example shell `https://example.org/Test_AssetAdministrationShell`
-  (in repository, registry and discovery) and two of its submodels, `Identification` and `Test_Submodel`, but not
-  `BillOfMaterial`. Lists such as `GET /shells` or `GET /submodels` show the viewer only these, and the shell's
-  submodel references no longer mention `BillOfMaterial`. Concept descriptions are not listed for the viewer (`403`).
-- Roles are read only from the token's `realm_access.roles` claim.
+- `editor` and `admin` have the rights `READ`, `VIEW`, `CREATE`, `UPDATE` and `EXECUTE` on the whole API
+  (`ROUTE` `*`).
+- Only `admin` has `DELETE`.
+- `viewer` has `READ` and `VIEW` only on the example shell `https://example.org/Test_AssetAdministrationShell` and two of
+  its submodels, `Identification` and `Test_Submodel`, but not `BillOfMaterial`: as `IDENTIFIABLE` objects in the
+  repository and discovery, and as `DESCRIPTOR` objects in the registry. Lists such as `GET /shells` or
+  `GET /submodels` show the viewer only these, and the shell's submodel references no longer mention
+  `BillOfMaterial`. Concept descriptions are not listed for the viewer (`403`).
+- The rules compare the token's `roles` claim, into which Keycloak writes the realm roles (a protocol mapper of the
+  client in [`keycloak/realm.json`](keycloak/realm.json)).
 
 ## Example Data
 
 `example_data/example_aas.json` is the SDK's full example (`basyx.aas.examples.data.example_aas.create_full_example()`)
-serialized to JSON. The repository loads it on start-up; the identifiers in `policy_data/data.json` refer to it.
+serialized to JSON. The repository loads it on start-up; the identifiers in `policy_data/access_rules.json` refer to
+it.
 
 ## Try it
 

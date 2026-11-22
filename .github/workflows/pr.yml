@@ -499,6 +499,11 @@ jobs:
       run: |
         docker run --rm -v "$PWD:/ac:ro" "$OPA_IMAGE" check --strict /ac/policy /ac/examples/basyx/policy_data
         docker run --rm -v "$PWD:/ac:ro" "$OPA_IMAGE" test /ac/policy /ac/examples/basyx/policy_data -v
+    - name: Validate the example's access rules against the JSON schema of IDTA-01004 v3.1
+      run: |
+        pipx run check-jsonschema==0.29.4 \
+          --schemafile "https://raw.githubusercontent.com/admin-shell-io/aas-specs-security/refs/tags/v3.1.0/documentation/IDTA-01004/modules/ROOT/partials/json/aas-queries-and-access-rules-schema.json" \
+          examples/basyx/policy_data/access_rules.json
 
   access-control-static-analysis:
     # This job runs static code analysis (ruff and mypy) on the Python files of the access control layer

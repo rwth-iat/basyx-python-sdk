@@ -158,9 +158,8 @@ services:
       - /policy
       - /policy_data
     environment:
-      # Override api_version and role_claim of policy_data/data.json (see policy.rego)
+      # Override api_version of policy_data/data.json (see policy.rego)
       ACCESS_CONTROL_API_VERSION: ${API_VERSION}
-      ACCESS_CONTROL_ROLE_CLAIM: ${ROLE_CLAIM:?set in .env}
     # No published ports: Envoy (gRPC, 9191) and the response filter (REST, 8181) reach OPA over the internal network.
     # The OPA REST API has no authentication and would allow reading and replacing the policy.
     volumes:

@@ -149,7 +149,7 @@ class SecuredStackTest(unittest.TestCase):
     def test_forged_claims_header_grants_nothing(self) -> None:
         # The response filter trusts the JWT payload Envoy forwards in x-jwt-payload; a client-supplied header with
         # that name must not let a viewer act as admin.
-        forged = base64.urlsafe_b64encode(json.dumps({"realm_access": {"roles": ["admin"]}}).encode()).decode()
+        forged = base64.urlsafe_b64encode(json.dumps({"roles": ["admin"]}).encode()).decode()
         headers = {"x-jwt-payload": forged.rstrip("=")}
         self.assertEqual(VIEWER_SUBMODEL_IDS, set(self.ids(f"{API}/submodels", "viewer", headers)))
         self.assertStatus(403, "GET", f"{API}/submodels/{BILL_OF_MATERIAL}", "viewer", headers)

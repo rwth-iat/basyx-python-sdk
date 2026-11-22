@@ -1,0 +1,72 @@
+{
+  "AllAccessPermissionRules": {
+    "DEFATTRIBUTES": [
+      {"name": "roles", "attributes": [{"CLAIM": "roles"}]}
+    ],
+    "DEFOBJECTS": [
+      {
+        "name": "whole_api",
+        "objects": [{"ROUTE": "*"}]
+      },
+      {
+        "name": "example_shell_and_two_submodels",
+        "objects": [
+          {"IDENTIFIABLE": "$aas(\"https://example.org/Test_AssetAdministrationShell\")"},
+          {"DESCRIPTOR": "$aasdesc(\"https://example.org/Test_AssetAdministrationShell\")"},
+          {"IDENTIFIABLE": "$sm(\"http://example.org/Submodels/Assets/TestAsset/Identification\")"},
+          {"DESCRIPTOR": "$smdesc(\"http://example.org/Submodels/Assets/TestAsset/Identification\")"},
+          {"IDENTIFIABLE": "$sm(\"https://example.org/Test_Submodel\")"},
+          {"DESCRIPTOR": "$smdesc(\"https://example.org/Test_Submodel\")"}
+        ]
+      }
+    ],
+    "DEFFORMULAS": [
+      {
+        "name": "is_editor_or_admin",
+        "formula": {
+          "$or": [
+            {"$eq": [{"$attribute": {"CLAIM": "roles"}}, {"$strVal": "editor"}]},
+            {"$eq": [{"$attribute": {"CLAIM": "roles"}}, {"$strVal": "admin"}]}
+          ]
+        }
+      },
+      {
+        "name": "is_admin",
+        "formula": {"$eq": [{"$attribute": {"CLAIM": "roles"}}, {"$strVal": "admin"}]}
+      },
+      {
+        "name": "is_viewer",
+        "formula": {"$eq": [{"$attribute": {"CLAIM": "roles"}}, {"$strVal": "viewer"}]}
+      }
+    ],
+    "rules": [
+      {
+        "ACL": {
+          "USEATTRIBUTES": "roles",
+          "RIGHTS": ["READ", "VIEW", "CREATE", "UPDATE", "EXECUTE"],
+          "ACCESS": "ALLOW"
+        },
+        "USEOBJECTS": ["whole_api"],
+        "USEFORMULA": "is_editor_or_admin"
+      },
+      {
+        "ACL": {
+          "USEATTRIBUTES": "roles",
+          "RIGHTS": ["DELETE"],
+          "ACCESS": "ALLOW"
+        },
+        "USEOBJECTS": ["whole_api"],
+        "USEFORMULA": "is_admin"
+      },
+      {
+        "ACL": {
+          "USEATTRIBUTES": "roles",
+          "RIGHTS": ["READ", "VIEW"],
+          "ACCESS": "ALLOW"
+        },
+        "USEOBJECTS": ["example_shell_and_two_submodels"],
+        "USEFORMULA": "is_viewer"
+      }
+    ]
+  }
+}

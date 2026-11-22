@@ -17,7 +17,7 @@ front of the servers and does not change them, so it can also protect other AAS 
 | --- | --- | --- |
 | OpenID Connect provider (Keycloak in the example) | Authenticates users and issues signed JWTs with their roles | Who are you? |
 | [Envoy](https://www.envoyproxy.io/) | The only public entry point; verifies the JWT (signature, issuer, audience, expiry), normalizes the path, asks OPA, routes the request | Is your token valid? |
-| [OPA](https://www.openpolicyagent.org/) | Evaluates [`policy/policy.rego`](policy/policy.rego): which rights the request requires, and whether rules grant them to the token's roles | May you do this? |
+| [OPA](https://www.openpolicyagent.org/) | Evaluates [`policy/policy.rego`](policy/policy.rego): which rights the request requires, and whether the [access rules](#access-rules) grant them to the caller | May you do this? |
 | [Response filter](filter_server/README.md) | Between Envoy and the AAS servers for `GET`; removes from responses what OPA says the caller may not see | What of this may you see? |
 | AAS servers | Unchanged; only reachable through Envoy | |
 
@@ -38,48 +38,73 @@ access_control/
 ```
 
 The example consists of `.env` (all settings), `compose.yaml`, `envoy.yaml.tmpl`, `keycloak/realm.json` and
-`policy_data/` (its rules and tests for them).
+`policy_data/` (its access rules, server paths and tests for them).
 
 ## Configuration
 
 The example is configured only through its `.env` file, which Docker Compose reads automatically. It contains the
-public URLs and ports, the OpenID Connect issuer, client and key location, the role claim, the backend addresses, demo
-credentials and the pinned image versions. The values reach the components as follows:
+public URLs and ports, the OpenID Connect issuer, client and key location, the backend addresses, demo credentials and
+the pinned image versions. The values reach the components as follows:
 
 | Component | How it gets the values |
 | --- | --- |
 | Envoy, Web UI | `config-renderer` service renders `*.tmpl` with `envsubst` before they start |
 | Keycloak | resolves `${...}` placeholders in `keycloak/realm.json` during the import |
-| OPA | `ACCESS_CONTROL_API_VERSION` and `ACCESS_CONTROL_ROLE_CLAIM` override `policy_data/data.json` |
+| OPA | `ACCESS_CONTROL_API_VERSION` overrides `api_version` in `policy_data/data.json` |
 | BaSyx servers | `API_BASE_PATH` |
 | `e2e_test.py` | reads the same `.env` |
 
 A missing value stops the stack with an error instead of producing a broken configuration.
 Requires Docker Engine 26 or newer and Docker Compose 2.27 or newer (volume `subpath` mounts).
 
+## Access rules
+
+Who may do what is set by access rules in the JSON serialization of the
+[AAS Access Rule Model](https://industrialdigitaltwin.io/aas-specifications/IDTA-01004/v3.1/access-rule-model.html)
+(IDTA-01004 v3.1), e.g. the example's [`policy_data/access_rules.json`](examples/basyx/policy_data/access_rules.json).
+The file is a document `{"AllAccessPermissionRules": ...}` that validates against the specification's JSON schema; OPA
+loads it next to `data.json`, and [`policy/access_rules.rego`](policy/access_rules.rego) evaluates it.
+
+A rule applies to a request if its ACL has `ACCESS` `ALLOW`, its `ATTRIBUTES` fit the caller and its `FORMULA` is
+true. It then grants its `RIGHTS` on its `OBJECTS`; rules only allow, and what no rule grants is denied. The
+specification leaves some points open; the policy handles them as follows:
+
+| Point | Handling |
+| --- | --- |
+| `ATTRIBUTES` | Every `CLAIM` must be in the token. A rule needs a `CLAIM` or `GLOBAL` `ANONYMOUS`. A rule for `ANONYMOUS` grants public access: it applies to callers without a token and to callers with one. |
+| `CLAIM` | Names a top-level claim of the token, e.g. `roles`. A list-valued claim stands for each of its values: `$eq` holds if any value is equal, `$ne` if none is, and the other comparisons if they hold for any value. Roles are compared as `{"$eq": [{"$attribute": {"CLAIM": "roles"}}, {"$strVal": "admin"}]}`. |
+| `ROUTE` | The path of an API operation below the API base path (`api_base_paths`), e.g. `/shells`, as in the examples of the specification. Without `*` it matches exactly; ending in `*` it matches every path that starts with the part before the `*`; `*` alone matches the whole API. A `ROUTE` applies to every server whose API has that path (e.g. `/description`). |
+| `IDENTIFIABLE`, `DESCRIPTOR` | `$aas`, `$sm`, `$cd`, `$aasdesc` and `$smdesc` with an identifier or `"*"`. They cover the requests that address the object by its identifier (see `routes` below), and its entries in lists (see `collections`). |
+| `PUT` and other create-or-replace operations | Require `CREATE` and `UPDATE` until the policy checks whether the resource exists. |
+
+Supported are `DEFATTRIBUTES`, `DEFACLS`, `DEFOBJECTS` and `DEFFORMULAS`; the objects `ROUTE`, `IDENTIFIABLE` and
+`DESCRIPTOR`; and formulas with `$and`, `$or`, `$not`, `$boolean` and the comparisons `$eq`, `$ne`, `$gt`, `$ge`,
+`$lt`, `$le`, `$contains`, `$starts-with`, `$ends-with` and `$regex` of `$strVal`, `$numVal`, `$boolean` and `CLAIM`
+values, with up to six nested logical operators. A rule that uses anything else never applies: `REFERABLE` and
+`FRAGMENT` objects, conditions on the content of objects (`$field`), casts, time attributes as values, and rules with
+`FILTER` or `FILTERLIST`, which would grant more than intended without their filter. A formula that is invalid (e.g. it
+compares values of different types or refers to a claim the token lacks) does not hold, as the specification requires.
+
 ## Policy data
 
-The policy contains no application-specific values. The example describes its rules in `policy_data/data.json`
-under `access_control`:
+The policy contains no application-specific values. Besides its access rules, the example describes its servers in
+`policy_data/data.json` under `access_control`:
 
 | Key | Meaning |
 | --- | --- |
-| `public_paths`, `public_path_prefixes` | Paths that need no token (e.g. the Web UI) |
-| `rules` | Server-level rules: `path_prefix`, `rights`, `roles`. As in AAS Part 4, rules only allow: the rights of all matching rules add up. |
-| `routes` | Path templates that identify resources, e.g. `/repository/api/{api_version}/shells/{aas}`. A placeholder names the resource type; the template also covers everything below it. |
-| `resource_rules` | Resource-level rules: `resource` (type), `ids`, `id_prefixes` or `"*"`, `rights`, `roles`. Identifiers are readable (`https://example.org/...`); the policy decodes the base64url identifiers in the path itself. |
-| `collections` | List endpoints (`path`, exact match) and the `resource` type of their entries. A caller with a resource rule for that type may read them, but only through the response filter (Envoy marks those routes with the context extension `response_filter=true`; without it the rule does not apply). |
+| `public_paths`, `public_path_prefixes` | Paths outside the AAS API that need no token (e.g. the Web UI) |
 | `api_base_paths` | Base paths below which the AAS API is served, e.g. `/repository/api/{api_version}`; they must not overlap. See [Rights](#rights). |
 | `additional_operations` | Operations of the servers beyond the specification, in the shape of the table in [`policy/rights.rego`](policy/rights.rego) (`name`, `method`, `path`, `rights`) |
-| `api_version`, `role_claim` | Defaults, overridable through OPA's environment (see above) |
+| `routes` | Path templates that identify objects, e.g. `/repository/api/{api_version}/shells/{$aas}`. A placeholder names the object type as in `IDENTIFIABLE` and `DESCRIPTOR` objects; the template also covers everything below it. Identifiers in the path are base64url-encoded and compared in decoded form, so the rules contain readable identifiers. |
+| `collections` | List endpoints (`path`, exact match) and the object type of their entries (`resource`). A caller whose rules grant the required rights on objects of that type may read them, but only through the response filter (Envoy marks those routes with the context extension `response_filter=true`; without it this does not apply). |
+| `api_version` | Default, overridable through OPA's environment (see above) |
 
-Rules grant the rights of the AAS Access Rule Model (`CREATE`, `READ`, `UPDATE`, `DELETE`, `EXECUTE`, `VIEW`, or
-`ALL` for all of them), not HTTP methods. A request is allowed if its path is canonical and it is public, or the
-server-level rules grant the rights it requires (see [Rights](#rights)), or resource rules grant them for every
-resource in its path, or it reads a collection through the response filter. For the filter, the
-policy additionally answers `response_filter`: whether a response may pass unchanged, and which resources are visible. Paths with `..`, `.`, `//`, backslashes or encoded `.`, `/`, `\`, `%` are always
-denied (Envoy already normalizes paths; this is a second line of defense). Roles come only from the configured role
-claim, never from scopes or groups.
+A request is allowed if its path is canonical and it is public, or rules with a matching `ROUTE` grant the rights it
+requires (see [Rights](#rights)), or rules with matching `IDENTIFIABLE` or `DESCRIPTOR` objects grant them for every
+object in its path, or it reads a collection through the response filter. For the filter, the policy additionally
+answers `response_filter`: whether a response may pass unchanged, and which objects are visible. Paths with `..`, `.`,
+`//`, backslashes or encoded `.`, `/`, `\`, `%` are always denied (Envoy already normalizes paths; this is a second
+line of defense).
 
 ## Rights
 

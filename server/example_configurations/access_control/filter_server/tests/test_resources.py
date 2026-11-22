@@ -30,14 +30,14 @@ def keep_visible(resource: Resource) -> bool:
 class CollectionForTest(unittest.TestCase):
     def test_collections_by_path(self) -> None:
         cases = {
-            f"{API}/shells": ("aas", "object"),
-            f"{API}/shells?limit=2": ("aas", "object"),
-            f"{API}/submodels": ("submodel", "object"),
-            f"{API}/shells/abc/submodel-refs": ("submodel", "reference"),
-            "/registry/api/v3.1/shell-descriptors": ("aas", "object"),
-            "/registry/api/v3.1/shell-descriptors/abc/submodel-descriptors": ("submodel", "object"),
-            "/registry/api/v3.1/submodel-descriptors": ("submodel", "object"),
-            "/discovery/api/v3.1/lookup/shells": ("aas", "identifier"),
+            f"{API}/shells": ("$aas", "object"),
+            f"{API}/shells?limit=2": ("$aas", "object"),
+            f"{API}/submodels": ("$sm", "object"),
+            f"{API}/shells/abc/submodel-refs": ("$sm", "reference"),
+            "/registry/api/v3.1/shell-descriptors": ("$aasdesc", "object"),
+            "/registry/api/v3.1/shell-descriptors/abc/submodel-descriptors": ("$smdesc", "object"),
+            "/registry/api/v3.1/submodel-descriptors": ("$smdesc", "object"),
+            "/discovery/api/v3.1/lookup/shells": ("$aas", "identifier"),
         }
         for path, expected in cases.items():
             with self.subTest(path=path):
@@ -102,7 +102,7 @@ class FilterResponseTest(unittest.TestCase):
     def test_resources_in_lists_entries_and_nested_resources_once(self) -> None:
         payload = {"result": [SHELL, SHELL]}
         found = resources.resources_in(payload, resources.collection_for(f"{API}/shells"))
-        self.assertEqual([("aas", "urn:aas:1"), ("submodel", "urn:sm:visible"), ("submodel", "urn:sm:hidden")], found)
+        self.assertEqual([("$aas", "urn:aas:1"), ("$sm", "urn:sm:visible"), ("$sm", "urn:sm:hidden")], found)
 
     def test_other_objects_pass_unchanged(self) -> None:
         submodel = {"id": "urn:sm:1", "submodelElements": [{"idShort": "x"}]}

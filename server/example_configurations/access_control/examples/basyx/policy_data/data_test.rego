@@ -5,7 +5,8 @@
 #
 # SPDX-License-Identifier: MIT
 
-# Tests of this example's rules (policy_data/data.json) with the shared policy.
+# Tests of this example's access rules (policy_data/access_rules.json) and data (policy_data/data.json) with the shared
+# policy.
 # Run from access_control/: opa test policy/ examples/basyx/policy_data/ -v
 package basyx_example_test
 
@@ -28,7 +29,7 @@ request(method, path, claims) := {"attributes": {
 	"metadataContext": {"filterMetadata": {"envoy.filters.http.jwt_authn": {"jwt_payload": claims}}},
 }}
 
-role(name) := {"realm_access": {"roles": [name]}}
+role(name) := {"roles": [name]}
 
 allowed(method, path, claims) if authz.allow with input as request(method, path, claims)
 
@@ -82,9 +83,9 @@ test_unauthenticated_cannot_list_through_the_response_filter if {
 
 test_response_filter_hides_unlisted_submodel if {
 	items := [
-		{"type": "submodel", "id": "http://example.org/Submodels/Assets/TestAsset/Identification"},
-		{"type": "submodel", "id": "http://example.org/Submodels/Assets/TestAsset/BillOfMaterial"},
-		{"type": "submodel", "id": "https://example.org/Test_Submodel"},
+		{"type": "$sm", "id": "http://example.org/Submodels/Assets/TestAsset/Identification"},
+		{"type": "$sm", "id": "http://example.org/Submodels/Assets/TestAsset/BillOfMaterial"},
+		{"type": "$sm", "id": "https://example.org/Test_Submodel"},
 	]
 	query := object.union(request("GET", sprintf("%s/submodels", [api]), role("viewer")), {"items": items})
 	decision := authz.response_filter with input as query
@@ -145,6 +146,7 @@ test_viewer_can_read_listed_submodel if {
 test_viewer_cannot_read_unlisted_submodel if {
 	not allowed("GET", sprintf("%s/submodels/%s", [api, bill_of_material]), role("viewer"))
 	not allowed("GET", sprintf("%s/shells/%s/submodels/%s", [api, shell, bill_of_material]), role("viewer"))
+	not allowed("GET", sprintf("/registry/api/v3.1/submodel-descriptors/%s", [bill_of_material]), role("viewer"))
 }
 
 test_viewer_cannot_write if {
@@ -159,10 +161,13 @@ test_viewer_cannot_use_other_api_versions if {
 
 # --- role sources -------------------------------------------------------------------------------------------------
 
-test_scopes_groups_and_top_level_roles_are_not_roles if {
+# The rules check the "roles" claim, which Keycloak fills with the realm roles (keycloak/realm.json). Scopes, groups
+# and the realm roles under Keycloak's default claim do not count.
+test_only_the_roles_claim_counts if {
+	allowed("DELETE", sprintf("%s/shells/%s", [api, shell]), {"roles": ["admin"]})
 	not allowed("DELETE", sprintf("%s/shells/%s", [api, shell]), {"scope": "openid admin"})
 	not allowed("DELETE", sprintf("%s/shells/%s", [api, shell]), {"groups": ["admin", "/admin"]})
-	not allowed("DELETE", sprintf("%s/shells/%s", [api, shell]), {"roles": ["admin"]})
+	not allowed("DELETE", sprintf("%s/shells/%s", [api, shell]), {"realm_access": {"roles": ["admin"]}})
 }
 
 # --- path bypass regressions (reproduced against the running stack in phase 0) -------------------------------------

@@ -15,7 +15,8 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Final
 
-#: A resource as the policy sees it: (type, identifier), e.g. ("aas", "https://example.org/Test_AssetAdministrationShell")
+#: A resource as the policy sees it: (type, identifier). The type is that of IDENTIFIABLE and DESCRIPTOR objects in the
+#: access rules ("$aas", "$sm", "$aasdesc", "$smdesc"), e.g. ("$aas", "https://example.org/Test_AAS").
 Resource = tuple[str, str]
 
 
@@ -30,12 +31,12 @@ class Collection:
 # Collection endpoints by their last path segment(s). Their responses are {"result": [...], "paging_metadata": {...}}.
 # Longest suffix first, so that ".../lookup/shells" is not taken for ".../shells".
 _COLLECTIONS: Final[tuple[tuple[tuple[str, ...], Collection], ...]] = (
-    (("lookup", "shells"), Collection("aas", "identifier")),
-    (("shells",), Collection("aas", "object")),
-    (("submodels",), Collection("submodel", "object")),
-    (("submodel-refs",), Collection("submodel", "reference")),
-    (("shell-descriptors",), Collection("aas", "object")),
-    (("submodel-descriptors",), Collection("submodel", "object")),
+    (("lookup", "shells"), Collection("$aas", "identifier")),
+    (("shells",), Collection("$aas", "object")),
+    (("submodels",), Collection("$sm", "object")),
+    (("submodel-refs",), Collection("$sm", "reference")),
+    (("shell-descriptors",), Collection("$aasdesc", "object")),
+    (("submodel-descriptors",), Collection("$smdesc", "object")),
 )
 
 
@@ -112,12 +113,12 @@ def _filter_nested(value: Any, keep: Callable[[Resource], bool]) -> Any:
     if isinstance(value.get("submodels"), list):
         result["submodels"] = [
             reference for reference in value["submodels"]
-            if (target := reference_target(reference)) is not None and keep(("submodel", target))
+            if (target := reference_target(reference)) is not None and keep(("$sm", target))
         ]
     if isinstance(value.get("submodelDescriptors"), list):
         result["submodelDescriptors"] = [
             descriptor for descriptor in value["submodelDescriptors"]
             if isinstance(descriptor, dict) and isinstance(descriptor.get("id"), str)
-            and keep(("submodel", descriptor["id"]))
+            and keep(("$smdesc", descriptor["id"]))
         ]
     return result

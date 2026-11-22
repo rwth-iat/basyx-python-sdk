@@ -7,14 +7,14 @@
 
 # Generic authorization policy for Envoy's ext_authz filter.
 #
-# The policy contains no application specific values: paths, roles and resource identifiers come from
-# `data.access_control` (see the examples' policy_data/data.json). Rules grant rights of the AAS Access Rule Model
-# (IDTA-01004) to roles; the rights a request requires follow from the operation it calls (see rights.rego). A request
+# The policy contains no application specific values. Who may do what is set by access rules of the AAS Access Rule
+# Model (IDTA-01004, see access_rules.rego); paths and resource types come from `data.access_control` (see the
+# examples' policy_data). The rights a request requires follow from the operation it calls (see rights.rego). A request
 # is allowed if its path is canonical and
 #   1. it is a public path, or
-#   2. server-level rules for a matching path prefix grant the required rights to the caller's roles, or
-#   3. for every resource identified in the path (via `routes`), resource rules grant the required rights to the
-#      caller's roles, or
+#   2. rules with a ROUTE that matches the request grant the required rights, or
+#   3. for every resource identified in the path (via `routes`), rules with a matching IDENTIFIABLE or DESCRIPTOR grant
+#      the required rights, or
 #   4. it reads a collection (via `collections`) through the response filter, which removes the entries the caller
 #      may not see (see `response_filter`).
 package envoy.authz
@@ -27,8 +27,8 @@ default config := {}
 
 config := data.access_control
 
-# Deployment settings that may differ per environment (ACCESS_CONTROL_API_VERSION, ACCESS_CONTROL_ROLE_CLAIM) can be
-# set as environment variables of the OPA process; they take precedence over the values in data.access_control.
+# The API version may differ per environment: ACCESS_CONTROL_API_VERSION in the environment of the OPA process takes
+# precedence over `api_version` in data.access_control.
 runtime_env := object.get(opa.runtime(), "env", {})
 
 # --- request -------------------------------------------------------------------------------------------------------
@@ -57,7 +57,7 @@ allow if {
 
 allow if {
 	valid_path
-	grants(server_level_rights)
+	grants(route_rights)
 }
 
 allow if {
@@ -100,19 +100,7 @@ public_path if {
 	prefix_matches(prefix, request_path)
 }
 
-# --- server-level rules --------------------------------------------------------------------------------------------
-
-# Rights that the rules for a matching path prefix grant to the caller. As in AAS Part 4, rules only allow: their
-# rights add up, so a more specific rule cannot take away what a broader one grants.
-server_level_rights contains right if {
-	some rule in object.get(config, "rules", [])
-	prefix_matches(object.get(rule, "path_prefix", "/"), request_path)
-	role_matches(rule)
-	some right in rule_rights(rule)
-}
-
-# "/" matches every path; any other prefix matches itself and everything below it, but not "/repository-internal"
-# for "/repository".
+# "/" matches every path; any other prefix matches itself and everything below it, but not "/uix" for "/ui".
 prefix_matches("/", _) := true
 
 prefix_matches(prefix, path) if {
@@ -125,10 +113,11 @@ prefix_matches(prefix, path) if {
 	startswith(path, concat("", [prefix, "/"]))
 }
 
-# --- resource-level rules ------------------------------------------------------------------------------------------
+# --- resources -----------------------------------------------------------------------------------------------------
 
-# Each route is a path template; a placeholder such as "{aas}" names the resource type of that path segment. A route
-# matches a request whose path starts with the template, so "/shells/{aas}" also covers "/shells/{aas}/submodel-refs".
+# Each route is a path template; a placeholder such as "{$aas}" names the object type of that path segment, as in
+# IDENTIFIABLE ("$aas", "$sm", "$cd") and DESCRIPTOR ("$aasdesc", "$smdesc") objects of the access rules. A route
+# matches a request whose path starts with the template, so "/shells/{$aas}" also covers "/shells/{$aas}/submodel-refs".
 # "{api_version}" is replaced by `api_version`. Identifiers in the path are base64url-encoded (AAS Part 2) and are
 # compared in decoded form, so the rules contain readable identifiers.
 api_version := object.get(runtime_env, "ACCESS_CONTROL_API_VERSION", object.get(config, "api_version", ""))
@@ -182,30 +171,12 @@ segment_matches(segment, value) if {
 
 resource_allowed(resource) if grants(resource_rights(resource))
 
-# Rights that the resource rules grant to the caller on one resource.
-resource_rights(resource) := {right |
-	some rule in object.get(config, "resource_rules", [])
-	rule.resource == resource.type
-	role_matches(rule)
-	id_matches(rule, resource.id)
-	some right in rule_rights(rule)
-}
-
-id_matches(rule, _) if "*" in object.get(rule, "ids", [])
-
-id_matches(rule, id) if id in object.get(rule, "ids", [])
-
-id_matches(rule, id) if {
-	some prefix in object.get(rule, "id_prefixes", [])
-	startswith(id, prefix)
-}
-
 # --- filtered collections ------------------------------------------------------------------------------------------
 
-# A collection endpoint (e.g. GET /shells) returns many resources at once. A caller who may see at least some resources
-# of its type may call it, but only on routes where Envoy sends the request through the response filter and marks it
-# with the context extension response_filter=true; the filter then removes what the caller may not see. Without that
-# mark, e.g. after a routing mistake, the rule does not apply and the request is denied.
+# A collection endpoint (e.g. GET /shells) returns many resources at once. A caller with the required rights on at
+# least some resources of its type may call it, but only on routes where Envoy sends the request through the response
+# filter and marks it with the context extension response_filter=true; the filter then removes what the caller may not
+# see. Without that mark, e.g. after a routing mistake, this does not apply and the request is denied.
 context_extensions := object.get(attributes, "contextExtensions", object.get(attributes, "context_extensions", {}))
 
 through_response_filter if object.get(context_extensions, "response_filter", "") == "true"
@@ -219,12 +190,7 @@ filtered_collection_allowed if {
 	every resource in requested_resources {
 		resource_allowed(resource)
 	}
-	grants({right |
-		some rule in object.get(config, "resource_rules", [])
-		rule.resource == collection.resource
-		role_matches(rule)
-		some right in rule_rights(rule)
-	})
+	grants(type_rights(collection.resource))
 }
 
 # Unlike routes, a collection path matches only exactly (no subpaths).
@@ -237,15 +203,15 @@ collection_matches(template) if {
 }
 
 # Decision for the response filter. The filter sends the original request in the same shape as Envoy, plus `items`:
-# the resources found in the response, as {"type": ..., "id": ...}. With "unfiltered", a server-level rule grants the
-# request and the response may pass unchanged; otherwise only the items in "visible" may be shown.
+# the resources found in the response, as {"type": ..., "id": ...}. With "unfiltered", a rule with a matching ROUTE
+# grants the request and the response may pass unchanged; otherwise only the items in "visible" may be shown.
 response_filter := {"unfiltered": unfiltered, "visible": visible_items}
 
 default unfiltered := false
 
 unfiltered if {
 	valid_path
-	grants(server_level_rights)
+	grants(route_rights)
 }
 
 visible_items := [item |
@@ -255,18 +221,6 @@ visible_items := [item |
 
 # --- rights --------------------------------------------------------------------------------------------------------
 
-# The rights of the AAS Access Rule Model; "ALL" in a rule stands for all of them.
-all_rights := {"CREATE", "READ", "UPDATE", "DELETE", "EXECUTE", "VIEW"}
-
-rule_rights(rule) := {right |
-	some granted in object.get(rule, "rights", [])
-	some right in expand_right(granted)
-}
-
-expand_right("ALL") := all_rights
-
-expand_right(right) := {right} if right in all_rights
-
 # Granted rights must cover every right the operation requires. A request that addresses no operation requires no
 # right and is never granted. For operations that require CREATE or UPDATE depending on whether the resource exists,
 # the existence is not checked yet, so both are required.
@@ -275,26 +229,4 @@ grants(rights) if {
 	every right in required_rights {
 		right in rights
 	}
-}
-
-# --- roles ---------------------------------------------------------------------------------------------------------
-
-role_matches(rule) if {
-	some required_role in object.get(rule, "roles", [])
-	required_role in token_roles
-}
-
-# Roles come only from the identity provider's role claim (`role_claim`, a dot-separated path into the token).
-# OAuth scopes and group names are not roles: a client may request any scope it is allowed to, and a scope or group
-# named like a role (e.g. "admin") must not grant that role's rights.
-role_claim := split(
-	object.get(runtime_env, "ACCESS_CONTROL_ROLE_CLAIM", object.get(config, "role_claim", "realm_access.roles")),
-	".",
-)
-
-token_roles contains role if {
-	roles := object.get(claims, role_claim, [])
-	is_array(roles)
-	some role in roles
-	is_string(role)
 }
