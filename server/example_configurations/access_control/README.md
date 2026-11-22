@@ -21,8 +21,9 @@ front of the servers and does not change them, so it can also protect other AAS 
 | [Response filter](filter_server/README.md) | Between Envoy and the AAS servers for `GET`; removes from responses what OPA says the caller may not see | What of this may you see? |
 | AAS servers | Unchanged; only reachable through Envoy | |
 
-A request without a valid token gets `401`; a valid token without the required rights gets `403`. Envoy only sees the
-request, never the response. Therefore `GET` requests pass through the response filter, which asks OPA which entries
+A token is optional: rules for `ANONYMOUS` can grant access without one. A token that is sent must be valid, otherwise
+Envoy answers `401`. A denied request gets `401` with `WWW-Authenticate: Bearer` if it has no token, so the client
+knows that logging in may help, and `403` if it has one. Envoy only sees the request, never the response. Therefore `GET` requests pass through the response filter, which asks OPA which entries
 of a list (and which submodel references in a shell) the caller may see and removes the others. The filter makes no
 decisions of its own.
 

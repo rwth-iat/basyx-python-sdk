@@ -100,12 +100,19 @@ static_resources:
                           payload_in_metadata: jwt_payload
                           # The verified payload for the response filter, which must not decode the token itself
                           forward_payload_header: x-jwt-payload
+                      # A token is optional, so that rules for ANONYMOUS can grant access without one; OPA answers
+                      # a denied request without a token with 401. A token that is sent must be valid. Because the
+                      # provider is listed, jwt_authn also removes a client-supplied x-jwt-payload when there is no
+                      # token.
                       rules:
                         - match:
                             safe_regex:
                               regex: "/(repository|registry|discovery)/.*"
                           requires:
-                            provider_name: keycloak
+                            requires_any:
+                              requirements:
+                                - provider_name: keycloak
+                                - allow_missing: {}
                         - match:
                             prefix: "/"
                   - name: envoy.filters.http.ext_authz

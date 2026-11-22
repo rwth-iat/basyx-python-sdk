@@ -42,7 +42,12 @@ metadata_context := object.get(attributes, "metadataContext", object.get(attribu
 
 filter_metadata := object.get(metadata_context, "filterMetadata", object.get(metadata_context, "filter_metadata", {}))
 
-claims := object.get(filter_metadata, ["envoy.filters.http.jwt_authn", "jwt_payload"], {})
+jwt_metadata := object.get(filter_metadata, "envoy.filters.http.jwt_authn", {})
+
+claims := object.get(jwt_metadata, "jwt_payload", {})
+
+# Envoy verifies a token if there is one and rejects invalid ones; it adds the payload to the metadata only then.
+has_token if "jwt_payload" in object.keys(jwt_metadata)
 
 request_path := split(object.get(http_request, "path", "/"), "?")[0]
 
@@ -72,6 +77,20 @@ allow if {
 allow if {
 	valid_path
 	filtered_collection_allowed
+}
+
+# Decision for Envoy (the plugin's decision path). A denied caller without a token gets 401 and the challenge of
+# RFC 6750, section 3, so it knows that logging in may help; a caller with a token gets 403.
+result := {"allowed": true} if allow
+
+result := {"allowed": false, "http_status": 401, "headers": {"WWW-Authenticate": "Bearer"}} if {
+	not allow
+	not has_token
+}
+
+result := {"allowed": false, "http_status": 403} if {
+	not allow
+	has_token
 }
 
 # --- canonical paths -----------------------------------------------------------------------------------------------

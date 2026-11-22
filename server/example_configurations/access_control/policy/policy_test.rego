@@ -571,3 +571,32 @@ test_response_filter_shows_nothing_without_claims if {
 	decision.unfiltered == false
 	decision.visible == []
 }
+
+# --- response to Envoy ------------------------------------------------------------------------------------------------
+
+envoy_result(request_input) := result if {
+	result := authz.result with input as request_input
+		with data.access_control as fixture
+		with data.AllAccessPermissionRules as rules.AllAccessPermissionRules
+}
+
+test_allowed_request_passes if {
+	envoy_result(anonymous_request("GET", "/api/v1/info")) == {"allowed": true}
+	envoy_result(request("GET", "/api/v1/things", role("reader"))) == {"allowed": true}
+}
+
+# RFC 6750, section 3: a request without credentials gets 401 and a challenge, so the client knows to log in.
+test_denied_request_without_token_asks_for_one if {
+	envoy_result(anonymous_request("GET", "/api/v1/things")) == {
+		"allowed": false,
+		"http_status": 401,
+		"headers": {"WWW-Authenticate": "Bearer"},
+	}
+}
+
+test_denied_request_with_token_is_forbidden if {
+	envoy_result(request("GET", "/api/v1/things", role("nobody"))) == {"allowed": false, "http_status": 403}
+
+	# A verified token without claims is still a token
+	envoy_result(request("GET", "/api/v1/things", {})) == {"allowed": false, "http_status": 403}
+}

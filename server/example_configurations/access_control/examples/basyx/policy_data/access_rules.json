@@ -66,6 +66,15 @@
         },
         "USEOBJECTS": ["example_shell_and_two_submodels"],
         "USEFORMULA": "is_viewer"
+      },
+      {
+        "ACL": {
+          "ATTRIBUTES": [{"GLOBAL": "ANONYMOUS"}],
+          "RIGHTS": ["READ"],
+          "ACCESS": "ALLOW"
+        },
+        "OBJECTS": [{"IDENTIFIABLE": "$aas(\"https://example.org/Test_AssetAdministrationShell\")"}],
+        "FORMULA": {"$boolean": true}
       }
     ]
   }

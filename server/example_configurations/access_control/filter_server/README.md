@@ -17,7 +17,9 @@ response:
   paginated by the filter itself (its own `cursor`).
 
 The caller's roles come from the JWT payload that Envoy has verified and forwards in a header (`x-jwt-payload`); the
-filter never decodes the bearer token itself. It must only be reachable through Envoy.
+filter never decodes the bearer token itself. It must only be reachable through Envoy, and Envoy must remove this
+header from incoming requests, so that a request without a token cannot bring its own (Envoy's `jwt_authn` does so on
+every route that lists the provider, also with `allow_missing`).
 
 Responses that are not JSON (e.g. files) and error responses pass unchanged. If OPA is unavailable, the filter answers
 `503`; if a collection has more than `FILTER_MAX_ITEMS` entries, `502` (filtering it after the fact would be too

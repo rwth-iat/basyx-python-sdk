@@ -82,7 +82,7 @@ def _token(user: str) -> str:
 
 
 def _request(method: str, raw_path: str, token: str | None = None,
-             extra_headers: dict[str, str] | None = None) -> tuple[int, bytes]:
+             extra_headers: dict[str, str] | None = None) -> tuple[int, http.client.HTTPMessage, bytes]:
     """Send a request with the path exactly as given (no client-side normalization of '..' or '//')."""
     connection = http.client.HTTPConnection(GATEWAY_URL.hostname or "localhost", GATEWAY_URL.port or 80, timeout=30)
     headers = {"Authorization": f"Bearer {token}"} if token else {}
@@ -90,7 +90,7 @@ def _request(method: str, raw_path: str, token: str | None = None,
     try:
         connection.request(method, raw_path, headers=headers)
         response = connection.getresponse()
-        return response.status, response.read()
+        return response.status, response.headers, response.read()
     finally:
         connection.close()
 
@@ -104,18 +104,37 @@ class SecuredStackTest(unittest.TestCase):
 
     def assertStatus(self, expected: int, method: str, path: str, user: str | None,
                      extra_headers: dict[str, str] | None = None) -> bytes:
-        status, body = _request(method, path, self.tokens[user] if user else None, extra_headers)
+        status, _, body = _request(method, path, self.tokens[user] if user else None, extra_headers)
         self.assertEqual(expected, status, f"{method} {path} as {user}: {body[:200]!r}")
         return body
 
-    def ids(self, path: str, user: str, extra_headers: dict[str, str] | None = None) -> list[str]:
+    def ids(self, path: str, user: str | None, extra_headers: dict[str, str] | None = None) -> list[str]:
         """Identifiers of the entries of a collection, as the user sees them."""
         payload = json.loads(self.assertStatus(200, "GET", path, user, extra_headers))
         return [entry["id"] if isinstance(entry, dict) and "id" in entry else entry["keys"][-1]["value"]
                 for entry in payload["result"]]
 
-    def test_api_requires_token(self) -> None:
-        self.assertStatus(401, "GET", f"{API}/shells", None)
+    def test_anyone_reads_only_the_example_shell(self) -> None:
+        self.assertEqual([SHELL_ID], self.ids(f"{API}/shells", None))
+        shell = json.loads(self.assertStatus(200, "GET", f"{API}/shells/{SHELL}", None))
+        self.assertEqual([], shell.get("submodels", []))
+
+    def test_denied_request_without_token_asks_for_one(self) -> None:
+        status, headers, _ = _request("GET", f"{API}/submodels/{IDENTIFICATION}")
+        self.assertEqual(401, status)
+        self.assertEqual("Bearer", headers["WWW-Authenticate"])
+
+    def test_invalid_token_is_rejected(self) -> None:
+        # Without this, a client could turn any denial into anonymous access by sending a broken token.
+        self.assertEqual(401, _request("GET", f"{API}/shells/{SHELL}", "not-a-token")[0])
+
+    def test_forged_claims_header_without_token_grants_nothing(self) -> None:
+        # Without a token, jwt_authn sets no payload header, but it must still drop one the client sent.
+        forged = base64.urlsafe_b64encode(json.dumps({"roles": ["admin"]}).encode()).decode()
+        headers = {"x-jwt-payload": forged.rstrip("=")}
+        self.assertEqual([SHELL_ID], self.ids(f"{API}/shells", None, headers))
+        shell = json.loads(self.assertStatus(200, "GET", f"{API}/shells/{SHELL}", None, headers))
+        self.assertEqual([], shell.get("submodels", []))
 
     def test_editor_and_admin_see_everything(self) -> None:
         for user in ("editor", "admin"):

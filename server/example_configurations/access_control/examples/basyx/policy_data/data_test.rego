@@ -77,8 +77,42 @@ test_viewer_cannot_list_concept_descriptions if {
 	not allowed_filtered("GET", sprintf("%s/concept-descriptions", [api]), role("viewer"))
 }
 
-test_unauthenticated_cannot_list_through_the_response_filter if {
-	not allowed_filtered("GET", sprintf("%s/shells", [api]), {})
+# --- access without a token -------------------------------------------------------------------------------------
+
+# A request without a token: Envoy adds no JWT metadata.
+anonymous_request(method, path) := {"attributes": {"request": {"http": {"method": method, "path": path}}}}
+
+anonymous_filtered_request(method, path) := object.union(
+	anonymous_request(method, path),
+	{"attributes": {"contextExtensions": {"response_filter": "true"}}},
+)
+
+test_anyone_can_read_the_example_shell if {
+	authz.allow with input as anonymous_request("GET", sprintf("%s/shells/%s", [api, shell]))
+	authz.allow with input as anonymous_filtered_request("GET", sprintf("%s/shells", [api]))
+}
+
+test_anyone_can_read_nothing_else if {
+	not authz.allow with input as anonymous_request("GET", sprintf("%s/submodels/%s", [api, identification]))
+	not authz.allow with input as anonymous_filtered_request("GET", sprintf("%s/submodels", [api]))
+	not authz.allow with input as anonymous_request("PUT", sprintf("%s/shells/%s", [api, shell]))
+	not authz.allow with input as anonymous_request("GET", sprintf("/registry/api/v3.1/shell-descriptors/%s", [shell]))
+}
+
+test_response_filter_shows_anyone_only_the_example_shell if {
+	items := [
+		{"type": "$aas", "id": "https://example.org/Test_AssetAdministrationShell"},
+		{"type": "$sm", "id": "http://example.org/Submodels/Assets/TestAsset/Identification"},
+	]
+	query := object.union(anonymous_request("GET", sprintf("%s/shells/%s", [api, shell])), {"items": items})
+	decision := authz.response_filter with input as query
+	decision.unfiltered == false
+	decision.visible == [items[0]]
+}
+
+test_anonymous_request_without_rights_asks_for_a_token if {
+	result := authz.result with input as anonymous_request("GET", sprintf("%s/submodels/%s", [api, identification]))
+	result.http_status == 401
 }
 
 test_response_filter_hides_unlisted_submodel if {

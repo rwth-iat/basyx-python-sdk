@@ -57,6 +57,8 @@ servers; the policy itself is shared by all examples ([`policy.rego`](../../poli
   repository and discovery, and as `DESCRIPTOR` objects in the registry. Lists such as `GET /shells` or
   `GET /submodels` show the viewer only these, and the shell's submodel references no longer mention
   `BillOfMaterial`. Concept descriptions are not listed for the viewer (`403`).
+- Without a token (`ANONYMOUS`), anyone may read the example shell, but none of its submodels. Every other request
+  without a token gets `401`.
 - The rules compare the token's `roles` claim, into which Keycloak writes the realm roles (a protocol mapper of the
   client in [`keycloak/realm.json`](keycloak/realm.json)).
 
