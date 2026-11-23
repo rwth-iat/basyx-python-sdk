@@ -41,6 +41,7 @@ class FakeTransport:
         self.calls: list[tuple[str, str, dict[str, str]]] = []
         self.opa_inputs: list[dict[str, Any]] = []
         self.opa: Callable[[dict[str, Any]], UpstreamResponse] = self._opa
+        self.collections = {f"{API}/shells", f"{API}/things"}
 
     def request(self, method: str, url: str, headers: dict[str, str], body: bytes | None,
                 timeout: float) -> UpstreamResponse:
@@ -55,9 +56,11 @@ class FakeTransport:
         claims = opa_input["attributes"]["metadataContext"]["filterMetadata"]["envoy.filters.http.jwt_authn"][
             "jwt_payload"]
         roles = set(claims.get("realm_access", {}).get("roles", []))
+        path = urlsplit(opa_input["attributes"]["request"]["http"]["path"]).path
         result = {
             "unfiltered": bool(roles & self.unfiltered_roles),
             "visible": [item for item in opa_input["items"] if "viewer" in roles and item["id"] in self.visible],
+            "collection": path in self.collections,
         }
         return json_response({"result": result})
 
@@ -72,6 +75,8 @@ class FakeTransport:
             return json_response({"paging_metadata": paging, "result": page})
         if parts.path.startswith(f"{API}/shells/"):
             return json_response(self.shells[0])
+        if parts.path == f"{API}/submodels/abc/submodel-elements/shells":
+            return json_response({"idShort": "shells", "modelType": "Property", "value": "x"})
         if parts.path == f"{API}/thumbnail":
             return UpstreamResponse(200, [("Content-Type", "image/png")], b"\x89PNG")
         return json_response({"messages": [{"text": "not found"}]}, 404)
@@ -170,10 +175,46 @@ class AccessFilterTest(unittest.TestCase):
                 self.transport.opa = opa
                 self.assertEqual(503, self.get(f"{API}/shells", VIEWER).status_code)
 
-    def test_undefined_decision_shows_nothing(self) -> None:
-        self.transport.opa = lambda _: json_response({})
-        response = self.get(f"{API}/shells", VIEWER)
-        self.assertEqual([], response.json["result"])
+    def test_undefined_or_incomplete_decision_fails_closed(self) -> None:
+        # Without the decision, the filter cannot know whether the response is a collection.
+        for result in ({}, {"result": {"unfiltered": False, "visible": []}}):
+            with self.subTest(result=result):
+                self.transport.opa = lambda _, result=result: json_response(result)  # type: ignore[misc]
+                self.assertEqual(503, self.get(f"{API}/shells", VIEWER).status_code)
+
+    def test_only_opa_decides_what_is_a_collection(self) -> None:
+        # An element whose idShort is the name of a collection is not one.
+        response = self.get(f"{API}/submodels/abc/submodel-elements/shells", VIEWER)
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("shells", response.json["idShort"])
+
+    def test_collection_of_unknown_shape_fails_closed(self) -> None:
+        self.assertEqual(502, self.get(f"{API}/things", VIEWER).status_code)
+
+    def test_filtered_response_is_read_as_json(self) -> None:
+        # The filter can only read JSON; an XML response would reach the caller unfiltered.
+        for accept in ("application/xml, application/json;q=0.5", "*/*", None):
+            with self.subTest(accept=accept):
+                self.transport.calls.clear()
+                headers = dict(VIEWER, **({"Accept": accept} if accept else {}))
+                self.assertEqual(200, self.get(f"{API}/shells/abc", headers).status_code)
+                for _, url, sent in self.transport.calls:
+                    if url != OPA_URL:
+                        self.assertEqual(["application/json"],
+                                         [value for name, value in sent.items() if name.lower() == "accept"])
+
+    def test_filtered_response_is_refused_to_callers_who_do_not_accept_json(self) -> None:
+        for accept in ("application/xml", "text/xml"):
+            with self.subTest(accept=accept):
+                self.transport.calls.clear()
+                response = self.get(f"{API}/shells/abc", dict(VIEWER, Accept=accept))
+                self.assertEqual(406, response.status_code)
+                self.assertEqual([], self.server_calls())
+
+    def test_unfiltered_caller_keeps_its_accept_header(self) -> None:
+        self.get(f"{API}/shells/abc", dict(EDITOR, Accept="application/xml"))
+        sent = [headers for _, url, headers in self.transport.calls if url != OPA_URL][0]
+        self.assertEqual("application/xml", sent["Accept"])
 
     def test_too_large_collections_are_refused(self) -> None:
         self.shells.extend(shell(f"urn:aas:extra{i}") for i in range(10))

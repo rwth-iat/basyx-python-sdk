@@ -174,6 +174,14 @@ class SecuredStackTest(unittest.TestCase):
         self.assertStatus(403, "GET", f"{API}/submodels/{BILL_OF_MATERIAL}", "viewer", headers)
         self.assertStatus(403, "DELETE", f"{API}/shells/{SHELL}", "viewer", headers)
 
+    def test_responses_that_need_filtering_are_only_sent_as_json(self) -> None:
+        # The response filter can only read JSON; XML would show the reference to the hidden BillOfMaterial.
+        for user in ("viewer", None):
+            with self.subTest(user=user):
+                self.assertStatus(406, "GET", f"{API}/shells/{SHELL}", user, {"Accept": "application/xml"})
+        xml = self.assertStatus(200, "GET", f"{API}/shells/{SHELL}", "editor", {"Accept": "application/xml"})
+        self.assertIn(BILL_OF_MATERIAL_ID.encode(), xml)
+
     def test_viewer_reads_only_listed_objects(self) -> None:
         self.assertStatus(200, "GET", f"{API}/shells/{SHELL}", "viewer")
         self.assertStatus(200, "GET", f"{API}/submodels/{IDENTIFICATION}", "viewer")

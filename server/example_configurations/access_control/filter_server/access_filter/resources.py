@@ -41,7 +41,10 @@ _COLLECTIONS: Final[tuple[tuple[tuple[str, ...], Collection], ...]] = (
 
 
 def collection_for(path: str) -> Collection | None:
-    """The collection a request path lists, or None if the path addresses something else."""
+    """
+    The shape of the collection a request path lists, by its last segments. Only meaningful for paths that the policy
+    reports as a collection; an element named like a collection (e.g. idShort "shells") would match as well.
+    """
     segments = tuple(segment for segment in path.split("?", 1)[0].split("/") if segment)
     for suffix, collection in _COLLECTIONS:
         if segments[-len(suffix):] == suffix:

@@ -566,6 +566,15 @@ test_response_filter_passes_route_grants_unfiltered if {
 	decision.unfiltered == true
 }
 
+# The response filter treats a response as a collection only if the policy says so, by the same `collections`.
+test_response_filter_is_told_whether_the_path_is_a_collection if {
+	filter_decision("/api/v1/things", role("guest"), []).collection == true
+	filter_decision(concat("", [thing("urn:thing:1"), "/parts"]), role("guest"), []).collection == true
+	filter_decision(thing("urn:thing:1"), role("guest"), []).collection == false
+	filter_decision("/api/v1/things/", role("guest"), []).collection == false
+	filter_decision(concat("", [thing("urn:thing:1"), "/attributes/things"]), role("guest"), []).collection == false
+}
+
 test_response_filter_shows_nothing_without_claims if {
 	decision := filter_decision("/api/v1/things", {}, [{"type": "$aas", "id": "urn:thing:1"}])
 	decision.unfiltered == false

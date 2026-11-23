@@ -63,6 +63,8 @@ class Decision:
     unfiltered: bool
     #: Resources the caller may see
     visible: frozenset[resources.Resource]
+    #: The path is a collection: the response is a list whose entries are filtered
+    collection: bool
 
 
 class FilterError(Exception):
@@ -98,10 +100,16 @@ class AccessFilter:
                 query = request.query_string.decode("latin-1")
                 target = request.path + (f"?{query}" if query else "")
             claims = self._claims(request)
-            if self._decide(target, claims, []).unfiltered:
+            decision = self._decide(target, claims, [])
+            if decision.unfiltered:
                 return _passthrough(self._fetch(base_url + target, request))
-            collection = resources.collection_for(request.path)
-            if collection is not None:
+            # Only JSON can be filtered; any other format (e.g. XML) would reach the caller unfiltered.
+            if request.accept_mimetypes and request.accept_mimetypes.best_match(["application/json"]) is None:
+                raise FilterError(406, "responses that need filtering are only available as application/json")
+            if decision.collection:
+                collection = resources.collection_for(request.path)
+                if collection is None:
+                    raise FilterError(502, "the response filter does not know the entries of this collection")
                 return self._filtered_collection(request, base_url, target, claims, collection)
             return self._filtered_object(request, base_url, target, claims)
         except FilterError as error:
@@ -112,7 +120,7 @@ class AccessFilter:
     # --- filtering ------------------------------------------------------------------------------------------------
 
     def _filtered_object(self, request: Request, base_url: str, target: str, claims: dict[str, Any]) -> Response:
-        upstream = self._fetch(base_url + target, request)
+        upstream = self._fetch(base_url + target, request, json_only=True)
         payload = _json_payload(upstream)
         if payload is None:
             return _passthrough(upstream)
@@ -137,7 +145,7 @@ class AccessFilter:
             page_query = query + [("limit", str(self.settings.upstream_page_size))]
             if cursor is not None:
                 page_query.append(("cursor", cursor))
-            upstream = self._fetch(f"{base_url}{path}?{urlencode(page_query)}", request)
+            upstream = self._fetch(f"{base_url}{path}?{urlencode(page_query)}", request, json_only=True)
             if upstream.status >= 400:
                 return _passthrough(upstream)
             payload = _json_payload(upstream)
@@ -191,20 +199,25 @@ class AccessFilter:
             raise FilterError(503, "authorization service unavailable") from error
         if response.status != 200:
             raise FilterError(503, "authorization service unavailable")
-        if not isinstance(result, dict):  # decision undefined: show nothing
-            return Decision(False, frozenset())
+        # Without a complete decision, the filter cannot tell a collection from a single object.
+        if not isinstance(result, dict) or not isinstance(result.get("collection"), bool):
+            raise FilterError(503, "authorization service returned no decision")
         visible = frozenset(
             (item["type"], item["id"]) for item in result.get("visible", [])
             if isinstance(item, dict) and isinstance(item.get("type"), str) and isinstance(item.get("id"), str)
         )
-        return Decision(result.get("unfiltered") is True, visible)
+        return Decision(result.get("unfiltered") is True, visible, result["collection"])
 
-    def _fetch(self, url: str, request: Request) -> UpstreamResponse:
+    def _fetch(self, url: str, request: Request, json_only: bool = False) -> UpstreamResponse:
+        """Forward the request to the server; with ``json_only``, ask for JSON whatever the caller accepts."""
         headers = {
             name: value for name, value in request.headers.items()
             if name.lower() not in _HOP_BY_HOP
             and name.lower() not in ("host", "content-length", "accept-encoding", self.settings.claims_header)
+            and not (json_only and name.lower() == "accept")
         }
+        if json_only:
+            headers["Accept"] = "application/json"
         try:
             return self.transport.request("GET", url, headers, None, self.settings.timeout)
         except urllib3.exceptions.HTTPError as error:

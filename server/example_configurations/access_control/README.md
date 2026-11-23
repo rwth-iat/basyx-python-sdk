@@ -151,4 +151,5 @@ v3.2 corrects and the BaSyx servers do not offer.
 - For callers who only see part of a collection, the response filter reads the whole collection from the server
   before filtering (up to `FILTER_MAX_ITEMS`, default 10000). This gets slow for large data sets; filtering in the
   server, e.g. through the AAS query language, would scale better but would couple the layer to the server.
+- Responses that need filtering are only available as JSON; a caller who accepts only XML gets `406`.
 - Demo users and passwords, no TLS: suitable for local use only.

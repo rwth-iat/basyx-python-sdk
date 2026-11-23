@@ -224,7 +224,17 @@ collection_matches(template) if {
 # Decision for the response filter. The filter sends the original request in the same shape as Envoy, plus `items`:
 # the resources found in the response, as {"type": ..., "id": ...}. With "unfiltered", a rule with a matching ROUTE
 # grants the request and the response may pass unchanged; otherwise only the items in "visible" may be shown.
-response_filter := {"unfiltered": unfiltered, "visible": visible_items}
+# "collection" tells the filter whether the path is one of the `collections`, so that it reads the response as a list
+# exactly where this policy allows partial access to one (and not, e.g., for an element whose idShort is "shells").
+response_filter := {"unfiltered": unfiltered, "visible": visible_items, "collection": collection_path}
+
+default collection_path := false
+
+collection_path if {
+	valid_path
+	some collection in object.get(config, "collections", [])
+	collection_matches(collection.path)
+}
 
 default unfiltered := false
 

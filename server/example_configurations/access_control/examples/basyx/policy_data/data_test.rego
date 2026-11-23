@@ -127,6 +127,14 @@ test_response_filter_hides_unlisted_submodel if {
 	decision.visible == [items[0], items[2]]
 }
 
+test_element_named_like_a_collection_is_not_one if {
+	path := sprintf("%s/submodels/%s/submodel-elements/shells", [api, identification])
+	decision := authz.response_filter with input as object.union(request("GET", path, role("viewer")), {"items": []})
+	decision.collection == false
+	query := object.union(request("GET", sprintf("%s/shells", [api]), role("viewer")), {"items": []})
+	authz.response_filter.collection with input as query
+}
+
 test_response_filter_passes_editor_unfiltered if {
 	query := object.union(request("GET", sprintf("%s/submodels", [api]), role("editor")), {"items": []})
 	decision := authz.response_filter with input as query

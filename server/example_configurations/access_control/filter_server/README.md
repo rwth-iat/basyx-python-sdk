@@ -13,16 +13,20 @@ shared policy ([`policy.rego`](../policy/policy.rego)), with the original reques
 response:
 
 - `"unfiltered": true` (a server-level rule grants the request, e.g. for editors): the response passes unchanged.
-- otherwise only the resources in `"visible"` remain. Collections are read completely from the server, filtered and
-  paginated by the filter itself (its own `cursor`).
+- otherwise only the resources in `"visible"` remain. If `"collection"` is true (the path is one of the policy's
+  `collections`), the response is a list: it is read completely from the server, filtered and paginated by the filter
+  itself (its own `cursor`). Only the policy decides what is a collection, so that, e.g., an element with the idShort
+  `shells` is not mistaken for one.
 
 The caller's roles come from the JWT payload that Envoy has verified and forwards in a header (`x-jwt-payload`); the
 filter never decodes the bearer token itself. It must only be reachable through Envoy, and Envoy must remove this
 header from incoming requests, so that a request without a token cannot bring its own (Envoy's `jwt_authn` does so on
 every route that lists the provider, also with `allow_missing`).
 
-Responses that are not JSON (e.g. files) and error responses pass unchanged. If OPA is unavailable, the filter answers
-`503`; if a collection has more than `FILTER_MAX_ITEMS` entries, `502` (filtering it after the fact would be too
+The filter can only read JSON. For responses it has to filter, it therefore always asks the server for JSON, and a
+caller who accepts no JSON (e.g. only `application/xml`) gets `406`; otherwise the XML response would show what JSON
+hides. Callers whose response passes unchanged still get XML. Responses that are not JSON anyway (e.g. files) and error
+responses pass unchanged. If OPA is unavailable or returns no complete decision, the filter answers `503`; if a collection has more than `FILTER_MAX_ITEMS` entries, `502` (filtering it after the fact would be too
 expensive, see Limitations in the [overview](../README.md)).
 
 ## Code
